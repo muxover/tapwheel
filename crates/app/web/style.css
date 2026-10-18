@@ -73,6 +73,11 @@ body {
 	margin: 0;
 }
 
+/* every page fills its window, so the stage gets all the room there is */
+#app {
+	height: 100%;
+}
+
 body {
 	background: var(--bg);
 	color: var(--text);
