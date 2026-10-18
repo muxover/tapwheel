@@ -6,7 +6,7 @@ use windows_sys::Win32::System::SystemInformation::GetTickCount64;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
-use super::{WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_TAP};
+use super::{WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_PAGE, WM_APP_TAP};
 
 // Hook callbacks only touch these and post messages; the app state is never borrowed from here.
 static TARGET: AtomicIsize = AtomicIsize::new(0);
@@ -77,8 +77,14 @@ unsafe extern "system" fn keyboard(code: i32, w: WPARAM, l: LPARAM) -> LRESULT {
 				}
 				_ if down => {
 					DIRTY.store(true, Ordering::Relaxed);
-					if k.vkCode == VK_ESCAPE as u32 && WHEEL_OPEN.load(Ordering::Relaxed) {
-						post(WM_APP_ESCAPE, 0);
+					if WHEEL_OPEN.load(Ordering::Relaxed) {
+						if k.vkCode == VK_ESCAPE as u32 {
+							post(WM_APP_ESCAPE, 0);
+						} else if k.vkCode == VK_TAB as u32 {
+							// Tab turns the wheel's page while a drag holds the mouse
+							let back = HELD.load(Ordering::Relaxed) == KEY_SHIFT as u32;
+							post(WM_APP_PAGE, back as usize);
+						}
 					}
 				}
 				_ => {}
@@ -117,6 +123,10 @@ unsafe extern "system" fn mouse(code: i32, w: WPARAM, l: LPARAM) -> LRESULT {
 					}
 				}
 				WM_RBUTTONDOWN | WM_MBUTTONDOWN => DIRTY.store(true, Ordering::Relaxed),
+				WM_MOUSEWHEEL if WHEEL_OPEN.load(Ordering::Relaxed) => {
+					let delta = (m.mouseData >> 16) as i16;
+					post(WM_APP_PAGE, (delta > 0) as usize);
+				}
 				_ => {}
 			}
 		}

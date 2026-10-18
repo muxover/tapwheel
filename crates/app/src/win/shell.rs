@@ -46,6 +46,51 @@ pub fn copy_text(owner: HWND, text: &str) -> bool {
 	})
 }
 
+/// The clipboard's text, if it holds any.
+pub fn clipboard_text(owner: HWND) -> Option<String> {
+	unsafe {
+		if OpenClipboard(owner) == 0 {
+			return None;
+		}
+		let h = GetClipboardData(CF_UNICODETEXT as u32);
+		let text = if h.is_null() {
+			None
+		} else {
+			let p = GlobalLock(h as _) as *const u16;
+			if p.is_null() {
+				None
+			} else {
+				let mut n = 0;
+				while *p.add(n) != 0 {
+					n += 1;
+				}
+				let s = String::from_utf16_lossy(std::slice::from_raw_parts(p, n));
+				GlobalUnlock(h as _);
+				Some(s)
+			}
+		};
+		CloseClipboard();
+		text
+	}
+}
+
+/// Moves items into a folder through the shell, so Ctrl+Z in Explorer can undo it.
+pub fn move_to(items: &[PathBuf], dest: &Path) -> bool {
+	let mut from: Vec<u16> = Vec::new();
+	for p in items {
+		from.extend(wide(p.as_os_str()));
+	}
+	from.push(0);
+	let mut to = wide(dest.as_os_str());
+	to.push(0);
+	let mut op: SHFILEOPSTRUCTW = unsafe { std::mem::zeroed() };
+	op.wFunc = FO_MOVE;
+	op.pFrom = from.as_ptr();
+	op.pTo = to.as_ptr();
+	op.fFlags = (FOF_ALLOWUNDO | FOF_NOCONFIRMMKDIR) as u16;
+	unsafe { SHFileOperationW(&mut op) == 0 && op.fAnyOperationsAborted == 0 }
+}
+
 /// Puts files on the clipboard the way Explorer's Copy does, ready to paste.
 pub fn copy_files(owner: HWND, files: &[PathBuf]) -> bool {
 	let header = std::mem::size_of::<DROPFILES>();

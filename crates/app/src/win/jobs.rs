@@ -3,15 +3,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Instant;
 
-use tapwheel_core::Op;
 use tapwheel_core::plan::Job;
 use tapwheel_core::run::{Engines, run};
+use tapwheel_core::{Defaults, Kind, Op};
 use tapwheel_ui::hud::{self, Button, Card, State};
 
 #[derive(Clone, Debug)]
 pub struct Batch {
 	pub id: u64,
 	pub op: Op,
+	pub kind: Option<Kind>,
 	pub inputs: Vec<PathBuf>,
 	pub total: usize,
 	pub done: usize,
@@ -23,63 +24,74 @@ pub struct Batch {
 	pub error: Option<String>,
 	pub finished: Option<Instant>,
 	pub cancel: Arc<AtomicBool>,
-	/// A finished note with nothing to undo (Copied, Opened).
+	/// A finished note with nothing to undo (Copied, Moved).
 	pub note: Option<String>,
+	/// Text a Copy button puts on the clipboard, like a checksum.
+	pub copy: Option<String>,
+}
+
+fn name(p: &PathBuf) -> String {
+	p.file_name()
+		.map(|n| n.to_string_lossy().into_owned())
+		.unwrap_or_default()
 }
 
 impl Batch {
 	pub fn card(&self) -> Card {
 		let single = self.total == 1;
-		let name = |p: &PathBuf| {
-			p.file_name()
-				.map(|n| n.to_string_lossy().into_owned())
-				.unwrap_or_default()
-		};
-		let target = self.op.describe();
+		let icon = self.op.icon(self.kind).to_string();
 		if let Some(note) = &self.note {
+			let detail = match (&self.copy, self.inputs.as_slice()) {
+				(Some(c), _) => c.clone(),
+				(None, [one]) => name(one),
+				(None, many) if !many.is_empty() => format!("{} items", many.len()),
+				_ => String::new(),
+			};
 			return Card {
 				title: note.clone(),
-				status: self.inputs.first().map(name).unwrap_or_default(),
-				state: State::Done,
+				detail,
+				state: if self.state == State::Failed {
+					State::Failed
+				} else {
+					State::Done
+				},
 				progress: None,
-				buttons: vec![Button::Close],
+				buttons: if self.copy.is_some() {
+					vec![Button::Copy, Button::Close]
+				} else {
+					vec![Button::Close]
+				},
+				icon,
 				shown: 1.0,
 			};
 		}
+		let doing = self.op.describe(self.kind);
 		let title = match self.state {
+			State::Running => doing.clone(),
+			State::Done if self.outputs.is_empty() => doing.clone(),
 			State::Done if single => self.outputs.first().map(name).unwrap_or_default(),
-			_ if single => self.inputs.first().map(name).unwrap_or_default(),
-			_ => format!("{} files", self.total),
+			State::Done => format!("{} files ready", self.outputs.len()),
+			State::Failed => format!("Couldn't {}", lower_first(&doing)),
+			State::Cancelled => "Cancelled".into(),
 		};
-		let status = match self.state {
-			State::Running => {
-				let pct = self
-					.progress
-					.map(|p| format!(" · {:.0}%", p * 100.0))
-					.unwrap_or_default();
-				if single {
-					format!("{target}{pct}")
-				} else {
-					format!("{target} · {} of {}{pct}", (self.done + 1).min(self.total), self.total)
-				}
-			}
+		let detail = match self.state {
+			State::Running if single => self.inputs.first().map(name).unwrap_or_default(),
+			State::Running => format!("{} of {}", (self.done + 1).min(self.total), self.total),
+			State::Done if self.outputs.is_empty() => self.error.clone().unwrap_or_default(),
 			State::Done => {
 				let sizes = hud::size_change(self.bytes_in, self.bytes_out);
-				if single {
-					sizes
-				} else {
-					format!("{} done · {sizes}", self.outputs.len())
+				match &self.error {
+					Some(e) => format!("{sizes} · {e}"),
+					None => sizes,
 				}
 			}
 			State::Failed => self.error.clone().unwrap_or_else(|| "Something went wrong".into()),
-			State::Cancelled => "Cancelled, nothing was kept".into(),
+			State::Cancelled => "Nothing was kept".into(),
 		};
 		let buttons = match self.state {
 			State::Running => vec![Button::Cancel],
-			State::Done if self.outputs.len() == 1 => {
-				vec![Button::Undo, Button::Show, Button::Open, Button::Close]
-			}
-			State::Done => vec![Button::Undo, Button::Show, Button::Close],
+			State::Done if self.outputs.len() == 1 => vec![Button::Open, Button::Show, Button::Undo, Button::Close],
+			State::Done if !self.outputs.is_empty() => vec![Button::Show, Button::Undo, Button::Close],
 			_ => vec![Button::Close],
 		};
 		let progress = if self.state == State::Running {
@@ -92,16 +104,33 @@ impl Batch {
 		};
 		Card {
 			title,
-			status,
+			detail,
 			state: self.state,
 			progress,
 			buttons,
+			icon,
 			shown: 1.0,
 		}
 	}
 }
 
-/// At most two batches convert at once; the rest wait their turn.
+fn lower_first(s: &str) -> String {
+	let mut c = s.chars();
+	match c.next() {
+		Some(f) => f.to_lowercase().collect::<String>() + c.as_str(),
+		None => String::new(),
+	}
+}
+
+fn capitalize(s: &str) -> String {
+	let mut c = s.chars();
+	match c.next() {
+		Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+		None => String::new(),
+	}
+}
+
+/// At most two batches run at once; the rest wait their turn.
 struct Slots {
 	free: Mutex<usize>,
 	cv: Condvar,
@@ -111,12 +140,11 @@ pub struct Jobs {
 	pub batches: Arc<Mutex<Vec<Batch>>>,
 	slots: Arc<Slots>,
 	next: u64,
-	ffmpeg: PathBuf,
-	scratch: PathBuf,
+	pub engines: Engines,
 }
 
 impl Jobs {
-	pub fn new(ffmpeg: PathBuf, scratch: PathBuf) -> Jobs {
+	pub fn new(engines: Engines) -> Jobs {
 		Jobs {
 			batches: Arc::new(Mutex::new(Vec::new())),
 			slots: Arc::new(Slots {
@@ -124,18 +152,23 @@ impl Jobs {
 				cv: Condvar::new(),
 			}),
 			next: 1,
-			ffmpeg,
-			scratch,
+			engines,
 		}
 	}
 
-	/// Adds a finished note card, for actions that need no undo.
-	pub fn note(&mut self, op: Op, inputs: &[PathBuf], text: String) {
+	fn push(&mut self, mut b: Batch) -> u64 {
 		let id = self.next;
 		self.next += 1;
-		self.batches.lock().unwrap().push(Batch {
-			id,
+		b.id = id;
+		self.batches.lock().unwrap().push(b);
+		id
+	}
+
+	fn blank(op: Op, kind: Option<Kind>, inputs: &[PathBuf]) -> Batch {
+		Batch {
+			id: 0,
 			op,
+			kind,
 			inputs: inputs.to_vec(),
 			total: 1,
 			done: 1,
@@ -147,37 +180,93 @@ impl Jobs {
 			error: None,
 			finished: Some(Instant::now()),
 			cancel: Arc::new(AtomicBool::new(false)),
-			note: Some(text),
-		});
+			note: None,
+			copy: None,
+		}
 	}
 
-	/// Starts converting; `wake` is called from the worker after every change.
-	pub fn start(&mut self, op: Op, inputs: Vec<PathBuf>, jobs: Vec<Job>, wake: impl Fn() + Send + 'static) {
-		let id = self.next;
-		self.next += 1;
-		let cancel = Arc::new(AtomicBool::new(false));
-		self.batches.lock().unwrap().push(Batch {
-			id,
-			op,
-			inputs,
-			total: jobs.len(),
-			done: 0,
-			progress: None,
-			state: State::Running,
-			outputs: Vec::new(),
-			bytes_in: 0,
-			bytes_out: 0,
-			error: None,
-			finished: None,
-			cancel: cancel.clone(),
-			note: None,
-		});
+	/// Adds a finished note card, for actions that need no undo.
+	pub fn note(&mut self, op: Op, kind: Option<Kind>, inputs: &[PathBuf], text: String) -> u64 {
+		let mut b = Self::blank(op, kind, inputs);
+		b.note = Some(text);
+		self.push(b)
+	}
+
+	/// A note that failed, shown in the error colour.
+	pub fn problem(&mut self, op: Op, kind: Option<Kind>, inputs: &[PathBuf], text: String) -> u64 {
+		let mut b = Self::blank(op, kind, inputs);
+		b.note = Some(text);
+		b.state = State::Failed;
+		self.push(b)
+	}
+
+	/// A note carrying a value to copy, like a checksum.
+	pub fn note_with_copy(
+		&mut self,
+		op: Op,
+		kind: Option<Kind>,
+		inputs: &[PathBuf],
+		text: String,
+		copy: String,
+	) -> u64 {
+		let mut b = Self::blank(op, kind, inputs);
+		b.note = Some(text);
+		b.copy = Some(copy);
+		self.push(b)
+	}
+
+	/// A running card for work the app does itself (checksums), finished later with `finish_note`.
+	pub fn begin(&mut self, op: Op, kind: Option<Kind>, inputs: &[PathBuf]) -> (u64, Arc<AtomicBool>) {
+		let mut b = Self::blank(op, kind, inputs);
+		b.state = State::Running;
+		b.done = 0;
+		b.finished = None;
+		let cancel = b.cancel.clone();
+		(self.push(b), cancel)
+	}
+
+	pub fn finish_note(batches: &Arc<Mutex<Vec<Batch>>>, id: u64, text: Result<(String, Option<String>), String>) {
+		if let Some(b) = batches.lock().unwrap().iter_mut().find(|b| b.id == id) {
+			b.finished = Some(Instant::now());
+			b.done = 1;
+			match text {
+				Ok((t, copy)) => {
+					b.state = State::Done;
+					b.note = Some(t);
+					b.copy = copy;
+				}
+				Err(e) => {
+					b.state = if b.cancel.load(Ordering::Relaxed) {
+						State::Cancelled
+					} else {
+						State::Failed
+					};
+					b.note = Some(e);
+				}
+			}
+		}
+	}
+
+	/// Starts the work; `wake` is called from the worker after every change.
+	pub fn start(
+		&mut self,
+		op: Op,
+		kind: Option<Kind>,
+		inputs: Vec<PathBuf>,
+		jobs: Vec<Job>,
+		defaults: Defaults,
+		wake: impl Fn() + Send + 'static,
+	) {
+		let mut b = Self::blank(op, kind, &inputs);
+		b.state = State::Running;
+		b.total = jobs.len();
+		b.done = 0;
+		b.finished = None;
+		let cancel = b.cancel.clone();
+		let id = self.push(b);
 		let batches = self.batches.clone();
 		let slots = self.slots.clone();
-		let engines = Engines {
-			ffmpeg: self.ffmpeg.clone(),
-			scratch: self.scratch.clone(),
-		};
+		let engines = self.engines.clone();
 		std::thread::spawn(move || {
 			{
 				let mut free = slots.free.lock().unwrap();
@@ -194,6 +283,7 @@ impl Jobs {
 			};
 			let mut failures = Vec::new();
 			let mut produced: Vec<PathBuf> = Vec::new();
+			let mut notes: Vec<String> = Vec::new();
 			for job in &jobs {
 				if cancel.load(Ordering::Relaxed) {
 					break;
@@ -202,8 +292,9 @@ impl Jobs {
 				let result = run(
 					job,
 					&engines,
+					&defaults,
 					&mut |p| {
-						if last.elapsed().as_millis() >= 100 {
+						if last.elapsed().as_millis() >= 80 {
 							last = Instant::now();
 							update(&mut |b| b.progress = Some(p));
 							wake();
@@ -213,17 +304,21 @@ impl Jobs {
 				);
 				match result {
 					Ok(out) => {
-						produced.push(out.output.clone());
-						update(&mut |b| {
-							b.outputs.push(out.output.clone());
-							b.bytes_in += out.bytes_in;
-							b.bytes_out += out.bytes_out;
-						});
+						if let Some(n) = out.note {
+							notes.push(n);
+						} else {
+							produced.push(out.output.clone());
+							update(&mut |b| {
+								b.outputs.push(out.output.clone());
+								b.bytes_in += out.bytes_in;
+								b.bytes_out += out.bytes_out;
+							});
+						}
 					}
 					Err(tapwheel_core::Error::Cancelled) => break,
 					Err(e) => {
 						let name = job
-							.inputs()
+							.inputs
 							.first()
 							.and_then(|p| p.file_name())
 							.map(|n| n.to_string_lossy().into_owned())
@@ -247,11 +342,14 @@ impl Jobs {
 				if cancelled {
 					b.state = State::Cancelled;
 					b.outputs.clear();
-				} else if b.outputs.is_empty() {
+				} else if b.outputs.is_empty() && notes.is_empty() {
 					b.state = State::Failed;
 					b.error = failures.first().cloned();
 				} else {
 					b.state = State::Done;
+					if !notes.is_empty() {
+						b.error = Some(notes.join(" · "));
+					}
 					if !failures.is_empty() {
 						b.error = Some(format!("{} failed", failures.len()));
 					}
@@ -296,22 +394,21 @@ impl Jobs {
 
 	/// Cards whose time is up: finished ones after a while (failures stay longer so they can be
 	/// read), and the oldest finished ones when there are too many.
-	pub fn expired(&self, hovered: bool) -> Vec<u64> {
+	pub fn expired(&self, hovered: Option<u64>) -> Vec<u64> {
 		let list = self.batches.lock().unwrap();
-		let mut out: Vec<u64> = if hovered {
-			Vec::new()
-		} else {
-			list.iter()
-				.filter(|b| match (b.state, b.finished) {
-					(State::Running, _) | (_, None) => false,
-					(State::Failed, Some(t)) => t.elapsed().as_secs() >= 20,
-					(_, Some(t)) if b.note.is_some() => t.elapsed().as_millis() >= 2500,
-					(State::Cancelled, Some(t)) => t.elapsed().as_millis() >= 1500,
-					(_, Some(t)) => t.elapsed().as_secs() >= 10,
-				})
-				.map(|b| b.id)
-				.collect()
-		};
+		let mut out: Vec<u64> = list
+			.iter()
+			.filter(|b| Some(b.id) != hovered)
+			.filter(|b| match (b.state, b.finished) {
+				(State::Running, _) | (_, None) => false,
+				(State::Failed, Some(t)) => t.elapsed().as_secs() >= 12,
+				(_, Some(t)) if b.copy.is_some() => t.elapsed().as_secs() >= 12,
+				(_, Some(t)) if b.note.is_some() => t.elapsed().as_millis() >= 3000,
+				(State::Cancelled, Some(t)) => t.elapsed().as_millis() >= 1800,
+				(_, Some(t)) => t.elapsed().as_secs() >= 8,
+			})
+			.map(|b| b.id)
+			.collect();
 		let excess = list.len().saturating_sub(hud::MAX_CARDS);
 		out.extend(
 			list.iter()
@@ -320,13 +417,5 @@ impl Jobs {
 				.map(|b| b.id),
 		);
 		out
-	}
-}
-
-fn capitalize(s: &str) -> String {
-	let mut c = s.chars();
-	match c.next() {
-		Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-		None => String::new(),
 	}
 }
