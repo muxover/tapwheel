@@ -114,10 +114,7 @@ pub fn rename_plan(paths: &[PathBuf], rule: &RenameRule) -> Vec<Renamed> {
 			};
 			stem = format!("{}{stem}{}", rule.prefix, rule.suffix);
 			if rule.date
-				&& let Some(day) = std::fs::metadata(p)
-					.and_then(|m| m.modified())
-					.ok()
-					.and_then(day_of)
+				&& let Some(day) = std::fs::metadata(p).and_then(|m| m.modified()).ok().and_then(day_of)
 			{
 				stem = format!("{day} {stem}");
 			}
