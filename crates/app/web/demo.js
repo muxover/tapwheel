@@ -7,8 +7,9 @@ const NS = "http://www.w3.org/2000/svg";
 const W = 1100;
 const H = 580;
 
-// wheel geometry, in the real window's pixels
-const CX = 700;
+// wheel geometry, in the real window's pixels; the playable demo moves the wheel to the pointer
+const HOME_X = 700;
+let CX = HOME_X;
 const CY = 266;
 const R_OUT = 172;
 const R_IN = 70;
@@ -42,7 +43,7 @@ export const SCENES = [
 		more: true,
 		pick: 1,
 		running: { title: "Convert to JPG", detail: "photo.heic", icon: "" },
-		done: { title: "photo.jpg", detail: "2.4 MB to 1.1 MB, 54% smaller", icon: "" },
+		done: { title: "photo.jpg", detail: "Saved next to photo.heic", icon: "" },
 		work: 900,
 	},
 	{
@@ -61,7 +62,7 @@ export const SCENES = [
 		pick: 3,
 		ringPick: 0,
 		running: { title: "Make it smaller", detail: "photo.jpg", icon: "arrow_minimize" },
-		done: { title: "photo-small.jpg", detail: "4.2 MB to 860 KB, 80% smaller", icon: "arrow_minimize" },
+		done: { title: "photo-small.jpg", detail: "Saved next to photo.jpg", icon: "arrow_minimize" },
 		work: 1100,
 	},
 	{
@@ -562,8 +563,262 @@ function lerpP(a, b, t) {
 
 
 
+/** Where the held file sits in the Explorer window, for picking it up. */
+const FILE_BOX = { x: 36 + 22 - 8, y: 70 + 60 - 8, w: 96, h: 112 };
+
+/** Which slice, or ring choice of the hovered slice, is under a point of the wheel. */
+function hitTest(scene, hover, x, y) {
+	const n = scene.slices.length + (scene.more ? 1 : 0);
+	const dx = x - CX;
+	const dy = y - CY;
+	const r = Math.hypot(dx, dy);
+	const a = Math.atan2(dy, dx);
+	const step = (Math.PI * 2) / n;
+	const k = (((Math.round((a + Math.PI / 2) / step) % n) + n) % n);
+	const slice = hover !== null ? scene.slices[hover] : null;
+	if (slice?.ring && r >= RING_IN - 6 && r <= RING_OUT + 10) {
+		const rr = (RING_IN + RING_OUT) / 2;
+		const gap = 6 / rr;
+		const widths = slice.ring.map((l) => Math.max(widthOf(l, 12.5) + 30, 64) / rr);
+		const total = widths.reduce((s, w) => s + w, 0) + gap * (widths.length - 1);
+		let at = angles(n, hover)[1] - total / 2;
+		let off = a - at;
+		off = ((off % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+		for (let j = 0; j < widths.length; j++) {
+			if (off <= widths[j] + gap / 2) return { slice: hover, ring: j };
+			off -= widths[j] + gap;
+		}
+	}
+	if (r < R_IN || r > R_OUT + 8) return { slice: r > R_OUT && slice?.ring && r <= RING_OUT + 10 ? hover : null, ring: null };
+	return { slice: k, ring: null };
+}
+
+/**
+ * The hero's playable wheel: hold the file, tap Shift, Ctrl or Alt, drop on a slice. The key
+ * buttons do the same on touch screens and from the keyboard (arrows to choose, Enter to drop).
+ */
+function player(root, svg, layer, scenes, opts, win11, say) {
+	const st = { on: false, page: 0, px: 0, py: 0, mouse: true, holding: false, wheel: null, tap: false, openAt: 0, hover: null, hoverAt: 0, ring: null, picked: null, pickAt: 0, closeAt: 0, card: null, cardAt: 0 };
+	const point = (e) => {
+		const m = svg.getScreenCTM();
+		if (!m) return [0, 0];
+		const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+		return [p.x, p.y];
+	};
+	const inFile = (x, y) => x >= FILE_BOX.x && x <= FILE_BOX.x + FILE_BOX.w && y >= FILE_BOX.y && y <= FILE_BOX.y + FILE_BOX.h;
+	// a scene with `pages` shows one page of slices at a time, with More to turn it
+	const scene = () => {
+		const b = scenes[st.wheel ?? 0];
+		if (!b.pages) return b;
+		return { ...b, slices: b.pages[st.page % b.pages.length], more: b.pages.length > 1 };
+	};
+	const turn = () => {
+		const pages = scenes[st.wheel].pages;
+		if (!pages || pages.length < 2) return false;
+		st.page = (st.page + 1) % pages.length;
+		st.hover = null;
+		st.ring = null;
+		st.openAt = now() - d(OPEN_MS) * 0.6;
+		say(`Page ${st.page + 1} of ${pages.length}`);
+		return true;
+	};
+	const now = () => performance.now();
+	// with reduced motion every change is instant
+	const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+	const d = (ms) => (still ? 1 : ms);
+
+	function open(key, x) {
+		if (st.picked !== null) return;
+		const again = st.wheel !== null;
+		if (st.wheel !== key) st.page = 0;
+		st.wheel = key;
+		st.hover = null;
+		st.ring = null;
+		st.closeAt = 0;
+		if (!again) {
+			st.openAt = now();
+			CX = Math.max(250, Math.min(W - 250, x ?? HOME_X));
+		}
+		say(`${WHEELS[key][1]} for ${scene().file.name}. ${st.holding ? "Drop on a slice" : "Pick a slice"}, or let go in the middle to cancel.`);
+	}
+	function hover(k, ring) {
+		if (k !== st.hover) {
+			st.hoverAt = now();
+			const sl = k !== null && k < scene().slices.length ? scene().slices[k] : null;
+			if (sl) say(`${sl.label}: ${sl.desc}`);
+		}
+		if (ring !== st.ring && ring !== null) say(scene().slices[k].ring[ring]);
+		st.hover = k;
+		st.ring = ring;
+	}
+	function drop() {
+		const sc = scene();
+		const k = st.hover;
+		if (k === null || (k >= sc.slices.length && !sc.more)) {
+			st.closeAt = now();
+			say("Closed without doing anything.");
+			return;
+		}
+		if (k === sc.slices.length && sc.more) {
+			turn();
+			st.tap = true;
+			return;
+		}
+		const sl = sc.slices[k];
+		const ring = sl.ring && st.ring !== null ? sl.ring[st.ring] : null;
+		st.picked = k;
+		st.pickAt = now();
+		st.card = opts.done ? opts.done(st.wheel, sl, ring) : { title: sl.desc, detail: sc.file.name, icon: sl.icon };
+		st.cardAt = st.pickAt + PICK_MS + 40;
+		say(`${st.card.title}. ${st.card.detail}`);
+	}
+	function start() {
+		if (!st.on) {
+			st.on = true;
+			opts.onStart?.();
+		}
+	}
+
+	svg.addEventListener("pointerdown", (e) => {
+		const [x, y] = point(e);
+		st.px = x;
+		st.py = y;
+		st.mouse = e.pointerType === "mouse";
+		if (st.wheel !== null && st.tap) {
+			const hit = hitTest(scene(), st.hover, x, y);
+			hover(hit.slice, hit.ring);
+			return;
+		}
+		if (inFile(x, y) && st.picked === null) {
+			start();
+			e.preventDefault();
+			svg.setPointerCapture(e.pointerId);
+			st.holding = true;
+			st.card = null;
+			say(`Holding ${scene().file.name}. Now tap Shift, Ctrl or Alt.`);
+		}
+	});
+	svg.addEventListener("pointermove", (e) => {
+		const [x, y] = point(e);
+		st.px = x;
+		st.py = y;
+		if (st.wheel !== null && st.picked === null && !st.closeAt) {
+			const hit = hitTest(scene(), st.hover, x, y);
+			hover(hit.slice, hit.ring);
+		}
+	});
+	svg.addEventListener("pointerup", (e) => {
+		const [x, y] = point(e);
+		if (st.wheel !== null && st.picked === null && !st.closeAt) {
+			const hit = hitTest(scene(), st.hover, x, y);
+			hover(hit.slice, hit.ring);
+			if (st.holding || st.tap) drop();
+		}
+		st.holding = false;
+	});
+	svg.addEventListener(
+		"wheel",
+		(e) => {
+			if (st.wheel === null || st.picked !== null) return;
+			e.preventDefault();
+			// one page per roll, however many events a touchpad sends
+			if (now() - (st.turned || 0) < 300) return;
+			st.turned = now();
+			turn();
+		},
+		{ passive: false },
+	);
+	svg.addEventListener("pointercancel", () => {
+		st.holding = false;
+		if (st.wheel !== null && st.picked === null) st.closeAt = now();
+	});
+	addEventListener("keydown", (e) => {
+		const key = { Shift: 0, Control: 1, Alt: 2 }[e.key];
+		if (key !== undefined && st.holding && !e.repeat) {
+			e.preventDefault();
+			open(key, st.px);
+			return;
+		}
+		if (st.wheel === null || st.picked !== null || st.closeAt || !root.contains(document.activeElement)) return;
+		const n = scene().slices.length;
+		if (e.key === "Tab" || e.key === "PageDown") {
+			e.preventDefault();
+			turn();
+		} else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+			e.preventDefault();
+			hover(st.hover === null ? 0 : (st.hover + 1) % n, null);
+		} else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+			e.preventDefault();
+			hover(st.hover === null ? n - 1 : (st.hover - 1 + n) % n, null);
+		} else if (e.key === "Enter" || e.key === " ") {
+			e.preventDefault();
+			drop();
+		} else if (e.key === "Escape") {
+			st.closeAt = now();
+			say("Closed without doing anything.");
+		}
+	});
+	// the key buttons: open that wheel where the file is, then tap or arrow to a slice
+	const press = (key) => {
+		start();
+		st.tap = !st.holding;
+		st.card = null;
+		open(key, st.holding ? st.px : HOME_X);
+	};
+
+	function draw(t) {
+		const sc = scene();
+		const m = { open: 0, close: 0, hover: [], ring: 0, picked: null, slice: null, ringOn: null };
+		let showWheel = st.wheel !== null;
+		if (showWheel) {
+			m.open = clamp((t - st.openAt) / d(OPEN_MS));
+			if (st.hover !== null) {
+				m.slice = st.hover < sc.slices.length ? st.hover : null;
+				m.hover[st.hover] = clamp((t - st.hoverAt) / d(HOVER_MS));
+				if (m.slice !== null && sc.slices[m.slice].ring) m.ring = clamp((t - st.hoverAt - 60) / d(RING_MS));
+				m.ringOn = st.ring;
+			}
+			if (st.picked !== null) {
+				m.picked = st.picked;
+				m.close = clamp((t - st.pickAt) / d(PICK_MS));
+			} else if (st.closeAt) {
+				m.close = clamp((t - st.closeAt) / d(CLOSE_MS));
+			}
+			if (m.close >= 1) {
+				st.wheel = null;
+				st.picked = null;
+				st.closeAt = 0;
+				st.tap = false;
+				st.hover = null;
+				st.ring = null;
+				showWheel = false;
+			}
+		}
+		const out = [explorer(sc, st.holding, st.holding, win11())];
+		if (showWheel) out.push(wheel(sc, m, win11()));
+		if (st.card && t >= st.cardAt) {
+			const age = t - st.cardAt;
+			const work = st.card.work || 0;
+			let shown = clamp(age / d(CARD_IN_MS));
+			if (age > work + 3200) shown = 1 - clamp((age - work - 3200) / d(CARD_OUT_MS));
+			if (shown <= 0 && age > work + 3200) st.card = null;
+			else {
+				const running = work && age < work;
+				out.push(card(running ? { title: st.card.running || st.card.title, detail: sc.file.name, icon: st.card.icon } : st.card, shown, running ? easeInOut(age / work) : null, win11(), t));
+			}
+		}
+		if (st.holding) out.push(ghost(sc.file, st.px, st.py, 1));
+		if (st.holding && st.mouse) out.push(cursor(st.px, st.py, true));
+		layer.innerHTML = out.join("");
+		// keep drawing while anything moves
+		return st.holding || st.wheel !== null || st.card !== null;
+	}
+
+	return { st, draw, press };
+}
+
 /** Pauses while off screen or hidden; with reduced motion it shows a still of each scene's choice. */
-export function demo({ scenes = SCENES, labels = true, scene = 0, at = null } = {}) {
+export function demo({ scenes = SCENES, labels = true, scene = 0, at = null, play = null } = {}) {
 	const root = document.createElement("div");
 	root.className = "tw-demo";
 	root.setAttribute("role", "img");
@@ -582,22 +837,44 @@ export function demo({ scenes = SCENES, labels = true, scene = 0, at = null } = 
 		root.setAttribute("aria-label", `Dragging ${s.file.name}, tapping ${WHEELS[s.key][0]} to open ${WHEELS[s.key][1]}, and dropping on ${pick.label}${choice}.`);
 	};
 	const buttons = [];
+	let game = null;
+	let hint = null;
+	if (play) {
+		root.setAttribute("role", "group");
+		root.classList.add("playable");
+		hint = document.createElement("p");
+		hint.className = "hint";
+		hint.setAttribute("aria-live", "polite");
+		hint.textContent = play.hint || "Hold the photo and tap Shift, Ctrl or Alt, or use the keys below.";
+		game = player(root, svg, layer, scenes, { ...play, onStart: () => root.setAttribute("aria-label", "TapWheel, playable") }, () => win11(), (t) => (hint.textContent = t));
+		for (const ev of ["pointerdown", "pointermove", "pointerup"]) svg.addEventListener(ev, () => wake());
+		addEventListener("keydown", () => wake());
+	}
 	if (labels) {
 		const steps = document.createElement("div");
 		steps.className = "steps";
+		if (hint) steps.append(hint);
+		const keys = document.createElement("div");
+		keys.className = "keys";
 		scenes.forEach((s, i) => {
 			const b = document.createElement("button");
 			b.type = "button";
 			b.textContent = `${WHEELS[s.key][0]} · ${WHEELS[s.key][1]}`;
 			b.addEventListener("click", () => {
+				if (game) {
+					game.press(s.key);
+					wake();
+					return;
+				}
 				index = i;
 				t0 = performance.now();
 				describe();
 				if (still) draw(performance.now());
 			});
 			buttons.push(b);
-			steps.append(b);
+			keys.append(b);
 		});
+		steps.append(keys);
 		root.append(steps);
 	}
 	const still = at !== null || matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -606,7 +883,16 @@ export function demo({ scenes = SCENES, labels = true, scene = 0, at = null } = 
 	// the look comes from the nearest themed container, or the page
 	const win11 = () => (root.closest("[data-tw-scope]") || document.documentElement).hasAttribute("data-win11");
 
+	let busy = false;
 	function draw(now) {
+		if (game?.st.on) {
+			CX = game.st.wheel !== null ? CX : HOME_X;
+			P = palette(root);
+			busy = game.draw(now);
+			buttons.forEach((b, i) => b.setAttribute("aria-pressed", String(game.st.wheel === scenes[i].key)));
+			return;
+		}
+		CX = HOME_X;
 		const s = scenes[index];
 		// a still shows the moment just before the drop
 		const ms = at ?? (still ? (s.slices[s.pick].ring ? T.ringAt + 100 : T.sliceAt + 100) : now - t0);
@@ -624,10 +910,10 @@ export function demo({ scenes = SCENES, labels = true, scene = 0, at = null } = 
 		raf = 0;
 		if (!root.isConnected) return;
 		draw(now);
-		if (visible && !document.hidden && !still) raf = requestAnimationFrame(loop);
+		if (visible && !document.hidden && (game?.st.on ? busy : !still)) raf = requestAnimationFrame(loop);
 	}
 	const wake = () => {
-		if (!raf && visible && !document.hidden && !still) raf = requestAnimationFrame(loop);
+		if (!raf && visible && !document.hidden && (!still || game?.st.on)) raf = requestAnimationFrame(loop);
 	};
 	if ("IntersectionObserver" in window) {
 		new IntersectionObserver((es) => {
