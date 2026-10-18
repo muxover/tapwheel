@@ -1,16 +1,33 @@
 pub mod archive;
+pub mod bg;
+pub mod code;
+pub mod codeshot;
+pub mod ff;
+pub mod format;
+pub mod hash;
+pub mod icons;
+pub mod image;
 pub mod kind;
+pub mod media;
+pub mod metadata;
 pub mod ops;
 pub mod plan;
 pub mod pngquant;
+pub mod recipe;
 pub mod run;
 pub mod settings;
+pub mod speech;
 pub mod subs;
+pub mod text;
+#[cfg(windows)]
+mod winicon;
 
+pub use format::Format;
 pub use kind::Kind;
-pub use ops::{Format, Op, Wheel, choices};
+pub use ops::{Mode, Op, Preset, Wheel, choices};
 pub use plan::{Job, plan};
-pub use settings::{Key, Settings};
+pub use recipe::{Recipe, recipe_for};
+pub use settings::{Defaults, Key, Settings};
 
 #[derive(Debug)]
 pub enum Error {

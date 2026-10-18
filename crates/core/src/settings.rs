@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::ops::{Format, Op, Wheel};
+use crate::ops::{Op, Wheel};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -79,6 +79,68 @@ impl Keys {
 	}
 }
 
+/// Tool settings: what a plain drop on each slice does. Editors start from these too.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Defaults {
+	/// JPG, WebP and AVIF quality for conversions, 1 to 100.
+	pub image_quality: u8,
+	pub image_quality_balanced: u8,
+	pub image_quality_small: u8,
+	pub image_quality_best: u8,
+	/// Remove location and camera details whenever a picture is converted.
+	pub strip_on_convert: bool,
+	pub video_crf: u8,
+	pub video_crf_balanced: u8,
+	pub video_crf_small: u8,
+	/// Use the graphics card's encoder when there is one.
+	pub hardware_video: bool,
+	pub audio_kbps: u32,
+	pub gif_fps: u32,
+	pub gif_width: u32,
+	pub fade_seconds: f32,
+	pub silence_db: f32,
+	pub silence_gap: f32,
+	pub trim_exact: bool,
+	pub combine_gap: u32,
+	pub combine_background: String,
+	pub voice: Option<String>,
+	pub voice_rate: f32,
+	pub code_theme: String,
+	pub code_background: String,
+	pub background_style: String,
+}
+
+impl Default for Defaults {
+	fn default() -> Self {
+		Defaults {
+			image_quality: 90,
+			image_quality_balanced: 78,
+			image_quality_small: 62,
+			image_quality_best: 88,
+			strip_on_convert: false,
+			video_crf: 23,
+			video_crf_balanced: 27,
+			video_crf_small: 31,
+			hardware_video: false,
+			audio_kbps: 192,
+			gif_fps: 15,
+			gif_width: 640,
+			fade_seconds: 2.0,
+			silence_db: -42.0,
+			silence_gap: 0.6,
+			trim_exact: true,
+			combine_gap: 16,
+			combine_background: "#ffffff".into(),
+			voice: None,
+			voice_rate: 1.0,
+			code_theme: "dark".into(),
+			code_background: "sunset".into(),
+			background_style: "sunset".into(),
+		}
+	}
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -86,8 +148,13 @@ pub struct Settings {
 	pub start_with_windows: bool,
 	/// Slices you pick most move to the top of the wheel.
 	pub learn_order: bool,
+	/// Short sounds when a wheel opens and a job finishes.
+	pub sounds: bool,
 	pub welcomed: bool,
 	pub usage: BTreeMap<String, u32>,
+	/// Folders used with Move to, newest first.
+	pub recent_folders: Vec<PathBuf>,
+	pub defaults: Defaults,
 }
 
 impl Default for Settings {
@@ -96,8 +163,11 @@ impl Default for Settings {
 			keys: Keys::default(),
 			start_with_windows: true,
 			learn_order: true,
+			sounds: false,
 			welcomed: false,
 			usage: BTreeMap::new(),
+			recent_folders: Vec::new(),
+			defaults: Defaults::default(),
 		}
 	}
 }
@@ -121,81 +191,28 @@ impl Settings {
 	}
 
 	pub fn record(&mut self, op: Op) {
-		*self.usage.entry(op_id(op)).or_default() += 1;
+		*self.usage.entry(op.id()).or_default() += 1;
 	}
 
 	/// Most-used first; ties keep the wheel's own order.
 	pub fn order(&self, ops: &mut [Op]) {
 		if self.learn_order {
-			ops.sort_by_key(|op| std::cmp::Reverse(self.usage.get(&op_id(*op)).copied().unwrap_or(0)));
+			ops.sort_by_key(|op| std::cmp::Reverse(self.usage.get(&op.id()).copied().unwrap_or(0)));
 		}
 	}
-}
 
-pub fn op_id(op: Op) -> String {
-	match op {
-		Op::Convert(f) => format!("to-{}", f.ext()),
-		other => format!("{other:?}").to_lowercase(),
+	/// Remembers a Move to folder, keeping the four most recent.
+	pub fn remember_folder(&mut self, dir: &Path) {
+		self.recent_folders.retain(|d| d != dir);
+		self.recent_folders.insert(0, dir.to_path_buf());
+		self.recent_folders.truncate(4);
 	}
-}
-
-pub fn op_from_id(id: &str) -> Option<Op> {
-	const FORMATS: &[Format] = &[
-		Format::Jpg,
-		Format::Png,
-		Format::Webp,
-		Format::Avif,
-		Format::Tiff,
-		Format::Bmp,
-		Format::Gif,
-		Format::Ico,
-		Format::Mp3,
-		Format::M4a,
-		Format::Wav,
-		Format::Flac,
-		Format::Ogg,
-		Format::Opus,
-		Format::Mp4,
-		Format::Mov,
-		Format::Mkv,
-		Format::Webm,
-		Format::Avi,
-		Format::Srt,
-		Format::Vtt,
-		Format::Txt,
-		Format::Zip,
-		Format::SevenZ,
-		Format::Tar,
-		Format::Tgz,
-	];
-	const OPS: &[Op] = &[
-		Op::CompressImage,
-		Op::HalfSize,
-		Op::FitHd,
-		Op::Rotate,
-		Op::StripMetadata,
-		Op::CompressVideo,
-		Op::Video720,
-		Op::Mute,
-		Op::ExtractAudio,
-		Op::CompressAudio,
-		Op::Normalize,
-		Op::Extract,
-		Op::Zip,
-		Op::CopyPath,
-		Op::CopyFile,
-		Op::Terminal,
-		Op::Reveal,
-	];
-	if let Some(ext) = id.strip_prefix("to-") {
-		return FORMATS.iter().find(|f| f.ext() == ext).map(|f| Op::Convert(*f));
-	}
-	OPS.iter().find(|o| op_id(**o) == id).copied()
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::format::Format;
 
 	#[test]
 	fn assigning_a_taken_key_swaps() {
@@ -248,14 +265,12 @@ mod tests {
 	}
 
 	#[test]
-	fn ids_round_trip() {
-		for op in [
-			Op::Convert(Format::Tgz),
-			Op::Convert(Format::SevenZ),
-			Op::StripMetadata,
-			Op::Reveal,
-		] {
-			assert_eq!(op_from_id(&op_id(op)), Some(op));
+	fn recent_folders_stay_short_and_unique() {
+		let mut s = Settings::default();
+		for d in ["a", "b", "c", "d", "e", "b"] {
+			s.remember_folder(Path::new(d));
 		}
+		let names: Vec<_> = s.recent_folders.iter().map(|p| p.display().to_string()).collect();
+		assert_eq!(names, ["b", "e", "d", "c"]);
 	}
 }

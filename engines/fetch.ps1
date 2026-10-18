@@ -1,41 +1,59 @@
-# Downloads the pinned converters into target/engines and checks their hashes.
+# Downloads the pinned engines into target/engines and checks their hashes.
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root "target/engines"
 New-Item -ItemType Directory -Force -Path $out | Out-Null
-
 $toml = Get-Content (Join-Path $PSScriptRoot "engines.toml") -Raw
-$value = { param($name) ([regex]::Match($toml, "(?m)^$name\s*=\s*`"([^`"]+)`"")).Groups[1].Value }
-$url = & $value "url"
-$sha = & $value "sha256"
-$file = & $value "file"
-
-$exe = Join-Path $out "ffmpeg.exe"
-$stamp = Join-Path $out "ffmpeg.sha256"
-if ((Test-Path $exe) -and (Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $sha)) {
-	Write-Host "ffmpeg already fetched"
-	exit 0
-}
-
-$zip = Join-Path $out "ffmpeg.zip"
-Write-Host "Downloading $url"
-$ProgressPreference = "SilentlyContinue"
-Invoke-WebRequest -Uri $url -OutFile $zip
-$got = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
-if ($got -ne $sha) {
-	Remove-Item $zip
-	throw "ffmpeg hash mismatch: expected $sha, got $got"
-}
-
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
-try {
-	$entry = $archive.Entries | Where-Object { $_.FullName -eq $file }
-	if (-not $entry) { throw "$file is not in the archive" }
-	[System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $exe, $true)
-} finally {
-	$archive.Dispose()
+
+function Section($name) {
+	$body = ([regex]::Match($toml, "(?ms)^\[$name\]\s*(.*?)(?=^\[|\z)")).Groups[1].Value
+	$get = { param($key) ([regex]::Match($body, "(?m)^$key\s*=\s*`"([^`"]*)`"")).Groups[1].Value }
+	@{ url = & $get "url"; sha = & $get "sha256"; files = (& $get "files") -split "\s+" | Where-Object { $_ } }
 }
-Remove-Item $zip
-Set-Content -Path $stamp -Value $sha -NoNewline
-Write-Host "ffmpeg ready at $exe"
+
+function Fetch($name, $s) {
+	$stamp = Join-Path $out "$name.sha256"
+	if ((Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $s.sha)) {
+		Write-Host "$name already fetched"
+		return $false
+	}
+	$download = Join-Path $out "$name.download"
+	Write-Host "Downloading $($s.url)"
+	Invoke-WebRequest -Uri $s.url -OutFile $download
+	$got = (Get-FileHash -Algorithm SHA256 $download).Hash.ToLower()
+	if ($got -ne $s.sha) {
+		Remove-Item $download
+		throw "$name hash mismatch: expected $($s.sha), got $got"
+	}
+	if ($s.files.Count -gt 0) {
+		$archive = [System.IO.Compression.ZipFile]::OpenRead($download)
+		try {
+			foreach ($file in $s.files) {
+				$entry = $archive.Entries | Where-Object { $_.FullName -eq $file }
+				if (-not $entry) { throw "$file is not in the $name archive" }
+				[System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $out (Split-Path $file -Leaf)), $true)
+			}
+		} finally {
+			$archive.Dispose()
+		}
+		Remove-Item $download
+	}
+	Set-Content -Path $stamp -Value $s.sha -NoNewline
+	return $true
+}
+
+Fetch "ffmpeg" (Section "ffmpeg") | Out-Null
+Fetch "onnxruntime" (Section "onnxruntime") | Out-Null
+
+$model = Section "model"
+$fresh = Fetch "model" $model
+if ($fresh -or -not (Test-Path (Join-Path $out "background.f16"))) {
+	python -m pip install --quiet "onnx==1.18.0" "numpy>=2,<3"
+	if ($LASTEXITCODE -ne 0) { throw "pip failed" }
+	python (Join-Path $PSScriptRoot "model.py") (Join-Path $out "model.download") $out
+	if ($LASTEXITCODE -ne 0) { throw "model preparation failed" }
+	Remove-Item (Join-Path $out "model.download")
+}
+Write-Host "engines ready in $out"

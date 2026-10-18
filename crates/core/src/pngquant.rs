@@ -4,8 +4,8 @@ use std::path::Path;
 
 use crate::Error;
 
-/// Lossy PNG compression: 256-colour palette with dithering, like pngquant.
-pub fn compress(input: &Path, output: &Path) -> Result<(), Error> {
+/// Lossy PNG compression: up to 256 colours with dithering, like pngquant. `quality` caps how faithful it tries to be.
+pub fn compress(input: &Path, output: &Path, quality: u8) -> Result<(), Error> {
 	let mut decoder = png::Decoder::new(BufReader::new(File::open(input)?));
 	decoder.set_transformations(png::Transformations::normalize_to_color8() | png::Transformations::ALPHA);
 	let mut reader = decoder
@@ -38,7 +38,7 @@ pub fn compress(input: &Path, output: &Path) -> Result<(), Error> {
 
 	let mut attr = imagequant::new();
 	attr.set_speed(4).map_err(quant_err)?;
-	attr.set_quality(0, 85).map_err(quant_err)?;
+	attr.set_quality(0, quality.clamp(10, 100)).map_err(quant_err)?;
 	let mut image = attr.new_image(pixels, w, h, 0.0).map_err(quant_err)?;
 	let mut res = attr.quantize(&mut image).map_err(quant_err)?;
 	res.set_dithering_level(1.0).map_err(quant_err)?;
@@ -86,7 +86,7 @@ mod tests {
 		enc.write_header().unwrap().write_image_data(&data).unwrap();
 
 		let out = dir.join("out.png");
-		compress(&src, &out).unwrap();
+		compress(&src, &out, 85).unwrap();
 		let before = std::fs::metadata(&src).unwrap().len();
 		let after = std::fs::metadata(&out).unwrap().len();
 		assert!(after < before, "{after} >= {before}");

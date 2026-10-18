@@ -1,9 +1,25 @@
-# Converters bundled with TapWheel. Fetched and hash-checked by fetch.ps1, never committed.
+# Engines bundled with TapWheel. Fetched and hash-checked by fetch.ps1, never committed.
 
 [ffmpeg]
 version = "8.1.1"
 url = "https://github.com/GyanD/codexffmpeg/releases/download/8.1.1/ffmpeg-8.1.1-essentials_build.zip"
 sha256 = "6f58ce889f59c311410f7d2b18895b33c03456463486f3b1ebc93d97a0f54541"
-file = "ffmpeg-8.1.1-essentials_build/bin/ffmpeg.exe"
+files = "ffmpeg-8.1.1-essentials_build/bin/ffmpeg.exe ffmpeg-8.1.1-essentials_build/bin/ffprobe.exe"
 license = "GPL-3.0-or-later"
 source = "https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz"
+
+[onnxruntime]
+version = "1.22.0"
+url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-win-x64-1.22.0.zip"
+sha256 = "174c616efc0271194488642a72f1a514e01487da4dfe84c49296d66e40ebe0da"
+files = "onnxruntime-win-x64-1.22.0/lib/onnxruntime.dll"
+license = "MIT"
+source = "https://github.com/microsoft/onnxruntime"
+
+# IS-Net general use (DIS), as packaged by rembg. engines/model.py stores its weights at half precision.
+[model]
+version = "isnet-general-use"
+url = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx"
+sha256 = "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a"
+license = "Apache-2.0"
+source = "https://github.com/xuebinqin/DIS"
