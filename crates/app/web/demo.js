@@ -486,8 +486,10 @@ const CSS = `
 .tw-demo{--raised:var(--surface-2)}
 .tw-demo .disc{fill:var(--surface);stroke:var(--stroke-strong);stroke-width:1}
 .tw-demo .pill,.tw-demo .card,.tw-demo .key{fill:var(--surface);stroke:var(--stroke-strong);stroke-width:1}
-.tw-demo .steps{position:absolute;left:16px;top:14px;display:flex;gap:6px}
-.tw-demo .steps button{font:600 12px var(--font);color:var(--text-2);background:color-mix(in srgb, var(--surface) 70%, transparent);border:1px solid var(--stroke);border-radius:999px;padding:4px 10px;cursor:pointer}
+.tw-demo .steps{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:8px;border-top:1px solid var(--stroke);background:color-mix(in srgb, var(--surface) 60%, transparent)}
+.tw-demo .steps button{font:600 13px var(--font);color:var(--text-2);background:none;border:1px solid transparent;border-radius:999px;padding:0 16px;min-height:44px;cursor:pointer}
+.tw-demo .steps button:hover{color:var(--text);background:color-mix(in srgb, var(--text) 6%, transparent)}
+.tw-demo .steps button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .tw-demo .steps button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:transparent}
 `;
 

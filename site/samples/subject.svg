@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1200" viewBox="0 0 1000 1200">
+  <defs>
+    <linearGradient id="pot" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b8542f"/><stop offset=".35" stop-color="#e37d4f"/><stop offset=".6" stop-color="#d1663d"/><stop offset="1" stop-color="#8f3d22"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c45f37"/><stop offset=".4" stop-color="#f0956a"/><stop offset="1" stop-color="#9c4427"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6fd27a"/><stop offset="1" stop-color="#1f7a3e"/></linearGradient>
+    <linearGradient id="leaf2" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8be08a"/><stop offset="1" stop-color="#2b8f47"/></linearGradient>
+    <linearGradient id="leaf3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fbf68"/><stop offset="1" stop-color="#17602f"/></linearGradient>
+    <radialGradient id="soil" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#4a3022"/><stop offset="1" stop-color="#2a1a12"/></radialGradient>
+  </defs>
+  <g stroke="#1f6b37" stroke-width="8" stroke-linecap="round" fill="none">
+    <path d="M500 720 C480 560 420 470 330 400"/><path d="M500 720 C520 540 580 430 690 360"/><path d="M500 720 C500 560 505 380 500 230"/>
+    <path d="M500 720 C460 620 360 600 250 590"/><path d="M500 720 C560 630 650 610 760 600"/>
+  </g>
+  <path d="M330 400 C250 330 230 230 280 150 C360 210 380 320 330 400Z" fill="url(#leaf)"/>
+  <path d="M690 360 C780 300 820 200 780 120 C690 170 650 280 690 360Z" fill="url(#leaf2)"/>
+  <path d="M500 230 C440 160 450 70 500 20 C550 70 560 160 500 230Z" fill="url(#leaf3)"/>
+  <path d="M250 590 C160 600 90 550 60 480 C150 460 230 510 250 590Z" fill="url(#leaf2)"/>
+  <path d="M760 600 C850 620 920 580 950 510 C860 480 780 520 760 600Z" fill="url(#leaf)"/>
+  <path d="M410 520 C330 470 310 390 340 330 C400 370 430 450 410 520Z" fill="url(#leaf3)"/>
+  <path d="M600 500 C680 450 700 370 670 310 C610 350 580 430 600 500Z" fill="url(#leaf3)"/>
+  <g stroke="#ffffff" stroke-opacity=".28" stroke-width="3" fill="none">
+    <path d="M330 400 C300 320 290 240 280 150"/><path d="M690 360 C730 280 760 200 780 120"/><path d="M500 230 C495 150 498 80 500 20"/>
+    <path d="M250 590 C190 560 120 520 60 480"/><path d="M760 600 C830 570 890 540 950 510"/>
+  </g>
+  <ellipse cx="500" cy="735" rx="260" ry="46" fill="url(#soil)"/>
+  <path d="M250 740 L300 1130 Q500 1175 700 1130 L750 740 Q500 790 250 740Z" fill="url(#pot)"/>
+  <path d="M232 700 Q500 650 768 700 L760 780 Q500 830 240 780Z" fill="url(#rim)"/>
+  <path d="M240 780 Q500 830 760 780" stroke="#000" stroke-opacity=".18" stroke-width="6" fill="none"/>
+  <path d="M330 830 Q345 990 360 1110" stroke="#fff" stroke-opacity=".22" stroke-width="18" stroke-linecap="round" fill="none"/>
+  <ellipse cx="500" cy="1132" rx="200" ry="20" fill="#000" fill-opacity=".12"/>
+</svg>

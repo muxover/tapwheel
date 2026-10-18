@@ -26,6 +26,10 @@ jobs:
       - run: .github/scripts/report.sh cargo test --workspace
         env:
           TAPWHEEL_FFMPEG: /usr/bin/ffmpeg
+      - name: The website lists what the wheel offers
+        run: |
+          cargo run -q -p tapwheel-core --example site_data > /tmp/wheel.json
+          diff -u site/public/data/wheel.json /tmp/wheel.json || { echo "::error file=site/public/data/wheel.json::Out of date. Run: cargo run -p tapwheel-core --example site_data > site/public/data/wheel.json"; exit 1; }
 
   windows:
     name: App (Windows)
