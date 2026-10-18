@@ -29,6 +29,7 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-18: wheel and ring labels follow the curve of their slice and never leave it. A test draws every wheel and fails if any letter falls outside its shape; a name that can't fit on two curved lines gets a shorter name.
 - 2026-10-18: the website uses Windows blue as its accent, taken from the app, because its job is to show a Windows app.
 - 2026-10-18: from the roadmap review, v0.1.0 adds Copy name and the other clipboard choices, Properties, Open with, Duplicate, Rename with a batch preview, File info, preflight checks, an Undo that checks the file first, and Retry and batch summaries on cards. Open containing folder is out (Explorer is already open where the drag started), file encryption is out until it has a security review (password ZIP and 7Z cover it), and there is no fourth key.
+- 2026-10-18: the privacy page also promises: errors go to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on the PC (error messages and file names, never typing, under 256 KB, removed by Remove from this PC, never sent anywhere).
 - 2026-10-18: the Store package can't write classic shell keys, so its right-click entry waits for the Explorer command handler in v0.2.0; the portable build adds a classic one.
 
 ## Status

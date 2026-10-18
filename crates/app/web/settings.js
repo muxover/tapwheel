@@ -180,8 +180,9 @@ function quality(crf) {
 	return crf <= 18 ? "Very high" : crf <= 22 ? "High" : crf <= 26 ? "Balanced" : crf <= 30 ? "Small" : "Smallest";
 }
 
+/** The TapWheel mark, the same drawing as the app icon (crates/ui/src/icon.rs). */
 function logo(size) {
 	const el = h("span", { style: { display: "inline-flex" } });
-	el.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#14161a"/><g fill="none" stroke="#3a3f47" stroke-width="2"><path d="M32 6v14M32 44v14M6 32h14M44 32h14"/></g><path d="M32 4a28 28 0 0 1 28 28H44a12 12 0 0 0-12-12z" fill="#60cdff"/><circle cx="32" cy="32" r="8" fill="#262a31"/></svg>`;
+	el.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#15171b"/><path d="M33.54 6.45A25.6 25.6 0 0 1 53.36 17.89L43.75 24.24A14.08 14.08 0 0 0 32.84 17.95Z" fill="#60cdff"/><path d="M54.90 20.55A25.6 25.6 0 0 1 54.90 43.45L44.59 38.30A14.08 14.08 0 0 0 44.59 25.70Z" fill="#3d424b"/><path d="M53.36 46.11A25.6 25.6 0 0 1 33.54 57.55L32.84 46.05A14.08 14.08 0 0 0 43.75 39.76Z" fill="#3d424b"/><path d="M30.46 57.55A25.6 25.6 0 0 1 10.64 46.11L20.25 39.76A14.08 14.08 0 0 0 31.16 46.05Z" fill="#3d424b"/><path d="M9.10 43.45A25.6 25.6 0 0 1 9.10 20.55L19.41 25.70A14.08 14.08 0 0 0 19.41 38.30Z" fill="#3d424b"/><path d="M10.64 17.89A25.6 25.6 0 0 1 30.46 6.45L31.16 17.95A14.08 14.08 0 0 0 20.25 24.24Z" fill="#3d424b"/><circle cx="32" cy="32" r="6.4" fill="#f4f3ef"/></svg>`;
 	return el;
 }
