@@ -716,14 +716,26 @@ section {
 
 .footer {
 	border-top: 1px solid var(--line);
-	padding: 48px 0 40px;
+	padding: 56px 0 32px;
 	font-size: 14px;
 }
 
+.foot-top {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 40px;
+}
+
+.foot-brand p {
+	color: var(--muted);
+	margin: 8px 0 0;
+	max-width: 22em;
+}
+
 .footer .cols {
-	display: grid;
-	gap: 32px;
-	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	display: flex;
+	gap: 64px;
 }
 
 .footer h2 {
@@ -759,8 +771,34 @@ section {
 }
 
 .footer .base {
-	margin-top: 32px;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 8px 24px;
+	margin-top: 40px;
+	padding-top: 24px;
+	border-top: 1px solid var(--line);
 	color: var(--muted);
+}
+
+.footer .base p {
+	margin: 0;
+}
+
+.footer .base a {
+	color: var(--text);
+	text-decoration: none;
+	border-bottom: 1px solid var(--line-strong);
+}
+
+.footer .base a:hover {
+	border-bottom-color: var(--lime);
+}
+
+@media (max-width: 560px) {
+	.footer .cols {
+		gap: 40px;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
