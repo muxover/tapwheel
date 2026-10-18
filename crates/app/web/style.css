@@ -753,3 +753,55 @@ kbd {
 	min-width: 0;
 	font-family: "Cascadia Mono", Consolas, monospace;
 }
+
+/* Snapshot: the video fills the stage with its position bar under it */
+.snap {
+	position: absolute;
+	inset: 16px;
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
+	gap: 12px;
+}
+
+.snap video {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	background: #000;
+	border-radius: var(--radius-s);
+}
+
+.snap input[type="range"] {
+	width: 100%;
+}
+
+.value-big {
+	font: 600 20px/28px var(--font-display);
+	font-variant-numeric: tabular-nums;
+	margin-bottom: 8px;
+}
+
+/* the hue strip shows its own rainbow, not the usual filled track */
+.cp-hue::-webkit-slider-runnable-track {
+	height: 14px;
+	background: transparent;
+}
+
+.cp-hue::-webkit-slider-thumb {
+	margin-top: -1px;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+	background: #fff;
+	border: 0;
+}
+
+/* a row you can tick, in Contents */
+.pick {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.pick input {
+	flex: none;
+	margin-top: 3px;
+}

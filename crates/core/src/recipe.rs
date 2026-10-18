@@ -232,7 +232,11 @@ pub enum Recipe {
 	Pack {
 		format: Format,
 	},
-	Extract,
+	Extract {
+		/// Only these entries (a folder brings its contents); all of them when empty.
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
+		only: Vec<String>,
+	},
 	Protect {
 		password: String,
 		format: Format,
@@ -250,7 +254,7 @@ impl Recipe {
 	pub fn makes_folder(&self) -> bool {
 		matches!(
 			self,
-			Recipe::Extract
+			Recipe::Extract { .. }
 				| Recipe::IconSet { .. }
 				| Recipe::Favicon
 				| Recipe::ExtractIcons
@@ -450,7 +454,7 @@ pub fn recipe_for(op: Op, preset: Option<&str>, kind: Option<Kind>, d: &Defaults
 		Op::Indent => Recipe::Indent {
 			spaces: pr.parse().unwrap_or(0),
 		},
-		Op::Extract => Recipe::Extract,
+		Op::Extract => Recipe::Extract { only: Vec::new() },
 		Op::Test => Recipe::Test,
 		Op::Duplicate => Recipe::Duplicate,
 		Op::Zip => Recipe::Pack { format: Format::Zip },

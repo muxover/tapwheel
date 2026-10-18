@@ -19,6 +19,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -400,6 +401,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -669,7 +671,8 @@
           "ring": [
             "Middle",
             "First",
-            "Every 10 s"
+            "Every 10 s",
+            "Custom"
           ],
           "window": false
         },
@@ -740,6 +743,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -1080,6 +1084,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -1291,6 +1296,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -1532,6 +1538,14 @@
           "window": false
         },
         {
+          "desc": "Count lines and words",
+          "icon": "number_symbol",
+          "id": "stats",
+          "label": "Count",
+          "ring": [],
+          "window": false
+        },
+        {
           "desc": "Pack into one ZIP",
           "icon": "folder_zip",
           "id": "zip",
@@ -1560,6 +1574,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -1883,6 +1898,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],

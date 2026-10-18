@@ -419,7 +419,12 @@ impl Op {
 		const FADE: &[Preset] = &[p("both", "Both"), p("in", "In"), p("out", "Out")];
 		const VOLUME: &[Preset] = &[p("+6", "+6 dB"), p("+3", "+3 dB"), p("-3", "−3 dB"), p("-6", "−6 dB")];
 		const CHANNELS: &[Preset] = &[p("mono", "Mono"), p("stereo", "Stereo")];
-		const SNAPSHOT: &[Preset] = &[p("middle", "Middle"), p("first", "First"), p("every", "Every 10 s")];
+		const SNAPSHOT: &[Preset] = &[
+			p("middle", "Middle"),
+			p("first", "First"),
+			p("every", "Every 10 s"),
+			CUSTOM,
+		];
 		const IMG_META: &[Preset] = &[p("all", "Remove all"), p("location", "Location"), CUSTOM];
 		const AUD_META: &[Preset] = &[CUSTOM, p("all", "Remove all")];
 		const SORT: &[Preset] = &[
@@ -446,6 +451,7 @@ impl Op {
 			p("path", "Path"),
 			p("name", "Name"),
 			p("stem", "Base name"),
+			p("ext", "Extension"),
 			p("quoted", "Quoted"),
 			p("uri", "File URL"),
 		];
@@ -621,7 +627,16 @@ fn tools(kind: Option<Kind>, count: usize, exts: &[String]) -> Vec<Op> {
 			if any_of(crate::code::MINIFY_EXTS) {
 				t.push(Minify);
 			}
-			t.extend([ToUtf8, CleanUp, SortLines, Dedupe, ChangeCase, LineEndings, Split]);
+			t.extend([
+				ToUtf8,
+				CleanUp,
+				SortLines,
+				Dedupe,
+				ChangeCase,
+				LineEndings,
+				Split,
+				Stats,
+			]);
 			if many {
 				t.insert(0, Merge);
 			}

@@ -343,7 +343,7 @@ fn execute(
 			let _ = fs::remove_dir_all(&scratch);
 			result
 		}
-		Recipe::Extract => archive::extract(input, part, cancel),
+		Recipe::Extract { only } => archive::extract(input, part, only, cancel),
 		Recipe::SplitArchive { part_mb } => archive::split(input, *part_mb, part, cancel).map(drop),
 
 		// icons, from icon files, pictures or programs
