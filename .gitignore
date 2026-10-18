@@ -25,3 +25,7 @@ target/
 
 # Packaging output
 dist/
+
+# Website checks
+node_modules/
+package-lock.json

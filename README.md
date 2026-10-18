@@ -89,6 +89,7 @@ tapwheel/
 │   └── app/                  # The Windows app: key and mouse watching, wheel window, drops, tray
 ├── engines/                  # Pinned FFmpeg build and the script that fetches it
 ├── packaging/                # Portable zip and Store package builder, Store manifest
+├── site/                     # tapwheel.muxover.com and its layout check
 ├── release-notes/            # One file per release
 └── docs/PROJECT.md           # Maintainer notes
 ```

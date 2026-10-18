@@ -84,6 +84,9 @@ code,
 
 .skip {
 	position: absolute;
+	min-height: 44px;
+	display: inline-flex;
+	align-items: center;
 	left: -999px;
 	top: 8px;
 	background: var(--lime);
@@ -322,6 +325,11 @@ code,
 	color: var(--text);
 	cursor: grab;
 	touch-action: none;
+}
+
+#file {
+	left: 32px;
+	top: 32px;
 }
 
 .tile:hover {
@@ -698,6 +706,10 @@ section {
 .doc p,
 .doc li {
 	color: var(--text-2);
+}
+
+.doc code {
+	overflow-wrap: anywhere;
 }
 
 /* footer */
