@@ -43,6 +43,7 @@ impl Batch {
 				state: State::Done,
 				progress: None,
 				buttons: vec![Button::Close],
+				shown: 1.0,
 			};
 		}
 		let title = match self.state {
@@ -95,6 +96,7 @@ impl Batch {
 			state: self.state,
 			progress,
 			buttons,
+			shown: 1.0,
 		}
 	}
 }

@@ -18,15 +18,33 @@ TapWheel converts files on Windows 10 and 11 without opening an app. Start dragg
 
 ## Features
 
-- Three wheels on three keys: Shift converts, Ctrl opens tools, Alt opens actions. The keys can be changed or turned off.
-- Converts images (JPG, PNG, WebP, AVIF, GIF, TIFF, BMP, ICO, and HEIC from phones), audio (MP3, M4A, WAV, FLAC, OGG, Opus), video (MP4, MOV, MKV, WebM, AVI, GIF), subtitles (SRT, VTT, plain text) and archives (ZIP, 7Z, TAR, TAR.GZ).
-- Tools for images (compress, half size, fit 1920, rotate, strip location and camera data), video (compress, 720p, mute, save the sound), audio (compress, even out the volume) and archives (extract). Any selection can be packed into one ZIP.
-- Actions for anything, folders included: copy the path, copy the files, open a terminal there, show in File Explorer.
-- Tap the same key twice to repeat your last choice. The slices you pick most move to the top.
-- Progress cards in the corner show size before and after, with Open, Show in folder and Undo. Undo sends the new files to the Recycle Bin.
-- Never touches the original. A new file never replaces an existing one; it gets a `(1)` instead.
-- Looks like the Windows it runs on: Segoe UI Variable and rounded corners on Windows 11, Segoe UI and square corners on Windows 10, your light or dark mode, your accent colour, and high contrast.
-- Keyboard friendly: arrows, Tab, Enter and the number keys pick a slice when the wheel is open from the right-click menu.
+- Three wheels on three keys: Shift converts, Ctrl opens tools, Alt opens actions.
+- Converts photos, audio, video, subtitles and archives (see [Formats](#formats)).
+- HEIC photos from a phone become JPG or PNG in one move.
+- Tap the same key twice to repeat your last choice.
+- The formats you pick most move to the top of the wheel.
+- Cards in the corner show the size before and after, with Open, Show in folder and Undo.
+- Originals are never changed, and a new file never replaces an existing one.
+- Follows light or dark mode, your accent colour, high contrast, and the Windows 10 or 11 look.
+- Works offline. Nothing is uploaded, and there's no account.
+
+---
+
+## Formats
+
+| Wheel | Files | What you get |
+|-------|-------|--------------|
+| Convert | Images | JPG, PNG, WebP, AVIF, GIF, TIFF, BMP, ICO (HEIC is read) |
+| Convert | Audio | MP3, M4A, WAV, FLAC, OGG, Opus |
+| Convert | Video | MP4, MOV, MKV, WebM, AVI, GIF, MP3 |
+| Convert | Subtitles | SRT, VTT, plain text |
+| Convert | Archives, folders | ZIP, 7Z, TAR, TAR.GZ |
+| Tools | Images | Compress, half size, fit 1920, rotate, strip location data |
+| Tools | Video | Compress, 720p, mute, save the sound |
+| Tools | Audio | Compress, even out the volume |
+| Tools | Archives | Extract |
+| Tools | Anything | Pack into one ZIP |
+| Actions | Anything | Copy path, copy files, open a terminal, show in File Explorer |
 
 ---
 
