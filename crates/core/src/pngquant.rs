@@ -22,11 +22,15 @@ pub fn compress(input: &Path, output: &Path) -> Result<(), Error> {
 
 	let pixels: Vec<imagequant::RGBA> = match info.color_type {
 		png::ColorType::Rgba => buf[..w * h * 4]
-			.chunks_exact(4)
+			.as_chunks::<4>()
+			.0
+			.iter()
 			.map(|p| imagequant::RGBA::new(p[0], p[1], p[2], p[3]))
 			.collect(),
 		png::ColorType::GrayscaleAlpha => buf[..w * h * 2]
-			.chunks_exact(2)
+			.as_chunks::<2>()
+			.0
+			.iter()
 			.map(|p| imagequant::RGBA::new(p[0], p[0], p[0], p[1]))
 			.collect(),
 		other => return Err(Error::Engine(format!("unexpected PNG layout {other:?}"))),
