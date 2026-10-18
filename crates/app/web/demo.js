@@ -508,29 +508,10 @@ function lerpP(a, b, t) {
 	return [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
 }
 
-const CSS = `
-.tw-demo{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--stroke);background:
- radial-gradient(120% 90% at 85% 10%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 60%),
- radial-gradient(90% 80% at 0% 100%, color-mix(in srgb, #b6f23a 16%, transparent), transparent 60%), var(--stage)}
-.tw-demo svg{display:block;width:100%;height:auto}
-.tw-demo{--raised:var(--surface-2)}
-.tw-demo .disc{fill:var(--surface);stroke:var(--stroke-strong);stroke-width:1}
-.tw-demo .pill,.tw-demo .card,.tw-demo .key{fill:var(--surface);stroke:var(--stroke-strong);stroke-width:1}
-.tw-demo .steps{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:8px;border-top:1px solid var(--stroke);background:color-mix(in srgb, var(--surface) 60%, transparent)}
-.tw-demo .steps button{font:600 13px var(--font);color:var(--text-2);background:none;border:1px solid transparent;border-radius:999px;padding:0 16px;min-height:44px;cursor:pointer}
-.tw-demo .steps button:hover{color:var(--text);background:color-mix(in srgb, var(--text) 6%, transparent)}
-.tw-demo .steps button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.tw-demo .steps button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:transparent}
-`;
+
 
 /** Pauses while off screen or hidden; with reduced motion it shows a still of each scene's choice. */
 export function demo({ scenes = SCENES, labels = true, scene = 0, at = null } = {}) {
-	if (!document.getElementById("tw-demo-css")) {
-		const st = document.createElement("style");
-		st.id = "tw-demo-css";
-		st.textContent = CSS;
-		document.head.append(st);
-	}
 	const root = document.createElement("div");
 	root.className = "tw-demo";
 	root.setAttribute("role", "img");

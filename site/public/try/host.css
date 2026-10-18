@@ -1,0 +1,5 @@
+/* in the app Mica shows through; here the window draws its own background */
+html,
+body {
+	background: var(--bg) !important;
+}
