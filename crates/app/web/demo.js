@@ -541,7 +541,8 @@ export function demo({ scenes = SCENES, labels = true, scene = 0, at = null } = 
 	const still = at !== null || matchMedia("(prefers-reduced-motion: reduce)").matches;
 	let visible = true;
 	let raf = 0;
-	const win11 = () => document.documentElement.hasAttribute("data-win11");
+	// the look comes from the nearest themed container, or the page
+	const win11 = () => (root.closest("[data-tw-scope]") || document.documentElement).hasAttribute("data-win11");
 
 	function draw(now) {
 		const s = scenes[index];

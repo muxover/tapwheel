@@ -405,13 +405,11 @@ pub fn fields(file: &[u8]) -> Vec<(String, String, String)> {
 		})
 		.map(|f| {
 			let (rank, section) = section_of(f.tag);
+			// text comes quoted and dates come formatted: keep the formatting, drop the quotes
+			let value = f.display_value().with_unit(&exif).to_string();
 			let value = match &f.value {
-				exif::Value::Ascii(parts) => parts
-					.iter()
-					.map(|p| String::from_utf8_lossy(p).trim_end_matches('\0').trim().to_string())
-					.collect::<Vec<_>>()
-					.join(", "),
-				_ => f.display_value().with_unit(&exif).to_string(),
+				exif::Value::Ascii(_) => value.trim_matches('"').replace("\", \"", ", "),
+				_ => value,
 			};
 			(
 				rank,

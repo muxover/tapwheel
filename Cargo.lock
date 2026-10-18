@@ -4684,6 +4684,7 @@ dependencies = [
  "tapwheel-ui",
  "tiny-skia 0.12.0",
  "windows",
+ "windows-collections",
  "windows-sys 0.61.2",
  "wry",
 ]
