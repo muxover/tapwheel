@@ -749,7 +749,6 @@ impl App {
 			let main = self.main as usize;
 			self.jobs.start(
 				op,
-				kind,
 				files,
 				jobs,
 				recipe,
