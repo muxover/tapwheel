@@ -32,9 +32,11 @@ TapWheel converts files on Windows 10 and 11 without opening an app. Start dragg
 
 ## Installation
 
-Download `TapWheel-<version>-windows-x64.zip` from the [latest release](https://github.com/muxover/tapwheel/releases/latest), unzip it anywhere and run `tapwheel.exe`. It installs nothing else and needs no admin rights. The portable build also adds TapWheel to the right-click menu ("Show more options" on Windows 11).
+Get it from the [Microsoft Store](https://apps.microsoft.com/detail/9MW1GB4106VS). The Store version is signed by Microsoft and updates itself.
 
-The release isn't code-signed yet, so Windows SmartScreen may ask before the first run. The Microsoft Store version is signed by Microsoft.
+Or download `TapWheel-<version>-windows-x64.zip` from the [latest release](https://github.com/muxover/tapwheel/releases/latest), unzip it anywhere and run `tapwheel.exe`. It installs nothing else and needs no admin rights. The portable build also adds TapWheel to the right-click menu ("Show more options" on Windows 11).
+
+The zip isn't code-signed, so Windows SmartScreen may ask before the first run.
 
 ---
 
@@ -111,6 +113,7 @@ Licensed under the [GPL-3.0](LICENSE) license. Third-party parts are listed in [
 ## Links
 
 - Website: https://tapwheel.muxover.com
+- Microsoft Store: https://apps.microsoft.com/detail/9MW1GB4106VS
 - Repository: https://github.com/muxover/tapwheel
 - Issues: https://github.com/muxover/tapwheel/issues
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
