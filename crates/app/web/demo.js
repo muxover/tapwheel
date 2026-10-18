@@ -590,21 +590,33 @@ function hitTest(scene, hover, x, y) {
 	const a = Math.atan2(dy, dx);
 	const step = (Math.PI * 2) / n;
 	const k = (((Math.round((a + Math.PI / 2) / step) % n) + n) % n);
+	// as in the app: the open ring owns the band from the slices' rim to past its chips across its
+	// whole arc, and the nearest chip wins, so the way out to a chip never drops it
 	const slice = hover !== null ? scene.slices[hover] : null;
-	if (slice?.ring && r >= RING_IN - 6 && r <= RING_OUT + 10) {
+	if (slice?.ring) {
 		const rr = (RING_IN + RING_OUT) / 2;
 		const gap = 6 / rr;
 		const widths = slice.ring.map((l) => Math.max(widthOf(l, 12.5) + 30, 64) / rr);
-		const total = widths.reduce((s, w) => s + w, 0) + gap * (widths.length - 1);
-		let at = angles(n, hover)[1] - total / 2;
-		let off = a - at;
-		off = ((off % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-		for (let j = 0; j < widths.length; j++) {
-			if (off <= widths[j] + gap / 2) return { slice: hover, ring: j };
-			off -= widths[j] + gap;
+		const total = widths.reduce((sum, w) => sum + w, 0) + gap * (widths.length - 1);
+		const start = angles(n, hover)[1] - total / 2;
+		const TAU = Math.PI * 2;
+		const wrap = (x) => ((((x + Math.PI) % TAU) + TAU) % TAU) - Math.PI;
+		const fromStart = ((((a - start + 0.12) % TAU) + TAU) % TAU) - 0.12;
+		const inArc = fromStart <= total + 0.12;
+		if (inArc && r >= RING_IN - 4 && r < RING_OUT + 40) {
+			let at = start;
+			let best = 0;
+			let bestOff = Infinity;
+			widths.forEach((w, j) => {
+				const o = Math.abs(wrap(a - (at + w / 2)));
+				if (o < bestOff) [best, bestOff] = [j, o];
+				at += w + gap;
+			});
+			return { slice: hover, ring: best };
 		}
+		if (inArc && r > R_OUT - 28 && r < RING_IN - 4) return { slice: hover, ring: null };
 	}
-	if (r < R_IN || r > R_OUT + 8) return { slice: r > R_OUT && slice?.ring && r <= RING_OUT + 10 ? hover : null, ring: null };
+	if (r < R_IN || r > R_OUT + 12) return { slice: null, ring: null };
 	return { slice: k, ring: null };
 }
 
