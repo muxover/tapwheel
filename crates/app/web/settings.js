@@ -1,5 +1,3 @@
-// The TapWheel window: how it works, keys, what each tool does by default, and the rest.
-
 import { demo } from "./demo.js";
 import { group, h, iconEl, segmented, send, slider, toast, toggle } from "./tw.js";
 

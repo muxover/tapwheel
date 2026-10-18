@@ -1,5 +1,3 @@
-//! Reading text aloud with the voices built into Windows.
-
 use std::path::Path;
 
 use crate::Error;

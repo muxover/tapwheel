@@ -21,7 +21,6 @@ export function cssFor(name) {
 	return name;
 }
 
-/** Fills a canvas area with a named backdrop. */
 export function paintBackdrop(ctx, name, w, h, source) {
 	const g = GRADIENTS[name];
 	if (g) {
@@ -44,7 +43,6 @@ export function paintBackdrop(ctx, name, w, h, source) {
 	}
 }
 
-/** Rounded rectangle path. */
 export function roundRect(ctx, x, y, w, h, r) {
 	r = Math.min(r, w / 2, h / 2);
 	ctx.beginPath();

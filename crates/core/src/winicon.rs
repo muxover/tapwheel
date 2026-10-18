@@ -1,5 +1,3 @@
-//! A program's icon, read through Windows.
-
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 

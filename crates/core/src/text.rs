@@ -1,5 +1,3 @@
-//! Text files: reading any encoding, data formats into each other, documents, and line tools.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -65,8 +63,6 @@ fn join(lines: &[impl AsRef<str>], crlf: bool) -> String {
 	}
 	s
 }
-
-// ---------- data formats ----------
 
 fn delimiter(ext: &str) -> u8 {
 	match ext {
@@ -499,8 +495,6 @@ pub fn write_data(v: &Value, to: Format) -> Result<String, Error> {
 	})
 }
 
-// ---------- documents ----------
-
 const PAGE_CSS: &str = "body{max-width:46rem;margin:3rem auto;padding:0 1.25rem;font:16px/1.65 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:#1f2328;background:#fff}h1,h2,h3{line-height:1.25}h1,h2{border-bottom:1px solid #d1d9e0;padding-bottom:.3em}a{color:#0969da}code,pre{font-family:'Cascadia Code',Consolas,monospace;font-size:.9em}code{background:#eff1f3;padding:.15em .35em;border-radius:6px}pre{background:#f6f8fa;padding:1rem;border-radius:8px;overflow:auto}pre code{background:none;padding:0}blockquote{margin:0;padding:0 1em;color:#59636e;border-left:.25em solid #d1d9e0}table{border-collapse:collapse}th,td{border:1px solid #d1d9e0;padding:.4em .8em}img{max-width:100%}hr{border:0;border-top:1px solid #d1d9e0}@media (prefers-color-scheme:dark){body{color:#e6edf3;background:#0d1117}h1,h2{border-color:#3d444d}a{color:#4493f8}code{background:#262c36}pre{background:#151b23}blockquote{color:#9198a1;border-color:#3d444d}th,td,hr{border-color:#3d444d}}";
 
 pub fn page(title: &str, body: &str) -> String {
@@ -705,7 +699,6 @@ fn text_to_html(text: &str, title: &str) -> String {
 	page(title, &body)
 }
 
-/// Converts a text file to another text format.
 pub fn convert(input: &Path, to: Format) -> Result<String, Error> {
 	let text = read(input)?;
 	let ext = ext_of(input);
@@ -745,8 +738,6 @@ pub fn convert(input: &Path, to: Format) -> Result<String, Error> {
 		other => return Err(Error::Engine(format!("can't make {} from this file", other.label()))),
 	})
 }
-
-// ---------- line tools ----------
 
 fn natural_key(s: &str) -> (Option<f64>, String) {
 	let t = s.trim();

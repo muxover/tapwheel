@@ -46,7 +46,6 @@ pub fn copy_text(owner: HWND, text: &str) -> bool {
 	})
 }
 
-/// The clipboard's text, if it holds any.
 pub fn clipboard_text(owner: HWND) -> Option<String> {
 	unsafe {
 		if OpenClipboard(owner) == 0 {

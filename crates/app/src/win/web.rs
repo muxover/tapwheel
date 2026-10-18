@@ -75,7 +75,6 @@ impl Web {
 		self.windows.iter().find(|w| w.hwnd == hwnd)
 	}
 
-	/// Sends a message to a page.
 	pub fn send(&self, hwnd: HWND, msg: &Value) {
 		if let Some(w) = self.get(hwnd) {
 			let _ = w.view.evaluate_script(&format!("window.TW && TW.receive({msg})"));
