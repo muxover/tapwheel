@@ -364,11 +364,27 @@ pub fn insert_exif(file: &[u8], exif: &[u8]) -> Option<Vec<u8>> {
 		out.extend(((exif.len() + 8) as u16).to_be_bytes());
 		out.extend(b"Exif\0\0");
 		out.extend_from_slice(exif);
-		out.extend_from_slice(&file[after..]);
+		// newer FFmpeg writes the source's EXIF itself; ours replaces it, or readers see the old one first
+		let mut at = after;
+		for seg in segs.iter().filter(|s| s.whole.start >= after) {
+			if seg.marker == 0xe1 && file[seg.data.clone()].starts_with(b"Exif\0") {
+				out.extend_from_slice(&file[at..seg.whole.start]);
+				at = seg.whole.end;
+			}
+		}
+		out.extend_from_slice(&file[at..]);
 		Some(out)
 	} else if file.starts_with(b"\x89PNG\r\n\x1a\n") {
-		let chunks = png_chunks(file);
-		let idat = chunks.iter().find(|c| &c.kind == b"IDAT")?.whole.start;
+		// any eXIf already there (newer FFmpeg copies the source's) goes, so ours is the only one
+		let mut kept = Vec::with_capacity(file.len());
+		let mut at = 0;
+		for c in png_chunks(file).iter().filter(|c| &c.kind == b"eXIf") {
+			kept.extend_from_slice(&file[at..c.whole.start]);
+			at = c.whole.end;
+		}
+		kept.extend_from_slice(&file[at..]);
+		let file = kept.as_slice();
+		let idat = png_chunks(file).iter().find(|c| &c.kind == b"IDAT")?.whole.start;
 		let mut out = file[..idat].to_vec();
 		out.extend((exif.len() as u32).to_be_bytes());
 		let mut body = b"eXIf".to_vec();
@@ -689,5 +705,33 @@ pub(crate) mod tests {
 		assert_eq!(orientation(&out), 1);
 		assert!(has_location(&out));
 		assert_eq!(crc32(b"IEND"), 0xae42_6082);
+	}
+
+	#[test]
+	fn new_exif_replaces_what_ffmpeg_copied() {
+		let src = sample_jpeg(6);
+		let old = src[exif_range(&src).unwrap()].to_vec();
+		let ours = tidy_exif(&old, false);
+		let jpg = insert_exif(&src, &ours).unwrap();
+		assert_eq!(orientation(&jpg), 1);
+		assert_eq!(jpg.windows(6).filter(|w| w == b"Exif\0\0").count(), 1);
+
+		let chunk = |kind: &[u8], data: &[u8]| {
+			let mut c = (data.len() as u32).to_be_bytes().to_vec();
+			let mut body = kind.to_vec();
+			body.extend_from_slice(data);
+			c.extend_from_slice(&body);
+			c.extend(crc32(&body).to_be_bytes());
+			c
+		};
+		let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+		png.extend(chunk(b"IHDR", &[0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]));
+		png.extend(chunk(b"IDAT", &[1, 2, 3]));
+		png.extend(chunk(b"eXIf", &old));
+		png.extend(chunk(b"IEND", &[]));
+		let out = insert_exif(&png, &ours).unwrap();
+		assert_eq!(orientation(&out), 1);
+		assert_eq!(out.windows(4).filter(|w| w == b"eXIf").count(), 1);
+		assert!(out.ends_with(&chunk(b"IEND", &[])));
 	}
 }
