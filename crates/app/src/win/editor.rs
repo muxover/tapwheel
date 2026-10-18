@@ -111,6 +111,12 @@ impl App {
 				let result: Result<(), tapwheel_core::Error> = (|| {
 					match (op, kind) {
 						(Op::Rename, _) => {}
+						(Op::RemoveBackground, _) => {
+							// the original, upright, and the AI's cut-out of it at the same size
+							let preview = tapwheel_core::image::preview(&engines, f)?;
+							info["url"] = json!(share(&preview));
+							info["cutout"] = json!(share(&tapwheel_core::bg::cutout_file(&engines, f)?));
+						}
 						(Op::Info, _) => {
 							info["info"] = json!(tapwheel_core::files::info(&engines, f)?);
 						}

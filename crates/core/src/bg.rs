@@ -198,6 +198,18 @@ pub fn remove(e: &Engines, src: &Source, part: &Path, c: &AtomicBool) -> Result<
 	write_png(part, w, h, &cut_out(&upright_src, &m))
 }
 
+/// The cut-out of `input` as a PNG in the scratch folder, upright and at full size, for the
+/// touch-up window to edit. Its alpha is the mask the window starts from.
+pub fn cutout_file(e: &Engines, input: &Path) -> Result<std::path::PathBuf, Error> {
+	let src = crate::image::source(e, input)?;
+	let _ = std::fs::create_dir_all(&e.scratch);
+	static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+	let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+	let out = e.scratch.join(format!("cutout-{}-{n}.png", std::process::id()));
+	remove(e, &src, &out, &AtomicBool::new(false))?;
+	Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

@@ -805,3 +805,22 @@ kbd {
 	flex: none;
 	margin-top: 3px;
 }
+
+/* Touch up: the brush outline follows the pointer over the picture */
+.cutout-view {
+	cursor: none;
+	touch-action: none;
+}
+
+.brush-ring {
+	position: absolute;
+	pointer-events: none;
+	border-radius: 50%;
+	border: 1.5px solid #fff;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+	transform: translate(-50%, -50%);
+}
+
+.brush-ring[hidden] {
+	display: none;
+}
