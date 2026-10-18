@@ -10,12 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-- Drag a file, tap Shift, Ctrl or Alt, and drop it on the Convert, Tools or Actions wheel.
-- Conversions for images (including HEIC), audio, video, GIF, subtitles and archives, run on the PC by a bundled FFmpeg.
-- Image, video, audio and archive tools, and actions for copying paths and files, opening a terminal and showing items in File Explorer.
-- Tap a key twice to repeat the last choice; most-used slices move to the top.
-- Progress cards with size before and after, Open, Show in folder, Undo and Cancel.
-- A home window with sample files to practise on, key settings, start with Windows and pause.
+- Drag a file, tap Shift, Ctrl or Alt, and drop it on the Convert, Tools or Actions wheel. The wheel only opens while files are being dragged.
+- Pictures: convert between 10 formats and read 48, including HEIC, JPEG XL, PSD and camera RAW. Crop, add or remove backgrounds, adjust, annotate, redact, resize, compress to a quality or a target size, rotate, combine, trace to SVG, make icons, and see or remove hidden photo details.
+- Video: convert, trim with several cuts, compress to a quality or a size like 25 MB, make GIFs, crop, resize, change speed, save frames, mute, save the sound, rotate, reverse and join.
+- Audio: convert, trim, fade, even out, compress, change volume, speed and channels, make ringtones, remove silence, reverse, join and edit tags.
+- Icons: Windows and macOS icons, favicon packs, PNG sets, and icons pulled out of programs.
+- Text and code: Markdown and HTML, read aloud, UTF-8, clean up, sort, dedupe, change case, line endings, split and merge, format and minify for 30 file types, code shots and Copy as Markdown.
+- Archives: extract, see what's inside, test, password-protect ZIP and 7Z with AES-256, split into parts, and convert between ZIP, 7Z and TAR kinds.
+- Actions for any file: copy, copy path, move to a recent or chosen folder, share, float on a shelf, checksums, and a terminal for folders and code.
+- Tools with choices show them on a ring around the slice, and tools that need setting up open their own window with a live preview.
+- More than eight slices turn into pages; rest on More, press Tab, or roll the mouse wheel.
+- Background removal runs on the PC with a bundled model.
+- Compact progress cards that expand on hover, with sizes before and after, Open, Show, Undo and Cancel.
+- Settings with an animated guide, keys, defaults for every tool, start with Windows, favourites first and pause.
 - Windows 10 and 11 looks that follow light and dark mode, the accent colour and high contrast.
 - Portable zip with a right-click entry, and a Microsoft Store package.
 
