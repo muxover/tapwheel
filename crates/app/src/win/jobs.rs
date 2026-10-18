@@ -69,13 +69,13 @@ impl Batch {
 		let title = match self.state {
 			State::Running => doing.clone(),
 			State::Done if self.outputs.is_empty() => doing.clone(),
-			State::Done if single => self.outputs.first().map(name).unwrap_or_default(),
+			State::Done if single => self.outputs.first().map(|p| name(p)).unwrap_or_default(),
 			State::Done => format!("{} files ready", self.outputs.len()),
 			State::Failed => format!("Couldn't {}", lower_first(&doing)),
 			State::Cancelled => "Cancelled".into(),
 		};
 		let detail = match self.state {
-			State::Running if single => self.inputs.first().map(name).unwrap_or_default(),
+			State::Running if single => self.inputs.first().map(|p| name(p)).unwrap_or_default(),
 			State::Running => format!("{} of {}", (self.done + 1).min(self.total), self.total),
 			State::Done if self.outputs.is_empty() => self.error.clone().unwrap_or_default(),
 			State::Done => {
