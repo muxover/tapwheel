@@ -183,7 +183,7 @@ Each phase ends with CI green on main; nothing is tagged before G.
 | F. Website | The redesign below, with real captures | The browser check passes; looked at on a phone |
 | G. Release | README, CHANGELOG, release notes and these notes through the humanizer; notices checked; one final script signs, rewrites history to one commit per version, tags and releases | The release builds from a fresh clone; the Store package passes the App Certification Kit |
 
-Progress: A to D are done and pass in CI. E: every tool and window was tried on Jax's Windows 11 PC on 2026-10-18 and works; Windows 10, 125 to 200% scaling and two monitors are still untried. F is built on the `site-redesign` branch and goes live with the release, since its download buttons need the Store listing and the GitHub release. G is next: screenshots, the clean-code pass, the final script, then the Store submission.
+Progress: A to D are done and pass in CI. E: every tool and window was tried on Jax's Windows 11 PC on 2026-10-18 and works; Windows 10, 125 to 200% scaling and two monitors are still untried. F is on `main` and goes live with the release. G: the Store screenshots, the clean-code pass and the release script are done; v0.1.0 ships from the script, then the Store submission.
 
 Release blockers: a lost or replaced file, a claim the app can't back, a wheel that opens when it shouldn't or a stuck key, text outside its shape, a crash on a broken file, missing licence notices, a Store certification failure, or a wheel that waits on a job.
 
