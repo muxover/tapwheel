@@ -222,6 +222,10 @@ fn reason(lines: &VecDeque<String>) -> String {
 		"Exiting normally",
 		"[out#",
 		"[in#",
+		// FFmpeg 8 prints its final summary after the error
+		"frame=",
+		"size=",
+		"video:",
 	];
 	lines
 		.iter()
@@ -554,6 +558,9 @@ pub fn video_codec_args(to: Format, crf: u8, audio: bool, audio_kbps: u32) -> Ve
 			"good".into(),
 			"-cpu-used".into(),
 			"4".into(),
+			// a GIF's palette would otherwise pick a format browsers and players can't show
+			"-pix_fmt".into(),
+			"yuv420p".into(),
 		],
 		Format::Avi => strs(&["-c:v", "mpeg4", "-q:v", "4", "-vtag", "XVID"]),
 		Format::Wmv => strs(&["-c:v", "wmv2", "-q:v", "4"]),
@@ -660,6 +667,7 @@ mod tests {
 			"[mjpeg @ 0x55] Invalid pixel format",
 			"Error while opening encoder",
 			"Conversion failed!",
+			"frame=    0 fps=0.0 q=0.0 Lsize=       0KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.00",
 		]
 		.iter()
 		.map(|s| s.to_string())
