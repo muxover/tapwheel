@@ -64,15 +64,17 @@ Up to 7. Another app's name (like Tangerine) isn't allowed as a keyword.
 
 ## Screenshots
 
-At least one, 1366 × 768 or larger, PNG, each cropped to one window, with nothing else on screen.
+Upload `packaging/store/tapwheel-1.png` to `tapwheel-7.png` in this order (1920 × 1080 PNG). Each is a headline beside the real app: the wheels are drawn by TapWheel's own code from its real tool lists (`cargo run -p tapwheel-ui --example store_wheels`), and the windows are the app's own pages with the site's sample files. Nothing in them is mocked up or generated.
 
-1. The Tools wheel open over File Explorer while dragging a photo, Compress hovered with its ring showing.
-2. The Convert wheel on a HEIC photo.
-3. The Crop window with a photo.
-4. The Trim window with a video, two parts kept.
-5. Touch up after Remove BG, with a backdrop chosen.
-6. A result card after a conversion, showing the size before and after.
-7. The settings window, dark mode.
+1. Drag a file. Tap a key. (the Tools wheel, Compress's ring open)
+2. Convert to any format (the Convert wheel on a HEIC photo)
+3. Remove backgrounds on your PC (Touch up)
+4. Trim video and sound (Trim)
+5. Tools with a live preview (Crop)
+6. Actions for any file (the Actions wheel, Copy path's ring open)
+7. Code shots in one drop (Code shot)
+
+Redo them when a wheel or window changes, so the listing never shows something the app doesn't.
 
 ## Store logos and listing art
 
