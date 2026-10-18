@@ -30,18 +30,17 @@ impl App {
 				}
 			}
 			Op::CopyPath => {
-				let text = files
-					.iter()
-					.map(|p| p.display().to_string())
-					.collect::<Vec<_>>()
-					.join("\r\n");
+				let which = preset.unwrap_or("path");
+				let text = tapwheel_core::files::clip_text(files, which);
+				let what = match which {
+					"name" => plural(files.len(), "the name", "names"),
+					"stem" => plural(files.len(), "the base name", "base names"),
+					"uri" => plural(files.len(), "the file URL", "file URLs"),
+					"quoted" => plural(files.len(), "the quoted path", "quoted paths"),
+					_ => plural(files.len(), "the path", "paths"),
+				};
 				if shell::copy_text(self.main, &text) {
-					self.jobs.note(
-						op,
-						kind,
-						files,
-						format!("Copied {}", plural(files.len(), "the path", "paths")),
-					);
+					self.jobs.note(op, kind, files, format!("Copied {what}"));
 				} else {
 					self.busy_clipboard(op, kind, files);
 				}
@@ -57,6 +56,12 @@ impl App {
 				super::float::add(self.theme, files);
 			}
 			Op::Hash => self.checksum(preset, files),
+			Op::Properties => {
+				if !shell::properties(self.main, &files[0]) {
+					self.jobs.problem(op, kind, files, "Properties didn't open".into());
+				}
+			}
+			Op::OpenWith => shell::open_with(&files[0]),
 			Op::Terminal => {
 				let dir = files
 					.iter()

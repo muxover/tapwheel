@@ -90,6 +90,11 @@ pub enum Op {
 	// actions
 	Copy,
 	CopyPath,
+	Rename,
+	Duplicate,
+	Info,
+	Properties,
+	OpenWith,
 	MoveTo,
 	Share,
 	Float,
@@ -180,6 +185,11 @@ impl Op {
 			Op::Zip => "ZIP",
 			Op::Copy => "Copy",
 			Op::CopyPath => "Copy path",
+			Op::Rename => "Rename",
+			Op::Duplicate => "Duplicate",
+			Op::Info => "File info",
+			Op::Properties => "Properties",
+			Op::OpenWith => "Open with",
 			Op::MoveTo => "Move to",
 			Op::Share => "Share",
 			Op::Float => "Float",
@@ -254,6 +264,11 @@ impl Op {
 			Op::Zip => "Pack into one ZIP".into(),
 			Op::Copy => "Copy to paste elsewhere".into(),
 			Op::CopyPath => "Copy the full path".into(),
+			Op::Rename => "New names, one or many".into(),
+			Op::Duplicate => "A copy right next to it".into(),
+			Op::Info => "Size, real type and details".into(),
+			Op::Properties => "The Windows properties window".into(),
+			Op::OpenWith => "Pick an app to open it".into(),
 			Op::MoveTo => "Move to a folder".into(),
 			Op::Share => "Send with Windows share".into(),
 			Op::Float => "Keep it handy for later".into(),
@@ -321,6 +336,11 @@ impl Op {
 			Op::Zip => "folder_zip",
 			Op::Copy => "copy",
 			Op::CopyPath => "link",
+			Op::Rename => "rename",
+			Op::Duplicate => "document_copy",
+			Op::Info => "document_search",
+			Op::Properties => "wrench",
+			Op::OpenWith => "open",
 			Op::MoveTo => "folder_arrow_right",
 			Op::Share => "share",
 			Op::Float => "pin",
@@ -341,9 +361,13 @@ impl Op {
 			| Op::Combine
 			| Op::CodeImage
 			| Op::Protect
-			| Op::Contents => Mode::Editor,
+			| Op::Contents
+			| Op::Rename
+			| Op::Info => Mode::Editor,
 			Op::Copy
 			| Op::CopyPath
+			| Op::Properties
+			| Op::OpenWith
 			| Op::MoveTo
 			| Op::Share
 			| Op::Float
@@ -418,6 +442,13 @@ impl Op {
 			p("10000", "10,000 lines"),
 		];
 		const SPLIT_ARCHIVE: &[Preset] = &[p("25", "25 MB"), p("100", "100 MB"), p("1000", "1 GB")];
+		const COPY_PATH: &[Preset] = &[
+			p("path", "Path"),
+			p("name", "Name"),
+			p("stem", "Base name"),
+			p("quoted", "Quoted"),
+			p("uri", "File URL"),
+		];
 		const HASH: &[Preset] = &[
 			p("sha256", "SHA-256"),
 			p("md5", "MD5"),
@@ -458,6 +489,7 @@ impl Op {
 			(Op::Split, Some(Kind::Archive)) => SPLIT_ARCHIVE,
 			(Op::Split, _) => SPLIT_TEXT,
 			(Op::Hash, _) => HASH,
+			(Op::CopyPath, _) => COPY_PATH,
 			(Op::Combine, _) => COMBINE,
 			(Op::IconSet, _) => ICON_SIZES,
 			_ => &[],
@@ -637,9 +669,27 @@ pub fn choices(wheel: Wheel, paths: &[impl AsRef<Path>]) -> Vec<Op> {
 		}
 		Wheel::Tools => tools(kind, paths.len(), &exts),
 		Wheel::Actions => {
-			let mut a = vec![Op::Copy, Op::CopyPath, Op::MoveTo, Op::Share, Op::Float];
+			let mut a = vec![
+				Op::Copy,
+				Op::CopyPath,
+				Op::Rename,
+				Op::MoveTo,
+				Op::Duplicate,
+				Op::Share,
+				Op::Info,
+				Op::Float,
+			];
 			if paths.iter().all(|p| !p.as_ref().is_dir()) {
 				a.push(Op::Hash);
+			}
+			if paths.len() == 1 {
+				a.push(Op::Properties);
+				if !paths[0].as_ref().is_dir() {
+					a.push(Op::OpenWith);
+				}
+			} else {
+				// file info describes one item
+				a.retain(|o| *o != Op::Info);
 			}
 			if paths
 				.iter()

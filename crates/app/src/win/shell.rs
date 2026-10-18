@@ -303,3 +303,22 @@ fn tone_wav() -> Vec<u8> {
 	}
 	out
 }
+
+/// The Explorer Properties window for one item; it opens on its own and doesn't block.
+pub fn properties(owner: HWND, item: &Path) -> bool {
+	let p = wide(item.as_os_str());
+	unsafe { SHObjectProperties(owner, SHOP_FILEPATH as u32, p.as_ptr(), std::ptr::null()) != 0 }
+}
+
+/// The Windows "Open with" picker. It waits until it's closed, so it runs on its own thread.
+pub fn open_with(item: &Path) {
+	let p = wide(item.as_os_str());
+	std::thread::spawn(move || unsafe {
+		let info = OPENASINFO {
+			pcszFile: p.as_ptr(),
+			pcszClass: std::ptr::null(),
+			oaifInFlags: OAIF_EXEC | OAIF_ALLOW_REGISTRATION,
+		};
+		SHOpenWithDialog(std::ptr::null_mut(), &info);
+	});
+}

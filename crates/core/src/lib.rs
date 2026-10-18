@@ -3,6 +3,7 @@ pub mod bg;
 pub mod code;
 pub mod codeshot;
 pub mod ff;
+pub mod files;
 pub mod format;
 pub mod hash;
 pub mod icons;

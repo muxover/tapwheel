@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
 use serde_json::{Value, json};
+use tapwheel_core::files::{self, RenameRule};
 use tapwheel_core::kind::ext_of;
 use tapwheel_core::ops::selection_kind;
 use tapwheel_core::run::Engines;
@@ -23,6 +24,8 @@ const LINKS: &[&str] = &[
 fn size_for(op: Op) -> (f32, f32) {
 	match op {
 		Op::Protect => (560.0, 460.0),
+		Op::Info => (720.0, 640.0),
+		Op::Rename => (980.0, 660.0),
 		Op::Metadata | Op::Contents => (820.0, 680.0),
 		Op::Trim | Op::MakeGif => (1120.0, 740.0),
 		_ => (1140.0, 800.0),
@@ -104,6 +107,10 @@ impl App {
 				let mut info = json!({ "index": i });
 				let result: Result<(), tapwheel_core::Error> = (|| {
 					match (op, kind) {
+						(Op::Rename, _) => {}
+						(Op::Info, _) => {
+							info["info"] = json!(tapwheel_core::files::info(&engines, f)?);
+						}
 						(Op::Contents, _) => {
 							info["items"] = json!(tapwheel_core::archive::list(f)?);
 						}
@@ -232,6 +239,47 @@ impl App {
 				}
 			}
 			"close" => web::close(self, hwnd),
+			"renamePreview" | "rename" => {
+				let Some(w) = self.web.get(hwnd) else { return };
+				let inputs = w.inputs.clone();
+				let rule: RenameRule = serde_json::from_value(msg["rule"].clone()).unwrap_or_default();
+				let plan = files::rename_plan(&inputs, &rule);
+				if cmd == "renamePreview" {
+					let items: Vec<Value> = plan
+						.iter()
+						.map(|r| json!({ "from": file_name(&r.from), "to": file_name(&r.to), "problem": r.problem }))
+						.collect();
+					self.web.send(hwnd, &json!({ "type": "renamePlan", "items": items }));
+					return;
+				}
+				let kind = selection_kind(&inputs);
+				match files::rename_all(&plan) {
+					Ok(done) => {
+						web::close(self, hwnd);
+						let renamed: Vec<PathBuf> = done.iter().map(|(_, to)| to.clone()).collect();
+						let text = match done.len() {
+							1 => format!("Renamed to {}", file_name(&renamed[0])),
+							n => format!("Renamed {n} items"),
+						};
+						self.jobs.note(Op::Rename, kind, &renamed, text);
+						self.refresh_hud();
+					}
+					Err(e) => self.web.send(
+						hwnd,
+						&json!({ "type": "error", "message": format!("Nothing was renamed: {e}") }),
+					),
+				}
+			}
+			"copyText" => {
+				let text = msg["text"].as_str().unwrap_or("");
+				let what = msg["what"].as_str().unwrap_or("it");
+				let reply = if shell::copy_text(hwnd, text) {
+					format!("Copied {what}")
+				} else {
+					"The clipboard is busy; try again".to_string()
+				};
+				self.web.send(hwnd, &json!({ "type": "toast", "message": reply }));
+			}
 			"settings" => {
 				if let Ok(s) = serde_json::from_value::<Settings>(msg["settings"].clone()) {
 					let autostart = s.start_with_windows != self.settings.start_with_windows;

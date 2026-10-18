@@ -315,6 +315,7 @@ fn file_job(op: Op, recipe: &Recipe, input: &Path) -> Option<Job> {
 		),
 		Recipe::Extract => unique_path(&dir, &stem, ""),
 		Recipe::Test => PathBuf::new(),
+		Recipe::Duplicate => unique_path(&dir, &format!("{stem} - Copy"), &ext),
 		Recipe::Pack { .. } | Recipe::Join | Recipe::Merge | Recipe::Combine { .. } | Recipe::Protect { .. } => {
 			return None;
 		}

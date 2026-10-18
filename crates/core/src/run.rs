@@ -275,6 +275,19 @@ fn keep_date(job: &Job, output: &Path) {
 	}
 }
 
+fn copy_all(from: &Path, to: &Path) -> Result<(), Error> {
+	if from.is_dir() {
+		fs::create_dir_all(to)?;
+		for entry in fs::read_dir(from)? {
+			let entry = entry?;
+			copy_all(&entry.path(), &to.join(entry.file_name()))?;
+		}
+	} else {
+		fs::copy(from, to)?;
+	}
+	Ok(())
+}
+
 fn remove(path: &Path) {
 	let _ = if path.is_dir() {
 		fs::remove_dir_all(path)
@@ -306,6 +319,7 @@ fn execute(
 	let ext = ext_of(input);
 	let write = |s: String| -> Result<(), Error> { Ok(fs::write(part, s)?) };
 	match &job.recipe {
+		Recipe::Duplicate => copy_all(input, part),
 		// whole-selection recipes
 		Recipe::Pack { format } => archive::pack(&job.inputs, *format, part, cancel),
 		Recipe::Convert { to } if to.is_archive() && kind != Kind::Archive => {
