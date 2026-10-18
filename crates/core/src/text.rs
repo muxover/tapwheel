@@ -749,7 +749,7 @@ fn natural_key(s: &str) -> (Option<f64>, String) {
 	(lead.parse().ok(), t.to_lowercase())
 }
 
-fn title_case(s: &str) -> String {
+pub(crate) fn title_case(s: &str) -> String {
 	const SMALL: &[&str] = &[
 		"a", "an", "and", "as", "at", "but", "by", "for", "in", "of", "on", "or", "the", "to", "vs", "via",
 	];
@@ -775,7 +775,7 @@ fn title_case(s: &str) -> String {
 		.join(" ")
 }
 
-fn sentence_case(s: &str) -> String {
+pub(crate) fn sentence_case(s: &str) -> String {
 	let mut out = String::with_capacity(s.len());
 	let mut start = true;
 	for ch in s.chars() {

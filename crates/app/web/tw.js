@@ -1,6 +1,6 @@
 import { icon } from "./icons.js";
 
-const TW = { init: null, prepared: null, waiting: [] };
+const TW = { init: null, prepared: null, waiting: [], listeners: {} };
 window.TW = TW;
 
 export function send(cmd, data = {}) {
@@ -26,8 +26,18 @@ TW.receive = (msg) => {
 		case "error":
 			toast(msg.message, true);
 			break;
+		case "toast":
+			toast(msg.message);
+			break;
+		default:
+			for (const cb of TW.listeners[msg.type] || []) cb(msg);
 	}
 };
+
+/** Calls `cb` with every message of this type the app sends the page. */
+export function on(type, cb) {
+	(TW.listeners[type] ||= []).push(cb);
+}
 
 /** Resolves once the app has prepared previews and details for the files. */
 export function prepared() {
@@ -320,6 +330,8 @@ const EDITORS = {
 	combine: "combine",
 	protect: "protect",
 	contents: "contents",
+	rename: "rename",
+	info: "info",
 };
 
 async function start(init) {

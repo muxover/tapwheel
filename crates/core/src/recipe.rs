@@ -238,6 +238,8 @@ pub enum Recipe {
 		format: Format,
 	},
 	Test,
+	/// A copy beside the original, named the way Windows names copies.
+	Duplicate,
 	SplitArchive {
 		part_mb: u64,
 	},
@@ -450,6 +452,7 @@ pub fn recipe_for(op: Op, preset: Option<&str>, kind: Option<Kind>, d: &Defaults
 		},
 		Op::Extract => Recipe::Extract,
 		Op::Test => Recipe::Test,
+		Op::Duplicate => Recipe::Duplicate,
 		Op::Zip => Recipe::Pack { format: Format::Zip },
 		Op::MakeGif => Recipe::MakeGif {
 			span: None,
@@ -468,6 +471,10 @@ pub fn recipe_for(op: Op, preset: Option<&str>, kind: Option<Kind>, d: &Defaults
 		| Op::Contents
 		| Op::Copy
 		| Op::CopyPath
+		| Op::Rename
+		| Op::Info
+		| Op::Properties
+		| Op::OpenWith
 		| Op::MoveTo
 		| Op::Share
 		| Op::Float

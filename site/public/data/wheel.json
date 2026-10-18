@@ -15,8 +15,22 @@
           "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
-          "ring": [],
+          "ring": [
+            "Path",
+            "Name",
+            "Base name",
+            "Quoted",
+            "File URL"
+          ],
           "window": false
+        },
+        {
+          "desc": "New names, one or many",
+          "icon": "rename",
+          "id": "rename",
+          "label": "Rename",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Move to a folder",
@@ -27,12 +41,28 @@
           "window": false
         },
         {
+          "desc": "A copy right next to it",
+          "icon": "document_copy",
+          "id": "duplicate",
+          "label": "Duplicate",
+          "ring": [],
+          "window": false
+        },
+        {
           "desc": "Send with Windows share",
           "icon": "share",
           "id": "share",
           "label": "Share",
           "ring": [],
           "window": false
+        },
+        {
+          "desc": "Size, real type and details",
+          "icon": "document_search",
+          "id": "info",
+          "label": "File info",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Keep it handy for later",
@@ -53,6 +83,22 @@
             "SHA-1",
             "Compare"
           ],
+          "window": false
+        },
+        {
+          "desc": "The Windows properties window",
+          "icon": "wrench",
+          "id": "properties",
+          "label": "Properties",
+          "ring": [],
+          "window": false
+        },
+        {
+          "desc": "Pick an app to open it",
+          "icon": "open",
+          "id": "open_with",
+          "label": "Open with",
+          "ring": [],
           "window": false
         }
       ],
@@ -350,8 +396,22 @@
           "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
-          "ring": [],
+          "ring": [
+            "Path",
+            "Name",
+            "Base name",
+            "Quoted",
+            "File URL"
+          ],
           "window": false
+        },
+        {
+          "desc": "New names, one or many",
+          "icon": "rename",
+          "id": "rename",
+          "label": "Rename",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Move to a folder",
@@ -362,12 +422,28 @@
           "window": false
         },
         {
+          "desc": "A copy right next to it",
+          "icon": "document_copy",
+          "id": "duplicate",
+          "label": "Duplicate",
+          "ring": [],
+          "window": false
+        },
+        {
           "desc": "Send with Windows share",
           "icon": "share",
           "id": "share",
           "label": "Share",
           "ring": [],
           "window": false
+        },
+        {
+          "desc": "Size, real type and details",
+          "icon": "document_search",
+          "id": "info",
+          "label": "File info",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Keep it handy for later",
@@ -388,6 +464,22 @@
             "SHA-1",
             "Compare"
           ],
+          "window": false
+        },
+        {
+          "desc": "The Windows properties window",
+          "icon": "wrench",
+          "id": "properties",
+          "label": "Properties",
+          "ring": [],
+          "window": false
+        },
+        {
+          "desc": "Pick an app to open it",
+          "icon": "open",
+          "id": "open_with",
+          "label": "Open with",
+          "ring": [],
           "window": false
         }
       ],
@@ -644,8 +736,22 @@
           "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
-          "ring": [],
+          "ring": [
+            "Path",
+            "Name",
+            "Base name",
+            "Quoted",
+            "File URL"
+          ],
           "window": false
+        },
+        {
+          "desc": "New names, one or many",
+          "icon": "rename",
+          "id": "rename",
+          "label": "Rename",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Move to a folder",
@@ -656,12 +762,28 @@
           "window": false
         },
         {
+          "desc": "A copy right next to it",
+          "icon": "document_copy",
+          "id": "duplicate",
+          "label": "Duplicate",
+          "ring": [],
+          "window": false
+        },
+        {
           "desc": "Send with Windows share",
           "icon": "share",
           "id": "share",
           "label": "Share",
           "ring": [],
           "window": false
+        },
+        {
+          "desc": "Size, real type and details",
+          "icon": "document_search",
+          "id": "info",
+          "label": "File info",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Keep it handy for later",
@@ -682,6 +804,22 @@
             "SHA-1",
             "Compare"
           ],
+          "window": false
+        },
+        {
+          "desc": "The Windows properties window",
+          "icon": "wrench",
+          "id": "properties",
+          "label": "Properties",
+          "ring": [],
+          "window": false
+        },
+        {
+          "desc": "Pick an app to open it",
+          "icon": "open",
+          "id": "open_with",
+          "label": "Open with",
+          "ring": [],
           "window": false
         }
       ],
@@ -938,8 +1076,22 @@
           "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
-          "ring": [],
+          "ring": [
+            "Path",
+            "Name",
+            "Base name",
+            "Quoted",
+            "File URL"
+          ],
           "window": false
+        },
+        {
+          "desc": "New names, one or many",
+          "icon": "rename",
+          "id": "rename",
+          "label": "Rename",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Move to a folder",
@@ -950,12 +1102,28 @@
           "window": false
         },
         {
+          "desc": "A copy right next to it",
+          "icon": "document_copy",
+          "id": "duplicate",
+          "label": "Duplicate",
+          "ring": [],
+          "window": false
+        },
+        {
           "desc": "Send with Windows share",
           "icon": "share",
           "id": "share",
           "label": "Share",
           "ring": [],
           "window": false
+        },
+        {
+          "desc": "Size, real type and details",
+          "icon": "document_search",
+          "id": "info",
+          "label": "File info",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Keep it handy for later",
@@ -976,6 +1144,22 @@
             "SHA-1",
             "Compare"
           ],
+          "window": false
+        },
+        {
+          "desc": "The Windows properties window",
+          "icon": "wrench",
+          "id": "properties",
+          "label": "Properties",
+          "ring": [],
+          "window": false
+        },
+        {
+          "desc": "Pick an app to open it",
+          "icon": "open",
+          "id": "open_with",
+          "label": "Open with",
+          "ring": [],
           "window": false
         }
       ],
@@ -1103,8 +1287,22 @@
           "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
-          "ring": [],
+          "ring": [
+            "Path",
+            "Name",
+            "Base name",
+            "Quoted",
+            "File URL"
+          ],
           "window": false
+        },
+        {
+          "desc": "New names, one or many",
+          "icon": "rename",
+          "id": "rename",
+          "label": "Rename",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Move to a folder",
@@ -1115,12 +1313,28 @@
           "window": false
         },
         {
+          "desc": "A copy right next to it",
+          "icon": "document_copy",
+          "id": "duplicate",
+          "label": "Duplicate",
+          "ring": [],
+          "window": false
+        },
+        {
           "desc": "Send with Windows share",
           "icon": "share",
           "id": "share",
           "label": "Share",
           "ring": [],
           "window": false
+        },
+        {
+          "desc": "Size, real type and details",
+          "icon": "document_search",
+          "id": "info",
+          "label": "File info",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Keep it handy for later",
@@ -1141,6 +1355,22 @@
             "SHA-1",
             "Compare"
           ],
+          "window": false
+        },
+        {
+          "desc": "The Windows properties window",
+          "icon": "wrench",
+          "id": "properties",
+          "label": "Properties",
+          "ring": [],
+          "window": false
+        },
+        {
+          "desc": "Pick an app to open it",
+          "icon": "open",
+          "id": "open_with",
+          "label": "Open with",
+          "ring": [],
           "window": false
         }
       ],
@@ -1326,8 +1556,22 @@
           "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
-          "ring": [],
+          "ring": [
+            "Path",
+            "Name",
+            "Base name",
+            "Quoted",
+            "File URL"
+          ],
           "window": false
+        },
+        {
+          "desc": "New names, one or many",
+          "icon": "rename",
+          "id": "rename",
+          "label": "Rename",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Move to a folder",
@@ -1338,12 +1582,28 @@
           "window": false
         },
         {
+          "desc": "A copy right next to it",
+          "icon": "document_copy",
+          "id": "duplicate",
+          "label": "Duplicate",
+          "ring": [],
+          "window": false
+        },
+        {
           "desc": "Send with Windows share",
           "icon": "share",
           "id": "share",
           "label": "Share",
           "ring": [],
           "window": false
+        },
+        {
+          "desc": "Size, real type and details",
+          "icon": "document_search",
+          "id": "info",
+          "label": "File info",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Keep it handy for later",
@@ -1364,6 +1624,22 @@
             "SHA-1",
             "Compare"
           ],
+          "window": false
+        },
+        {
+          "desc": "The Windows properties window",
+          "icon": "wrench",
+          "id": "properties",
+          "label": "Properties",
+          "ring": [],
+          "window": false
+        },
+        {
+          "desc": "Pick an app to open it",
+          "icon": "open",
+          "id": "open_with",
+          "label": "Open with",
+          "ring": [],
           "window": false
         },
         {
@@ -1603,8 +1879,22 @@
           "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
-          "ring": [],
+          "ring": [
+            "Path",
+            "Name",
+            "Base name",
+            "Quoted",
+            "File URL"
+          ],
           "window": false
+        },
+        {
+          "desc": "New names, one or many",
+          "icon": "rename",
+          "id": "rename",
+          "label": "Rename",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Move to a folder",
@@ -1615,12 +1905,28 @@
           "window": false
         },
         {
+          "desc": "A copy right next to it",
+          "icon": "document_copy",
+          "id": "duplicate",
+          "label": "Duplicate",
+          "ring": [],
+          "window": false
+        },
+        {
           "desc": "Send with Windows share",
           "icon": "share",
           "id": "share",
           "label": "Share",
           "ring": [],
           "window": false
+        },
+        {
+          "desc": "Size, real type and details",
+          "icon": "document_search",
+          "id": "info",
+          "label": "File info",
+          "ring": [],
+          "window": true
         },
         {
           "desc": "Keep it handy for later",
@@ -1641,6 +1947,22 @@
             "SHA-1",
             "Compare"
           ],
+          "window": false
+        },
+        {
+          "desc": "The Windows properties window",
+          "icon": "wrench",
+          "id": "properties",
+          "label": "Properties",
+          "ring": [],
+          "window": false
+        },
+        {
+          "desc": "Pick an app to open it",
+          "icon": "open",
+          "id": "open_with",
+          "label": "Open with",
+          "ring": [],
           "window": false
         }
       ],
