@@ -21,12 +21,13 @@ TapWheel puts file tools on a wheel in Windows 10 and 11. Start dragging a file 
 - Three wheels on three keys: Shift converts, Ctrl opens tools, Alt opens actions.
 - The wheel only opens while you're dragging files, and shows only what fits them.
 - Rest on a slice for its choices on the outer ring, like Balanced or 25 MB.
-- Tools that need setting up open their own window with a live preview: crop, backgrounds, adjust, annotate, redact, trim, GIFs, combine, code shots, photo details, song tags and passwords.
-- Remove BG runs on your PC with a bundled model.
+- Tools that need setting up open their own window with a live preview: crop, backgrounds, adjust, annotate, redact, trim, GIFs, frame snapshots, combine, code shots, photo details, song tags, archive contents, passwords, rename and file info.
+- Remove BG runs on your PC with a bundled model. Touch up opens the cut-out with Keep and Remove brushes that can follow edges.
 - More than eight slices turn into pages. Rest on More, press Tab, or roll the mouse wheel.
 - Tap the same key twice to repeat your last choice; favourites move to the top.
-- Compact cards show the size before and after, with Open, Show, Undo and Cancel.
-- Originals are never changed, and a new file never replaces an existing one.
+- Compact cards show the size before and after, with Open, Show, Undo, Cancel and Retry. Undo only removes a file TapWheel made, and only if you haven't changed it since.
+- A job checks the file can be read and the disk has room before it starts. If TapWheel is closed mid-job, the leftover part-files are cleared next time.
+- Tools never change the original, and a new file never replaces an existing one. Only Rename and Move to touch the original, when you pick them.
 - Follows light or dark mode, your accent colour, high contrast, and the Windows 10 or 11 look.
 - Works offline. Nothing is uploaded, and there's no account.
 
@@ -38,13 +39,13 @@ TapWheel puts file tools on a wheel in Windows 10 and 11. Start dragging a file 
 |------|-------|------------|-------|
 | Pictures | 48 formats, including HEIC, JPEG XL, PSD and camera RAW | PNG, JPG, WebP, AVIF, GIF, TIFF, BMP, ICO, TGA, QOI | Crop, Add BG, Remove BG, Compress, Resize, Adjust, Annotate, Redact, Rotate, Metadata, Make icon, To SVG, Combine |
 | Video | 24 formats | MP4, MOV, MKV, WebM, GIF, MP3, AVI, WMV, M4A, WAV | Trim, Compress, Make GIF, Resize, Crop, Speed, Snapshot, Mute, Get audio, Rotate, Reverse, Join |
-| Audio | 33 formats | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, ringtone | Trim, Fade, Normalize, Compress, Volume, Speed, Metadata, Ringtone, Mono, No silence, Reverse, Join |
+| Audio | 31 formats | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, M4R | Trim, Fade, Normalize, Compress, Volume, Speed, Metadata, Ringtone, Mono, No silence, Reverse, Join |
 | Icons | ICO, ICNS, CUR, SVG | PNG, ICO, ICNS, WebP, JPG | Windows icon, Favicon, PNG set, macOS icon, Minify |
-| Text | 42 formats, including CSV, JSON, YAML, subtitles and RTF | Markdown, HTML and data formats | Read aloud, UTF-8, Clean up, Sort, Dedupe, Case, Line ends, Split, Merge, Format, Minify |
+| Text | 42 formats, including CSV, JSON, YAML, subtitles and RTF | Markdown, HTML and data formats | Read aloud, UTF-8, Clean up, Sort, Dedupe, Case, Line ends, Split, Count, Merge, Format, Minify |
 | Code | 90 formats | PNG, HTML, Markdown, TXT | Code shot, Copy as MD, Format, Minify, Indent, Line ends, Clean up, UTF-8, Merge |
 | Archives | 19 formats | ZIP, 7Z, TAR, TAR.GZ, TAR.XZ, TAR.BZ2, TAR.ZST | Extract, Contents, Test, Password, Split |
 
-Every file also gets ZIP and the Actions wheel: Copy, Copy path, Move to, Share, Float and Checksum, plus Terminal for folders and code. The full list is in [site/public/data/wheel.json](site/public/data/wheel.json), made from the app.
+Data, config and subtitle files only get the text tools that keep their structure whole. Every file also gets ZIP and the Actions wheel: Copy, Copy path, Rename, Move to, Duplicate, Share, File info, Float, Checksum, Properties and Open with, plus Terminal for folders and code. The full list is in [site/public/data/wheel.json](site/public/data/wheel.json), made from the app.
 
 ---
 
@@ -85,6 +86,7 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 
 - No network connections: no account, no telemetry, no update checks.
 - Files are handled on your PC by a bundled FFmpeg and background removal model, and stay in their folder.
+- Errors are written to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on your PC, so a problem can be found later. It never leaves your PC.
 - The keyboard and mouse are watched only to spot a quick tap of Shift, Ctrl or Alt during a drag.
 - Nothing you type is recorded, and every key and click passes through untouched.
 
@@ -95,6 +97,7 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 - Drags from apps running as administrator can't reach the wheel.
 - Files Explorer shows inside a ZIP or on a phone need copying to a folder first.
 - No documents, PDFs or Office files yet; they're planned for 0.3.
+- MIDI files hold notes, not sound, so they aren't opened.
 - AVIF and WebM are slow on large files.
 - Tool windows need WebView2, which comes with Windows 10 and 11.
 
