@@ -105,11 +105,11 @@ mod win {
 			let stream = synth
 				.SynthesizeTextToStreamAsync(&HSTRING::from(piece))
 				.map_err(fail)?
-				.get()
+				.join()
 				.map_err(fail)?;
 			let size = stream.Size().map_err(fail)? as u32;
 			let reader = DataReader::CreateDataReader(&stream.GetInputStreamAt(0).map_err(fail)?).map_err(fail)?;
-			reader.LoadAsync(size).map_err(fail)?.get().map_err(fail)?;
+			reader.LoadAsync(size).map_err(fail)?.join().map_err(fail)?;
 			let mut buf = vec![0u8; size as usize];
 			reader.ReadBytes(&mut buf).map_err(fail)?;
 			let wav = parse_wav(&buf).ok_or_else(|| Error::Engine("the voice gave back nothing".into()))?;

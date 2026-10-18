@@ -70,7 +70,7 @@ unsafe fn pixels(icon: HICON) -> Option<(u32, u32, Vec<u8>)> {
 		);
 		// icons without their own alpha use the mask instead
 		let mut mask = vec![0u8; (w * h * 4) as usize];
-		let has_alpha = bgra.chunks_exact(4).any(|p| p[3] != 0);
+		let has_alpha = bgra.as_chunks::<4>().0.iter().any(|p| p[3] != 0);
 		if !has_alpha {
 			GetDIBits(
 				dc,
@@ -89,8 +89,10 @@ unsafe fn pixels(icon: HICON) -> Option<(u32, u32, Vec<u8>)> {
 			return None;
 		}
 		let rgba = bgra
-			.chunks_exact(4)
-			.zip(mask.chunks_exact(4))
+			.as_chunks::<4>()
+			.0
+			.iter()
+			.zip(mask.as_chunks::<4>().0.iter())
 			.flat_map(|(p, m)| {
 				let a = if has_alpha {
 					p[3]

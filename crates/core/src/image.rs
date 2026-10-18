@@ -61,7 +61,9 @@ pub fn read_png(path: &Path) -> Result<(u32, u32, Vec<u8>), Error> {
 	let rgba = match info.color_type {
 		png::ColorType::Rgba => buf[..(w * h * 4) as usize].to_vec(),
 		png::ColorType::GrayscaleAlpha => buf[..(w * h * 2) as usize]
-			.chunks_exact(2)
+			.as_chunks::<2>()
+			.0
+			.iter()
 			.flat_map(|p| [p[0], p[0], p[0], p[1]])
 			.collect(),
 		other => return Err(Error::Engine(format!("unexpected PNG layout {other:?}"))),
@@ -112,7 +114,9 @@ pub fn render_svg_bytes(data: &[u8], min_edge: u32, exact: Option<u32>) -> Resul
 }
 
 pub fn unpremultiply(data: &[u8]) -> Vec<u8> {
-	data.chunks_exact(4)
+	data.as_chunks::<4>()
+		.0
+		.iter()
 		.flat_map(|p| {
 			let a = p[3] as u32;
 			if a == 0 || a == 255 {
@@ -161,7 +165,13 @@ fn decode_special(e: &Engines, input: &Path, ext: &str) -> Result<Option<PathBuf
 			let img = pipe
 				.output_8bit(None)
 				.map_err(|e| Error::Engine(format!("camera file: {e}")))?;
-			let rgba = img.data.chunks_exact(3).flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+			let rgba = img
+				.data
+				.as_chunks::<3>()
+				.0
+				.iter()
+				.flat_map(|p| [p[0], p[1], p[2], 255])
+				.collect();
 			(img.width as u32, img.height as u32, rgba)
 		}
 		_ => return Ok(None),
@@ -588,7 +598,7 @@ pub fn combine(
 
 pub fn pixmap_from(w: u32, h: u32, rgba: &[u8]) -> Option<tiny_skia::Pixmap> {
 	let mut pm = tiny_skia::Pixmap::new(w, h)?;
-	for (dst, s) in pm.pixels_mut().iter_mut().zip(rgba.chunks_exact(4)) {
+	for (dst, s) in pm.pixels_mut().iter_mut().zip(rgba.as_chunks::<4>().0.iter()) {
 		*dst = tiny_skia::ColorU8::from_rgba(s[0], s[1], s[2], s[3]).premultiply();
 	}
 	Some(pm)

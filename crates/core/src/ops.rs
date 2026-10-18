@@ -583,10 +583,11 @@ fn tools(kind: Option<Kind>, count: usize, exts: &[String]) -> Vec<Op> {
 		Some(Kind::Program) => vec![ExtractIcons],
 		Some(Kind::Text) => {
 			let mut t = vec![ReadAloud];
-			if any_of(&[
-				"json", "jsonl", "ndjson", "geojson", "xml", "plist", "yaml", "yml", "toml", "html", "htm", "csv",
-			]) {
-				t.extend([Pretty, Minify]);
+			if any_of(crate::code::PRETTY_EXTS) {
+				t.push(Pretty);
+			}
+			if any_of(crate::code::MINIFY_EXTS) {
+				t.push(Minify);
 			}
 			t.extend([ToUtf8, CleanUp, SortLines, Dedupe, ChangeCase, LineEndings, Split]);
 			if many {
@@ -596,11 +597,11 @@ fn tools(kind: Option<Kind>, count: usize, exts: &[String]) -> Vec<Op> {
 		}
 		Some(Kind::Code) => {
 			let mut t = vec![CodeImage, CopyMarkdown];
-			if any_of(&[
-				"json", "css", "scss", "less", "html", "htm", "xml", "sql", "js", "mjs", "cjs", "vue", "svelte",
-				"astro",
-			]) {
-				t.extend([Pretty, Minify]);
+			if any_of(crate::code::PRETTY_EXTS) {
+				t.push(Pretty);
+			}
+			if any_of(crate::code::MINIFY_EXTS) {
+				t.push(Minify);
 			}
 			t.extend([Indent, LineEndings, CleanUp, ToUtf8]);
 			if many {

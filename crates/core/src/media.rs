@@ -859,7 +859,12 @@ pub fn waveform(e: &Engines, input: &Path, buckets: usize) -> Result<Vec<f32>, E
 	let mut raw = Vec::new();
 	child.stdout.take().expect("piped").read_to_end(&mut raw)?;
 	let _ = child.wait();
-	let samples: Vec<i16> = raw.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]])).collect();
+	let samples: Vec<i16> = raw
+		.as_chunks::<2>()
+		.0
+		.iter()
+		.map(|b| i16::from_le_bytes([b[0], b[1]]))
+		.collect();
 	if samples.is_empty() || buckets == 0 {
 		return Ok(vec![0.0; buckets]);
 	}
