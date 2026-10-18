@@ -587,11 +587,9 @@ mod tests {
 		dir
 	}
 
-	fn rand_suffix() -> u128 {
-		std::time::SystemTime::now()
-			.duration_since(std::time::UNIX_EPOCH)
-			.unwrap()
-			.as_nanos()
+	fn rand_suffix() -> u32 {
+		static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+		NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 	}
 
 	#[test]
