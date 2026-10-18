@@ -747,10 +747,17 @@ impl App {
 				.problem(op, kind, &files, "Nothing to do for these files".into());
 		} else {
 			let main = self.main as usize;
-			self.jobs
-				.start(op, kind, files, jobs, self.settings.defaults.clone(), move || unsafe {
+			self.jobs.start(
+				op,
+				kind,
+				files,
+				jobs,
+				recipe,
+				self.settings.defaults.clone(),
+				move || unsafe {
 					PostMessageW(main as HWND, WM_APP_JOBS, 0, 0);
-				});
+				},
+			);
 		}
 		self.refresh_hud();
 	}
@@ -885,6 +892,9 @@ impl App {
 		let Some(batch) = self.jobs.get(id) else {
 			return;
 		};
+		let (op, kind) = (batch.op, batch.kind);
+		let mut kept: Vec<PathBuf> = Vec::new();
+		let mut again: Option<(Recipe, Vec<PathBuf>)> = None;
 		match b {
 			Button::Open => {
 				if let Some(p) = batch.outputs.first() {
@@ -895,7 +905,18 @@ impl App {
 				shell::reveal(&batch.outputs);
 			}
 			Button::Undo => {
-				shell::recycle(&batch.outputs);
+				// only what TapWheel made and nobody has touched since goes to the Recycle Bin
+				let mut gone = Vec::new();
+				for (i, p) in batch.outputs.iter().enumerate() {
+					match batch.stamps.get(i).copied().flatten() {
+						Some(was) if !tapwheel_core::run::unchanged(p, was) => kept.push(p.clone()),
+						_ => gone.push(p.clone()),
+					}
+				}
+				shell::recycle(&gone);
+			}
+			Button::Retry => {
+				again = batch.recipe.clone().map(|r| (r, batch.failed.clone()));
 			}
 			Button::Copy => {
 				if let Some(c) = &batch.copy {
@@ -903,12 +924,22 @@ impl App {
 				}
 			}
 			Button::Cancel | Button::Close => {
-				if batch.state == State::Running {
+				if matches!(batch.state, State::Running | State::Waiting) {
 					self.jobs.cancel(id);
 				}
 			}
 		}
 		self.leave(id);
+		if let Some((recipe, files)) = again {
+			self.run_recipe(op, recipe, files);
+		}
+		if !kept.is_empty() {
+			let text = match kept.as_slice() {
+				[one] => format!("{} changed after it was made, so Undo left it", file_name(one)),
+				many => format!("{} files changed after they were made, so Undo left them", many.len()),
+			};
+			self.jobs.note(op, kind, &kept, text);
+		}
 		self.hud.hover = None;
 		self.refresh_hud();
 	}
@@ -1389,6 +1420,7 @@ pub fn run() -> i32 {
 	let local = shell::appdata("LOCALAPPDATA");
 	let mut engines = Engines::in_dir(&exe_dir().join("engines"), std::env::temp_dir().join("TapWheel"));
 	engines.cache = local.join("Cache");
+	tapwheel_core::run::clear_leftovers(&engines);
 	let packaged = system::packaged();
 	let hooks = if smoke { None } else { Some(Hooks::install(main)) };
 	let hooks_ok = hooks.as_ref().is_none_or(Hooks::ok);

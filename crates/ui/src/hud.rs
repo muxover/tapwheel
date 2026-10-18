@@ -18,6 +18,8 @@ const SLIDE: f32 = 36.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum State {
+	/// Queued behind other jobs, so the PC isn't swamped by several encodes at once.
+	Waiting,
 	Running,
 	Done,
 	Failed,
@@ -30,6 +32,7 @@ pub enum Button {
 	Show,
 	Undo,
 	Copy,
+	Retry,
 	Cancel,
 	Close,
 }
@@ -41,6 +44,7 @@ impl Button {
 			Button::Show => "Show in folder",
 			Button::Undo => "Undo",
 			Button::Copy => "Copy",
+			Button::Retry => "Retry",
 			Button::Cancel => "Cancel",
 			Button::Close => "Close",
 		}

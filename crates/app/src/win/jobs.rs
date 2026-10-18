@@ -4,8 +4,8 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::Instant;
 
 use tapwheel_core::plan::Job;
-use tapwheel_core::run::{Engines, run};
-use tapwheel_core::{Defaults, Kind, Op};
+use tapwheel_core::run::{Engines, Stamp, run};
+use tapwheel_core::{Defaults, Kind, Op, Recipe};
 use tapwheel_ui::hud::{self, Button, Card, State};
 
 #[derive(Clone, Debug)]
@@ -19,6 +19,8 @@ pub struct Batch {
 	pub progress: Option<f32>,
 	pub state: State,
 	pub outputs: Vec<PathBuf>,
+	/// How each output looked when it was made, for Undo.
+	pub stamps: Vec<Option<Stamp>>,
 	pub bytes_in: u64,
 	pub bytes_out: u64,
 	pub error: Option<String>,
@@ -28,6 +30,9 @@ pub struct Batch {
 	pub note: Option<String>,
 	/// Text a Copy button puts on the clipboard, like a checksum.
 	pub copy: Option<String>,
+	/// What ran, so Retry can run it again on the files that failed.
+	pub recipe: Option<Recipe>,
+	pub failed: Vec<PathBuf>,
 }
 
 fn name(p: &Path) -> String {
@@ -67,7 +72,7 @@ impl Batch {
 		}
 		let doing = self.op.describe(self.kind);
 		let title = match self.state {
-			State::Running => doing.clone(),
+			State::Waiting | State::Running => doing.clone(),
 			State::Done if self.outputs.is_empty() => doing.clone(),
 			State::Done if single => self.outputs.first().map(|p| name(p)).unwrap_or_default(),
 			State::Done => format!("{} files ready", self.outputs.len()),
@@ -75,6 +80,7 @@ impl Batch {
 			State::Cancelled => "Cancelled".into(),
 		};
 		let detail = match self.state {
+			State::Waiting => "Waiting for another job to finish".into(),
 			State::Running if single => self.inputs.first().map(|p| name(p)).unwrap_or_default(),
 			State::Running => format!("{} of {}", (self.done + 1).min(self.total), self.total),
 			State::Done if self.outputs.is_empty() => self.error.clone().unwrap_or_default(),
@@ -88,8 +94,11 @@ impl Batch {
 			State::Failed => self.error.clone().unwrap_or_else(|| "Something went wrong".into()),
 			State::Cancelled => "Nothing was kept".into(),
 		};
+		let retry = self.recipe.is_some() && !self.failed.is_empty();
 		let buttons = match self.state {
-			State::Running => vec![Button::Cancel],
+			State::Waiting | State::Running => vec![Button::Cancel],
+			State::Failed if retry => vec![Button::Retry, Button::Close],
+			State::Done if retry => vec![Button::Show, Button::Retry, Button::Undo, Button::Close],
 			State::Done if self.outputs.len() == 1 => vec![Button::Open, Button::Show, Button::Undo, Button::Close],
 			State::Done if !self.outputs.is_empty() => vec![Button::Show, Button::Undo, Button::Close],
 			_ => vec![Button::Close],
@@ -175,6 +184,7 @@ impl Jobs {
 			progress: None,
 			state: State::Done,
 			outputs: Vec::new(),
+			stamps: Vec::new(),
 			bytes_in: 0,
 			bytes_out: 0,
 			error: None,
@@ -182,6 +192,8 @@ impl Jobs {
 			cancel: Arc::new(AtomicBool::new(false)),
 			note: None,
 			copy: None,
+			recipe: None,
+			failed: Vec::new(),
 		}
 	}
 
@@ -254,11 +266,13 @@ impl Jobs {
 		kind: Option<Kind>,
 		inputs: Vec<PathBuf>,
 		jobs: Vec<Job>,
+		recipe: Recipe,
 		defaults: Defaults,
 		wake: impl Fn() + Send + 'static,
 	) {
 		let mut b = Self::blank(op, kind, &inputs);
-		b.state = State::Running;
+		b.state = State::Waiting;
+		b.recipe = Some(recipe);
 		b.total = jobs.len();
 		b.done = 0;
 		b.finished = None;
@@ -275,13 +289,16 @@ impl Jobs {
 				}
 				*free -= 1;
 			}
-			wake();
 			let update = |f: &mut dyn FnMut(&mut Batch)| {
 				if let Some(b) = batches.lock().unwrap().iter_mut().find(|b| b.id == id) {
 					f(b);
 				}
 			};
+			update(&mut |b| b.state = State::Running);
+			wake();
+
 			let mut failures = Vec::new();
+			let mut failed_inputs: Vec<PathBuf> = Vec::new();
 			let mut produced: Vec<PathBuf> = Vec::new();
 			let mut notes: Vec<String> = Vec::new();
 			for job in &jobs {
@@ -310,6 +327,7 @@ impl Jobs {
 							produced.push(out.output.clone());
 							update(&mut |b| {
 								b.outputs.push(out.output.clone());
+								b.stamps.push(out.stamp);
 								b.bytes_in += out.bytes_in;
 								b.bytes_out += out.bytes_out;
 							});
@@ -323,6 +341,7 @@ impl Jobs {
 							.and_then(|p| p.file_name())
 							.map(|n| n.to_string_lossy().into_owned())
 							.unwrap_or_default();
+						failed_inputs.extend(job.inputs.iter().cloned());
 						failures.push(if jobs.len() > 1 {
 							format!("{name}: {e}")
 						} else {
@@ -339,6 +358,7 @@ impl Jobs {
 			let cancelled = cancel.load(Ordering::Relaxed);
 			update(&mut |b| {
 				b.finished = Some(Instant::now());
+				b.failed = failed_inputs.clone();
 				if cancelled {
 					b.state = State::Cancelled;
 					b.outputs.clear();
@@ -389,7 +409,11 @@ impl Jobs {
 	}
 
 	pub fn any_running(&self) -> bool {
-		self.batches.lock().unwrap().iter().any(|b| b.state == State::Running)
+		self.batches
+			.lock()
+			.unwrap()
+			.iter()
+			.any(|b| matches!(b.state, State::Running | State::Waiting))
 	}
 
 	/// Cards whose time is up: finished ones after a while (failures stay longer so they can be
