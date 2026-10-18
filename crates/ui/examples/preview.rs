@@ -18,6 +18,71 @@ fn slices(list: &[(&str, &str, &[&str])]) -> Vec<Slice> {
 		.collect()
 }
 
+/// A busy stand-in for the screen behind the wheel: a wallpaper, windows and icons.
+fn desktop(w: u32, h: u32) -> tiny_skia::Pixmap {
+	use tapwheel_ui::draw::{fill_circle, fill_rrect};
+	let mut pm = tiny_skia::Pixmap::new(w, h).unwrap();
+	for y in 0..h {
+		let t = y as f32 / h as f32;
+		fill_rrect(
+			&mut pm,
+			0.0,
+			y as f32,
+			w as f32,
+			1.0,
+			0.0,
+			Rgba::from_u8((15.0 + 50.0 * t) as u8, 50, (115.0 - 50.0 * t) as u8),
+		);
+	}
+	let (fw, fh) = (w as f32, h as f32);
+	fill_rrect(
+		&mut pm,
+		fw * 0.05,
+		fh * 0.1,
+		fw * 0.5,
+		fh * 0.6,
+		0.0,
+		Rgba::hex(0xf3f3f3),
+	);
+	fill_rrect(
+		&mut pm,
+		fw * 0.08,
+		fh * 0.2,
+		fw * 0.4,
+		fh * 0.03,
+		0.0,
+		Rgba::hex(0x202020),
+	);
+	fill_rrect(
+		&mut pm,
+		fw * 0.08,
+		fh * 0.3,
+		fw * 0.3,
+		fh * 0.03,
+		0.0,
+		Rgba::hex(0x202020),
+	);
+	fill_rrect(
+		&mut pm,
+		fw * 0.6,
+		fh * 0.55,
+		fw * 0.35,
+		fh * 0.35,
+		0.0,
+		Rgba::hex(0xff8c00),
+	);
+	for i in 0..6 {
+		fill_circle(
+			&mut pm,
+			fw * (0.15 + 0.13 * i as f32),
+			fh * 0.85,
+			fw * 0.04,
+			Rgba::hex(0x60cdff),
+		);
+	}
+	pm
+}
+
 fn keys(active: usize) -> Vec<KeyHint> {
 	["Convert", "Tools", "Actions"]
 		.iter()
@@ -129,6 +194,14 @@ fn main() {
 		for (state, v) in states {
 			let pm = wheel::render(&v, &theme, &fonts, scale, None);
 			pm.save_png(out.join(format!("wheel-{state}-{name}.png"))).unwrap();
+			// on Windows 11 the disc is frosted glass over whatever is behind it
+			if win11 {
+				let (w, h) = wheel::size(scale);
+				let glass = tapwheel_ui::draw::frost(desktop(w / 4, h / 4), w, h, dark);
+				let pm = wheel::render(&v, &theme, &fonts, scale, glass.as_ref());
+				pm.save_png(out.join(format!("wheel-{state}-{name}-glass.png")))
+					.unwrap();
+			}
 		}
 		let cards = vec![
 			Card {
