@@ -24,7 +24,7 @@ fn item(p: &Path) -> windows::core::Result<IStorageItem> {
 
 /// Opens the share window for these files, next to `hwnd`.
 pub fn share(hwnd: isize, files: &[PathBuf]) -> windows::core::Result<()> {
-	let items: Vec<IStorageItem> = files.iter().map(|p| item(p)).collect::<Result<_, _>>()?;
+	let items: Vec<Option<IStorageItem>> = files.iter().map(|p| item(p).map(Some)).collect::<Result<_, _>>()?;
 	let title = match files {
 		[one] => one
 			.file_name()

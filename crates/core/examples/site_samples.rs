@@ -140,6 +140,7 @@ fn main() {
 	};
 	let (tags, cover) = ff::tags(&e.ffprobe, &p("song.m4a")).unwrap();
 	let samples = json!({
+		"defaults": tapwheel_core::Defaults::default(),
 		"files": {
 			"photo": file("photo.jpg"),
 			"plant": file("plant.png"),
