@@ -35,10 +35,11 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-18: the Contents window extracts what you tick instead of dragging single items out, which WebView2 can't hand to Explorer.
 - 2026-10-18: the zip stays unsigned (no code-signing certificate). It's for developers and technical users, who can get past Chrome's and SmartScreen's warnings; the site always sends people to the Microsoft Store version, which Microsoft signs.
 - 2026-10-18: the Store package can't write classic shell keys, so its right-click entry waits for the Explorer command handler in v0.2.0; the portable build adds a classic one.
+- 2026-10-19: the full commit history stays as it is; a release only adds one signed `chore: release vX.Y.Z` commit on top and moves nothing else. Nothing is deleted on this project, old Actions runs included (Jax's call after a squash of the 91 commits was undone the same night).
 
 ## Status
 
-v0.1.0 is being rebuilt from a converter into a full tool suite for seven kinds of files (below). The core engines pass about 200 jobs on real files in CI, the app compiles in CI, and the tool windows run on the website with sample files. Nothing of the new build has run on a Windows PC yet. Launch follows the phases in "Plan to launch".
+v0.1.0 is out: released on GitHub on 2026-10-18 (the zip and checksums), the site live at https://tapwheel.muxover.com, and the app public on the Microsoft Store (https://apps.microsoft.com/detail/9MW1GB4106VS) since 2026-10-19. Every tool and window was tried on Jax's Windows 11 PC; Windows 10, 125 to 200% scaling and two monitors are still untried. v0.2.0 is next (below).
 
 ## How the wheel works (all versions)
 
@@ -183,7 +184,7 @@ Each phase ends with CI green on main; nothing is tagged before G.
 | F. Website | The redesign below, with real captures | The browser check passes; looked at on a phone |
 | G. Release | README, CHANGELOG, release notes and these notes through the humanizer; notices checked; one final script signs, rewrites history to one commit per version, tags and releases | The release builds from a fresh clone; the Store package passes the App Certification Kit |
 
-Progress: A to D are done and pass in CI. E: every tool and window was tried on Jax's Windows 11 PC on 2026-10-18 and works; Windows 10, 125 to 200% scaling and two monitors are still untried. F is on `main` and goes live with the release. G: the Store screenshots, the clean-code pass and the release script are done; v0.1.0 ships from the script, then the Store submission.
+Progress: A to D are done and pass in CI. E: every tool and window was tried on Jax's Windows 11 PC on 2026-10-18 and works; Windows 10, 125 to 200% scaling and two monitors are still untried. F is live. G: v0.1.0 was released on 2026-10-18 and passed Store certification; it has been public on the Microsoft Store since 2026-10-19. A 58 second launch video for X and Telegram was made from the app's own wheels, cards and tool windows; Jax posts it himself.
 
 Release blockers: a lost or replaced file, a claim the app can't back, a wheel that opens when it shouldn't or a stuck key, text outside its shape, a crash on a broken file, missing licence notices, a Store certification failure, or a wheel that waits on a job.
 
