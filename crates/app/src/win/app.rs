@@ -655,10 +655,10 @@ impl App {
 				}
 			}
 			VK_SPACE | VK_RETURN => {
-				if let Some(f) = self.home.focus {
-					if !matches!(f, Action::Key(..)) {
-						self.home_action(f);
-					}
+				if let Some(f) = self.home.focus
+					&& !matches!(f, Action::Key(..))
+				{
+					self.home_action(f);
 				}
 			}
 			VK_ESCAPE => unsafe {
@@ -1186,7 +1186,7 @@ pub fn run() -> i32 {
 	if main.is_null() || wheel_hwnd.is_null() || hud_hwnd.is_null() {
 		return 2;
 	}
-	unsafe { RegisterDragDrop(wheel_hwnd, DropTarget::new(Box::new(WheelTarget))) };
+	unsafe { RegisterDragDrop(wheel_hwnd, DropTarget::create(Box::new(WheelTarget))) };
 
 	let settings_path = shell::appdata("APPDATA").join("settings.toml");
 	let settings = Settings::load(&settings_path);

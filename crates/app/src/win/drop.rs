@@ -52,7 +52,7 @@ static VTBL: Vtbl = Vtbl {
 
 impl DropTarget {
 	/// A COM object with one reference, owned by the caller until `RevokeDragDrop`.
-	pub fn new(target: Box<dyn Target>) -> *mut c_void {
+	pub fn create(target: Box<dyn Target>) -> *mut c_void {
 		Box::into_raw(Box::new(DropTarget {
 			vtbl: &VTBL,
 			refs: AtomicU32::new(1),

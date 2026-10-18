@@ -78,10 +78,10 @@ pub fn fonts() -> Fonts {
 	];
 	let start = if is_win11() { 0 } else { 1 };
 	for (regular, semibold) in &pairs[start..] {
-		if let (Some(r), Some(s)) = (read(regular), read(semibold)) {
-			if let Some(f) = Fonts::new(r, s) {
-				return f;
-			}
+		if let (Some(r), Some(s)) = (read(regular), read(semibold))
+			&& let Some(f) = Fonts::new(r, s)
+		{
+			return f;
 		}
 	}
 	panic!("no usable system font in {}", dir.display());
