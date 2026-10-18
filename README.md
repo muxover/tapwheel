@@ -12,18 +12,20 @@
 
 ---
 
-TapWheel converts files on Windows 10 and 11 without opening an app. Start dragging a file in File Explorer or on the desktop, tap Shift, and a wheel of formats opens under your pointer. Drop the file on PNG, MP3 or ZIP and the new file appears next to the old one. Everything runs on your PC, and nothing is uploaded. It's inspired by [Tangerine](https://tangerineformac.com/) for Mac and built natively for Windows.
+TapWheel puts file tools on a wheel in Windows 10 and 11. Start dragging a file in File Explorer or on the desktop, tap Shift, Ctrl or Alt, and a wheel opens under your pointer. Drop the file on JPG, Trim, Remove BG or ZIP and the new file appears next to the old one. Pictures, video, sound, icons, text, code and archives, all done on your PC, with nothing uploaded. It's inspired by [Tangerine](https://tangerineformac.com/) for Mac and built natively for Windows. Try the tool windows at [tapwheel.muxover.com](https://tapwheel.muxover.com/#try).
 
 ---
 
 ## Features
 
 - Three wheels on three keys: Shift converts, Ctrl opens tools, Alt opens actions.
-- Converts photos, audio, video, subtitles and archives (see [Formats](#formats)).
-- HEIC photos from a phone become JPG or PNG in one move.
-- Tap the same key twice to repeat your last choice.
-- The formats you pick most move to the top of the wheel.
-- Cards in the corner show the size before and after, with Open, Show in folder and Undo.
+- The wheel only opens while you're dragging files, and shows only what fits them.
+- Rest on a slice for its choices on the outer ring, like Balanced or 25 MB.
+- Tools that need setting up open their own window with a live preview: crop, backgrounds, adjust, annotate, redact, trim, GIFs, combine, code shots, photo details, song tags and passwords.
+- Remove BG runs on your PC with a bundled model.
+- More than eight slices turn into pages. Rest on More, press Tab, or roll the mouse wheel.
+- Tap the same key twice to repeat your last choice; favourites move to the top.
+- Compact cards show the size before and after, with Open, Show, Undo and Cancel.
 - Originals are never changed, and a new file never replaces an existing one.
 - Follows light or dark mode, your accent colour, high contrast, and the Windows 10 or 11 look.
 - Works offline. Nothing is uploaded, and there's no account.
@@ -32,19 +34,17 @@ TapWheel converts files on Windows 10 and 11 without opening an app. Start dragg
 
 ## Formats
 
-| Wheel | Files | What you get |
-|-------|-------|--------------|
-| Convert | Images | JPG, PNG, WebP, AVIF, GIF, TIFF, BMP, ICO (HEIC is read) |
-| Convert | Audio | MP3, M4A, WAV, FLAC, OGG, Opus |
-| Convert | Video | MP4, MOV, MKV, WebM, AVI, GIF, MP3 |
-| Convert | Subtitles | SRT, VTT, plain text |
-| Convert | Archives, folders | ZIP, 7Z, TAR, TAR.GZ |
-| Tools | Images | Compress, half size, fit 1920, rotate, strip location data |
-| Tools | Video | Compress, 720p, mute, save the sound |
-| Tools | Audio | Compress, even out the volume |
-| Tools | Archives | Extract |
-| Tools | Anything | Pack into one ZIP |
-| Actions | Anything | Copy path, copy files, open a terminal, show in File Explorer |
+| Kind | Opens | Convert to | Tools |
+|------|-------|------------|-------|
+| Pictures | 48 formats, including HEIC, JPEG XL, PSD and camera RAW | PNG, JPG, WebP, AVIF, GIF, TIFF, BMP, ICO, TGA, QOI | Crop, Add BG, Remove BG, Compress, Resize, Adjust, Annotate, Redact, Rotate, Metadata, Make icon, To SVG, Combine |
+| Video | 24 formats | MP4, MOV, MKV, WebM, GIF, MP3, AVI, WMV, M4A, WAV | Trim, Compress, Make GIF, Resize, Crop, Speed, Snapshot, Mute, Get audio, Rotate, Reverse, Join |
+| Audio | 33 formats | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, ringtone | Trim, Fade, Normalize, Compress, Volume, Speed, Metadata, Ringtone, Mono, No silence, Reverse, Join |
+| Icons | ICO, ICNS, CUR, SVG | PNG, ICO, ICNS, WebP, JPG | Windows icon, Favicon, PNG set, macOS icon, Minify |
+| Text | 42 formats, including CSV, JSON, YAML, subtitles and RTF | Markdown, HTML and data formats | Read aloud, UTF-8, Clean up, Sort, Dedupe, Case, Line ends, Split, Merge, Format, Minify |
+| Code | 90 formats | PNG, HTML, Markdown, TXT | Code shot, Copy as MD, Format, Minify, Indent, Line ends, Clean up, UTF-8, Merge |
+| Archives | 19 formats | ZIP, 7Z, TAR, TAR.GZ, TAR.XZ, TAR.BZ2, TAR.ZST | Extract, Contents, Test, Password, Split |
+
+Every file also gets ZIP and the Actions wheel: Copy, Copy path, Move to, Share, Float and Checksum, plus Terminal for folders and code. The full list is in [site/public/data/wheel.json](site/public/data/wheel.json), made from the app.
 
 ---
 
@@ -59,10 +59,10 @@ The zip isn't code-signed, so SmartScreen may ask once before the first run.
 
 ## Quick Start
 
-1. Run TapWheel. Its window has a button that makes sample files to practise on.
+1. Run TapWheel. Its window shows how it works and makes sample files to practise on.
 2. Start dragging a file and keep the mouse button down.
 3. Tap Shift. The Convert wheel opens under the pointer.
-4. Drop on a slice. Drop in the middle, or press Esc, to cancel.
+4. Drop on a slice, or rest on it and drop on a choice on the ring. Drop in the middle, or press Esc, to cancel.
 
 Tap Ctrl or Alt on an open wheel to switch to Tools or Actions. Closing the window keeps TapWheel in the tray.
 
@@ -86,7 +86,7 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 ## Privacy
 
 - No network connections: no account, no telemetry, no update checks.
-- Files are converted on your PC by a bundled FFmpeg and stay in their folder.
+- Files are handled on your PC by a bundled FFmpeg and background removal model, and stay in their folder.
 - The keyboard and mouse are watched only to spot a quick tap of Shift, Ctrl or Alt during a drag.
 - Nothing you type is recorded, and every key and click passes through untouched.
 
@@ -96,8 +96,9 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 
 - Drags from apps running as administrator can't reach the wheel.
 - Files Explorer shows inside a ZIP or on a phone need copying to a folder first.
-- No documents, PDFs or Office files yet.
+- No documents, PDFs or Office files yet; they're planned for 0.3.
 - AVIF and WebM are slow on large files.
+- Tool windows need WebView2, which comes with Windows 10 and 11.
 
 ---
 
@@ -106,12 +107,13 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 ```text
 tapwheel/
 ├── crates/
-│   ├── core/                 # Formats, output names, the converter runner, archives, subtitles, settings
-│   ├── ui/                   # Draws the wheel, progress cards, home window and icon
-│   └── app/                  # The Windows app: key and mouse watching, wheel window, drops, tray
-├── engines/                  # Pinned FFmpeg build and the script that fetches it
+│   ├── core/                 # Formats, tools, recipes, output names, the runner and every engine
+│   ├── ui/                   # Draws the wheel, progress cards and icon
+│   └── app/                  # The Windows app: keys, drags, wheel, cards, tray, tool windows
+│       └── web/              # The tool windows and settings, shown in WebView2
+├── engines/                  # Pinned FFmpeg, ONNX Runtime and model, and the script that fetches them
 ├── packaging/                # Portable zip and Store package builder, Store manifest
-├── site/                     # tapwheel.muxover.com and its layout check
+├── site/                     # tapwheel.muxover.com, its sample files and its layout check
 ├── release-notes/            # One file per release
 └── docs/PROJECT.md           # Maintainer notes
 ```
