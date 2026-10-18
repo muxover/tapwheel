@@ -263,13 +263,13 @@ impl Jobs {
 	pub fn start(
 		&mut self,
 		op: Op,
-		kind: Option<Kind>,
 		inputs: Vec<PathBuf>,
 		jobs: Vec<Job>,
 		recipe: Recipe,
 		defaults: Defaults,
 		wake: impl Fn() + Send + 'static,
 	) {
+		let kind = tapwheel_core::ops::selection_kind(&inputs);
 		let mut b = Self::blank(op, kind, &inputs);
 		b.state = State::Waiting;
 		b.recipe = Some(recipe);
