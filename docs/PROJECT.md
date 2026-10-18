@@ -25,12 +25,14 @@ TapWheel is a free, open-source Windows 10 and 11 app for converting files witho
 
 ## Status
 
-v0.1.0 in progress.
+v0.1.0 in final checks: CI green on Windows and Linux, tested by hand on a Windows 11 PC, site live at tapwheel.muxover.com.
 
 ## Next
 
-- First green CI run on Windows, then hands-on testing on a real PC.
+- v0.1.0: Store screenshots from real captures, launch video, one signed publish script (history, tag, release, repo settings), Store submission.
+- v0.2.0: screen reader support (UI Automation for the wheel, cards and home window, with announcements); a Store right-click entry through an Explorer command handler, which also puts TapWheel in the top-level Windows 11 menu; Copy anything: pick an area of the screen (a paused video, an image, any window) and copy its text with the offline Windows OCR, or read a QR code and open or copy what it holds; the same from the wheel for dropped images.
+- v0.3.0: PDF to images and images to PDF with a bundled PDFium; Word, Excel and PowerPoint to PDF through Microsoft Office when it's installed, or an optional one-click LibreOffice download (the first network call, so the privacy page changes with it).
 
 ## Open questions
 
-- None.
+- Launch video sound: ElevenLabs music and effects (needs a key) or another source.
