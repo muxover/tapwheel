@@ -62,6 +62,7 @@ const PROBE_MS: u32 = 380;
 const MENU_OPEN: usize = 1;
 const MENU_PAUSE: usize = 2;
 const MENU_QUIT: usize = 3;
+const MENU_REMOVE: usize = 4;
 
 pub const HEIC_SAMPLE: &[u8] = include_bytes!("../../../core/tests/fixtures/photo.heic");
 
@@ -982,6 +983,10 @@ impl App {
 				wide("Pause").as_ptr(),
 			);
 			AppendMenuW(menu, MF_SEPARATOR, 0, std::ptr::null());
+			// the Store removes its own; the zip version has nothing else that undoes its setup
+			if !self.packaged {
+				AppendMenuW(menu, MF_STRING, MENU_REMOVE, wide("Remove from this PC").as_ptr());
+			}
 			AppendMenuW(menu, MF_STRING, MENU_QUIT, wide("Quit TapWheel").as_ptr());
 			let pt = cursor();
 			// the menu only closes on an outside click when its owner is in front
@@ -1003,6 +1008,24 @@ impl App {
 					self.remove_tray();
 					self.close(None);
 					PostQuitMessage(0);
+				}
+				MENU_REMOVE => {
+					let ask = "Remove TapWheel's right-click entry, its start-up entry and its settings from this PC, then quit?\n\nYour files aren't touched. Afterwards you can delete the TapWheel folder.";
+					let yes = MessageBoxW(
+						self.main,
+						wide(ask).as_ptr(),
+						wide("Remove TapWheel").as_ptr(),
+						MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2,
+					) == IDYES;
+					if yes {
+						shell::set_context_menu(false);
+						shell::set_autostart(false, false);
+						let _ = std::fs::remove_dir_all(shell::appdata("APPDATA"));
+						let _ = std::fs::remove_dir_all(shell::appdata("LOCALAPPDATA"));
+						self.remove_tray();
+						self.close(None);
+						PostQuitMessage(0);
+					}
 				}
 				_ => {}
 			}
