@@ -146,6 +146,8 @@ const TRY = [
 	["code_image", "Code shot", "code_block", "app.ts"],
 	["protect", "Password", "lock_closed", "album"],
 	["contents", "Archive contents", "archive", "album.zip"],
+	["touchup", "Touch up", "image_sparkle", "plant.jpg"],
+	["snapshot", "Snapshot", "camera", "clip.mp4"],
 	["rename", "Rename", "rename", "2 files"],
 	["info", "File info", "document_search", "photo.jpg"],
 ];
@@ -275,7 +277,8 @@ function chips(list, cls = "chip") {
 }
 
 function toolRow(t, kind) {
-	const id = t.window ? tryFor(kind, t.id) : null;
+	// any tool with a window here to try, including ones whose window opens from a ring choice
+	const id = tryFor(kind, t.id);
 	const open = id ? h("a", { class: "try-link", href: "#try", onclick: (e) => tryTool(e, id), "aria-label": `Try the ${t.label} window` }, "Try it") : null;
 	return h(
 		"div",
@@ -287,7 +290,7 @@ function toolRow(t, kind) {
 }
 
 // the window to open for a tool, by kind of file where the same tool has its own window
-const TRY_FOR = { crop: "crop", add_background: "add_background", adjust: "adjust", annotate: "annotate", redact: "redact", resize: "resize", compress: "compress", metadata: "metadata", trim: "trim", make_gif: "make_gif", combine: "combine", code_image: "code_image", protect: "protect", contents: "contents", rename: "rename", info: "info" };
+const TRY_FOR = { crop: "crop", add_background: "add_background", adjust: "adjust", annotate: "annotate", redact: "redact", resize: "resize", compress: "compress", metadata: "metadata", trim: "trim", make_gif: "make_gif", combine: "combine", code_image: "code_image", protect: "protect", contents: "contents", rename: "rename", info: "info", remove_background: "touchup", snapshot: "snapshot" };
 const TRY_BY_KIND = { "video:crop": "crop-video", "audio:trim": "trim-audio", "audio:metadata": "tags", "video:compress": null, "audio:compress": null, "video:resize": null };
 const tryFor = (kind, id) => (`${kind}:${id}` in TRY_BY_KIND ? TRY_BY_KIND[`${kind}:${id}`] : TRY_FOR[id]);
 
