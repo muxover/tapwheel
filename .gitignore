@@ -29,3 +29,7 @@ dist/
 # Website checks
 node_modules/
 package-lock.json
+
+# The app pages, copied in when the website is deployed
+site/public/app/
+site/samples/song.wav

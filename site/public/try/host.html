@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>TapWheel tool window</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/app/style.css">
+<style>
+	/* in the app Mica shows through; here the window draws its own background */
+	html, body { background: var(--bg) !important; }
+</style>
+<script src="/try/host.js"></script>
+</head>
+<body>
+<main id="app" class="loading"><div class="spinner" role="progressbar" aria-label="Loading"></div></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="/app/tw.js"></script>
+</body>
+</html>

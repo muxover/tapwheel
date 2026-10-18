@@ -1,8 +1,9 @@
 # TapWheel
 
-> Free, open-source file converter for Windows 10 and 11. Drag a file, tap Shift, Ctrl or Alt, and drop it on the wheel that opens under the pointer. Runs offline with a bundled FFmpeg. Made by Jax (muxover). Inspired by Tangerine for Mac.
+> Free, open-source file tools for Windows 10 and 11. Drag a file, tap Shift, Ctrl or Alt, and drop it on the wheel that opens under the pointer. Convert, crop, trim, compress, add or remove backgrounds, annotate, redact, tag, format code, pack and unpack archives, for pictures, video, sound, icons, text, code and archives. Runs offline with a bundled FFmpeg and background removal model. Made by Jax (muxover). Inspired by Tangerine for Mac.
 
-- [Home](https://tapwheel.muxover.com/): what it does, formats, privacy, FAQ, download
+- [Home](https://tapwheel.muxover.com/): what it does, the tool windows to try with sample files, every format and tool, privacy, FAQ, download
 - [Privacy](https://tapwheel.muxover.com/privacy): the app connects to nothing; the site sets no cookies
 - [Support](https://tapwheel.muxover.com/support): troubleshooting and contact
 - [Source](https://github.com/muxover/tapwheel): GPL-3.0 code, releases and changelog
+- [Wheel contents](https://tapwheel.muxover.com/data/wheel.json): every format each kind of file opens and every tool the wheels offer, as JSON

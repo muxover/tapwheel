@@ -3,8 +3,8 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>TapWheel: drag-and-tap file converter for Windows</title>
-		<meta name="description" content="Drag a file, tap Shift, drop it on the wheel. TapWheel converts images, audio, video and more on Windows 10 and 11, free and offline." />
+		<title>TapWheel: drag, tap, done. File tools for Windows</title>
+		<meta name="description" content="Drag a file, tap a key, drop it on the wheel. Convert, crop, trim, compress and remove backgrounds for pictures, video, sound, icons, text, code and archives. Free, offline, Windows 10 and 11." />
 		<link rel="canonical" href="https://tapwheel.muxover.com/" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
@@ -12,8 +12,8 @@
 		<meta name="theme-color" content="#0e0f12" />
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="TapWheel" />
-		<meta property="og:title" content="TapWheel: drag-and-tap file converter for Windows" />
-		<meta property="og:description" content="Drag a file, tap Shift, drop it on the wheel. Free and offline, for Windows 10 and 11." />
+		<meta property="og:title" content="TapWheel: drag, tap, done" />
+		<meta property="og:description" content="Convert, crop, trim, compress and remove backgrounds from a drag. Free and offline, for Windows 10 and 11." />
 		<meta property="og:url" content="https://tapwheel.muxover.com/" />
 		<meta property="og:image" content="https://tapwheel.muxover.com/img/og.png" />
 		<meta name="twitter:card" content="summary_large_image" />
@@ -25,23 +25,23 @@
 				"name": "TapWheel",
 				"operatingSystem": "Windows 10, Windows 11",
 				"applicationCategory": "UtilitiesApplication",
-				"description": "Drag a file, tap Shift, drop it on the wheel. Converts images, audio, video, subtitles and archives on your PC.",
+				"description": "Drag a file, tap a key, drop it on the wheel. Converts and edits pictures, video, sound, icons, text, code and archives on your PC.",
 				"url": "https://tapwheel.muxover.com/",
 				"license": "https://www.gnu.org/licenses/gpl-3.0.html",
 				"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
 				"author": { "@type": "Person", "name": "Jax", "url": "https://muxover.com" }
 			}
 		</script>
-		<script src="/app.js" defer></script>
+		<script type="module" src="/app.js"></script>
 	</head>
 	<body>
 		<a class="skip" href="#main">Skip to content</a>
 		<header class="header">
 			<div class="wrap">
 				<a class="brand" href="/" aria-label="TapWheel home"><img src="/favicon.svg" alt="" width="28" height="28" />TapWheel</a>
-				<nav class="nav" aria-label="Sections" data-order="page">
-					<a href="#how">How it works</a>
-					<a href="#formats">Formats</a>
+				<nav class="nav" aria-label="Sections">
+					<a href="#try">Try it</a>
+					<a href="#kinds">Tools</a>
 					<a href="#privacy">Privacy</a>
 					<a href="#faq">FAQ</a>
 				</nav>
@@ -52,95 +52,73 @@
 		<main id="main">
 			<div class="hero">
 				<div class="wrap">
-					<div>
+					<div class="hero-copy">
 						<p class="eyebrow">Free for Windows 10 and 11</p>
-						<h1>Drag a file. Tap Shift. Drop it on&nbsp;the&nbsp;wheel.</h1>
-						<p class="lead">TapWheel converts images, audio, video, subtitles and archives without opening an app. The new file lands next to the old one, and nothing leaves your&nbsp;PC.</p>
+						<h1>Drag a file. Tap a key. Drop it on&nbsp;the&nbsp;wheel.</h1>
+						<p class="lead">Convert, crop, trim, compress and remove backgrounds without opening an app. Pictures, video, sound, icons, text, code and archives, all done on your&nbsp;PC.</p>
 						<div class="actions">
 							<a class="button primary" href="https://apps.microsoft.com/detail/9MW1GB4106VS" data-store>Get it from Microsoft Store <span class="arrow" aria-hidden="true">&rarr;</span></a>
-							<a class="button" href="https://github.com/muxover/tapwheel/releases/latest">Download the zip</a>
+							<a class="button" href="#try">Try the tools here</a>
 						</div>
 						<p class="note">Open source under GPL-3.0. Inspired by Tangerine for&nbsp;Mac.</p>
 					</div>
-
-					<div class="demo" id="demo" aria-label="Try it: drag the photo, then tap Shift">
-						<div class="demo-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Pictures</span></div>
-						<div class="demo-stage" id="stage">
-							<div class="tile" id="file" role="button" tabindex="0" aria-label="IMG_2041.heic, drag it or press Enter to open the wheel">
-								<div class="icon" data-ext="HEIC"></div>
-								<span>IMG_2041.heic</span>
+					<div class="hero-demo">
+						<div class="tw-scope" data-tw-scope data-dark data-win11 id="hero-scope">
+							<div id="hero-demo"></div>
+						</div>
+						<div class="looks" role="group" aria-label="How it looks">
+							<div class="seg" data-look="win11">
+								<button type="button" data-value="1" aria-pressed="true">Windows 11</button>
+								<button type="button" data-value="0" aria-pressed="false">Windows 10</button>
 							</div>
-							<svg class="wheel" id="wheel" viewBox="0 0 300 300" aria-hidden="true"></svg>
-							<div class="toast" id="toast" role="status" aria-live="polite"><strong id="toast-title"></strong><span id="toast-body"></span></div>
-							<p class="hint" id="hint">Drag the photo, then tap <kbd>Shift</kbd></p>
+							<div class="seg" data-look="dark">
+								<button type="button" data-value="1" aria-pressed="true">Dark</button>
+								<button type="button" data-value="0" aria-pressed="false">Light</button>
+							</div>
 						</div>
 					</div>
 				</div>
 			</div>
 
-			<section id="watch">
+			<section class="stats" aria-label="At a glance">
 				<div class="wrap">
-					<div class="section-head">
-						<h2>See it in 16&nbsp;seconds</h2>
-						<p>Two real files: a phone photo turned into a JPG, then a screenshot that came out 64% smaller as a&nbsp;PNG.</p>
-					</div>
-					<video class="demo-video" id="video" src="/img/demo.mp4" poster="/img/demo-poster.jpg" width="720" height="720" muted loop playsinline autoplay preload="metadata" aria-label="A photo is dragged, Shift is tapped, and it is dropped on JPG in the wheel. Then a PNG is dropped on Compress and comes out 64% smaller."></video>
+					<div><strong data-stat="reads">200+</strong><span>formats it opens</span></div>
+					<div><strong data-stat="tools">70+</strong><span>tools on the wheels</span></div>
+					<div><strong>0</strong><span>uploads, accounts or ads</span></div>
+					<div><strong>1</strong><span>drag to do any of it</span></div>
 				</div>
 			</section>
 
-			<section id="how">
+			<section id="try">
 				<div class="wrap">
 					<div class="section-head">
-						<h2>Three keys, three&nbsp;wheels</h2>
-						<p>Start dragging and tap a key. The wheel stays open until you drop, so there's no rush. Tap another key to switch&nbsp;wheels.</p>
+						<h2>Every tool has its own&nbsp;window</h2>
+						<p>These are TapWheel's real windows, running right here with sample files. Pictures are made in your browser and you can keep them. For video, sound and archives, it tells you exactly what the app would&nbsp;save.</p>
 					</div>
-					<div class="grid">
-						<div class="card">
-							<h3><span class="key lit">Shift</span>Convert</h3>
-							<p>Every format the file can become, with your most-used ones&nbsp;first.</p>
-							<ul>
-								<li>HEIC from your phone to JPG or PNG</li>
-								<li>Video to MP4, WebM or a GIF</li>
-								<li>Folders and mixed files into one&nbsp;ZIP</li>
-							</ul>
+					<div class="try">
+						<div class="try-tools" role="tablist" aria-label="Tool windows" id="try-tools"></div>
+						<div class="try-frame">
+							<div class="frame-bar" aria-hidden="true"><span class="frame-title" id="try-title">Crop · photo.jpg</span><span class="frame-buttons"><i></i><i></i><i></i></span></div>
+							<div class="frame-body" id="try-body">
+								<iframe id="try-window" title="TapWheel tool window" loading="lazy"></iframe>
+							</div>
+							<div class="try-card" id="try-card" role="status" aria-live="polite" hidden></div>
 						</div>
-						<div class="card">
-							<h3><span class="key">Ctrl</span>Tools</h3>
-							<p>Quick fixes that keep the&nbsp;format.</p>
-							<ul>
-								<li>Compress images, video and audio</li>
-								<li>Resize, rotate and strip location data</li>
-								<li>Mute a video or save its&nbsp;sound</li>
-							</ul>
-						</div>
-						<div class="card">
-							<h3><span class="key">Alt</span>Actions</h3>
-							<p>For any file or folder, no conversion&nbsp;needed.</p>
-							<ul>
-								<li>Copy the path or the files</li>
-								<li>Open a terminal in that folder</li>
-								<li>Show it in File&nbsp;Explorer</li>
-							</ul>
-						</div>
+						<p class="try-note" id="try-note">Best with a mouse on a bigger screen. Every window works with the keyboard too.</p>
 					</div>
 				</div>
 			</section>
 
-			<section id="formats">
+			<section id="kinds">
 				<div class="wrap">
 					<div class="section-head">
-						<h2>What it&nbsp;converts</h2>
-						<p>Conversions run on your PC with a copy of FFmpeg that ships inside the app. Originals are never changed, and a new file never replaces one that's already&nbsp;there.</p>
+						<h2>Seven kinds of file, one&nbsp;wheel</h2>
+						<p>The wheel only shows what makes sense for the file you're holding. <span class="key">Shift</span> converts, <span class="key">Ctrl</span> opens the tools, <span class="key">Alt</span> has the actions. More than eight? Roll the mouse wheel or press&nbsp;Tab.</p>
 					</div>
-					<table class="formats">
-						<tbody>
-							<tr><th scope="row">Images</th><td>JPG, PNG, WebP, AVIF, GIF, TIFF, BMP, ICO, and HEIC from&nbsp;phones</td></tr>
-							<tr><th scope="row">Audio</th><td>MP3, M4A, WAV, FLAC, OGG,&nbsp;Opus</td></tr>
-							<tr><th scope="row">Video</th><td>MP4, MOV, MKV, WebM, AVI, GIF, and the sound as&nbsp;MP3</td></tr>
-							<tr><th scope="row">Subtitles</th><td>SRT, VTT and plain&nbsp;text</td></tr>
-							<tr><th scope="row">Archives</th><td>ZIP, 7Z, TAR and TAR.GZ, packing and&nbsp;extracting</td></tr>
-						</tbody>
-					</table>
+					<div class="kinds">
+						<div class="kind-tabs" role="tablist" aria-label="Kinds of file" id="kind-tabs"></div>
+						<div class="kind-panel" id="kind-panel" role="tabpanel"></div>
+					</div>
 				</div>
 			</section>
 
@@ -148,18 +126,9 @@
 				<div class="wrap">
 					<div class="section-head">
 						<h2>Looks like your&nbsp;Windows</h2>
-						<p>TapWheel follows your light or dark mode, your accent colour and high contrast. Windows 11 gets rounded corners and Segoe UI Variable, Windows 10 gets its own flat, square&nbsp;look.</p>
+						<p>TapWheel follows light and dark, your accent colour and high contrast. Windows 11 gets rounded corners and frosted glass behind the wheel. Windows 10 gets its own flat, square&nbsp;look.</p>
 					</div>
-					<div class="looks">
-						<figure>
-							<img src="/img/wheel-win11-dark.png" alt="The Convert wheel on Windows 11 in dark mode, with WebP highlighted" width="688" height="800" loading="lazy" />
-							<figcaption>Windows 11, dark</figcaption>
-						</figure>
-						<figure>
-							<img src="/img/wheel-win11-light.png" alt="The Convert wheel on Windows 11 in light mode" width="688" height="800" loading="lazy" />
-							<figcaption>Windows 11, light</figcaption>
-						</figure>
-					</div>
+					<div class="looks-grid" id="looks-grid"></div>
 				</div>
 			</section>
 
@@ -170,11 +139,27 @@
 						<p>Online converters need a copy of your file. TapWheel doesn't connect to anything at&nbsp;all.</p>
 					</div>
 					<ul class="checks">
-						<li><strong>No uploads</strong>Files are converted on your PC and stay in the folder you dragged&nbsp;from.</li>
+						<li><strong>No uploads</strong>Everything runs on your PC, even Remove BG, with a model that ships inside the&nbsp;app.</li>
+						<li><strong>Originals stay</strong>New files land next to the old one and never replace a file that's already&nbsp;there.</li>
 						<li><strong>No account</strong>Nothing to sign up for, and nothing to sign in&nbsp;to.</li>
 						<li><strong>No tracking</strong>No telemetry, no analytics in the app, no update&nbsp;checks.</li>
-						<li><strong>Undo built in</strong>New files can go to the Recycle Bin with one&nbsp;click.</li>
+						<li><strong>Undo built in</strong>Every card has Undo, which sends the new file to the Recycle&nbsp;Bin.</li>
+						<li><strong>Photo privacy</strong>See every hidden detail in a photo and take the location out before you share&nbsp;it.</li>
 					</ul>
+				</div>
+			</section>
+
+			<section id="next">
+				<div class="wrap">
+					<div class="section-head">
+						<h2>Coming&nbsp;next</h2>
+						<p>Planned in the open, one version at a&nbsp;time.</p>
+					</div>
+					<ol class="roadmap">
+						<li><span class="ver">0.2</span><div><strong>Copy anything</strong>Copy the text out of pictures and video frames, plus full screen reader&nbsp;support.</div></li>
+						<li><span class="ver">0.3</span><div><strong>Documents</strong>Word, Excel, PowerPoint, Google Docs files and PDFs, with tools made for&nbsp;them.</div></li>
+						<li><span class="ver">0.4</span><div><strong>Local AI</strong>Transcripts for sound and video, and help rewriting text, all on your PC and only where it runs&nbsp;well.</div></li>
+					</ol>
 				</div>
 			</section>
 
@@ -190,11 +175,19 @@
 						</details>
 						<details>
 							<summary>Why does it watch my&nbsp;keyboard?</summary>
-							<p>To notice a tap of Shift, Ctrl or Alt while you're dragging. TapWheel only reacts to those keys and Esc, never records what you type, and passes every key and click on&nbsp;untouched.</p>
+							<p>To notice a tap of Shift, Ctrl or Alt while you're dragging a file. TapWheel only reacts to those keys, Tab and Esc, never records what you type, and passes every key and click on&nbsp;untouched.</p>
+						</details>
+						<details>
+							<summary>What if I'm not dragging a&nbsp;file?</summary>
+							<p>Then nothing happens. The wheel only opens when what you're dragging is a file or folder, so tapping Shift while you select text is just&nbsp;Shift.</p>
 						</details>
 						<details>
 							<summary>Won't Shift turn my drag into a&nbsp;move?</summary>
-							<p>Not when you drop on the wheel. TapWheel always takes a copy, so the original stays where it was. Dropping anywhere else works the way Windows always&nbsp;does.</p>
+							<p>Not when you drop on the wheel. TapWheel always works on a copy, so the original stays where it was. Dropping anywhere else works the way Windows always&nbsp;does.</p>
+						</details>
+						<details>
+							<summary>Does it need anything else&nbsp;installed?</summary>
+							<p>No. FFmpeg, the Remove BG model and everything else it needs ship inside the app. The tool windows use WebView2, which comes with Windows 10 and&nbsp;11.</p>
 						</details>
 						<details>
 							<summary>Does it work on Windows 10?</summary>
@@ -206,7 +199,7 @@
 						</details>
 						<details>
 							<summary>Is this Tangerine for Windows?</summary>
-							<p>No. Tangerine is a separate Mac app by another developer. TapWheel borrows the idea of converting from a drag and is built from scratch for&nbsp;Windows.</p>
+							<p>No. Tangerine is a separate Mac app by another developer. TapWheel borrows the idea of working from a drag and is built from scratch for&nbsp;Windows.</p>
 						</details>
 					</div>
 				</div>

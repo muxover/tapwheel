@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+      - name: Add the app's tool windows to the website
+        run: cp -r crates/app/web site/public/app
       - name: Deploy the website
         run: npx --yes wrangler@4 deploy
         env:

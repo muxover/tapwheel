@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const { chromium } = await import(process.env.PLAYWRIGHT || "playwright");
 const root = fileURLToPath(new URL("./public/", import.meta.url));
-const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".txt": "text/plain", ".xml": "application/xml" };
+// the app's own pages, which the deploy copies to /app/
+const appPages = fileURLToPath(new URL("../crates/app/web/", import.meta.url));
+const types = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".mp4": "video/mp4", ".m4a": "audio/mp4", ".woff2": "font/woff2", ".txt": "text/plain", ".xml": "application/xml" };
 
 let base = process.argv[2];
 let server;
@@ -15,7 +17,7 @@ if (!base) {
 	server = createServer(async (req, res) => {
 		let path = decodeURIComponent(new URL(req.url, "http://x").pathname);
 		if (path.endsWith("/")) path += "index.html";
-		let file = join(root, path);
+		let file = path.startsWith("/app/") ? join(appPages, path.slice(5)) : join(root, path);
 		try {
 			if (!(await stat(file)).isFile()) throw 0;
 		} catch {
