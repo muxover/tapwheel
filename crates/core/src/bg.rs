@@ -85,7 +85,7 @@ fn session(e: &Engines) -> Result<std::sync::MutexGuard<'static, Option<ort::ses
 /// Loads the model ahead of time, so the first cut-out doesn't wait for it. Safe to call more
 /// than once; only the first call does any work.
 pub fn warm(e: &Engines) {
-	let _ = session(e);
+	drop(session(e));
 }
 
 /// Bilinear resize of one channel (or RGBA when `ch` is 4) to `w` × `h`.
