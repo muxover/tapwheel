@@ -656,3 +656,7 @@ kbd {
 	padding: 32px 0;
 	color: var(--text-2);
 }
+
+[hidden] {
+	display: none !important;
+}
