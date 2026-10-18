@@ -126,6 +126,21 @@ function petal(cx, cy, r0, r1, a0, a1, corner, fill) {
 	return `<g opacity="${fill[3].toFixed(3)}"><path d="${d}" fill="${solid}" stroke="${solid}" stroke-width="${corner * 2}" stroke-linejoin="round"/></g>`;
 }
 
+/** A slice whose sides stay `d` from each divider at every radius, rounded by `corner`. */
+function slice(cx, cy, r0, r1, a0, a1, d, corner, fill) {
+	const ri = r0 + corner;
+	const ro = r1 - corner;
+	const dd = d + corner;
+	if (ro <= ri) return "";
+	const off = (r) => Math.asin(Math.max(-1, Math.min(1, dd / r)));
+	const [o0, o1, i0, i1] = [a0 + off(ro), a1 - off(ro), a0 + off(ri), a1 - off(ri)];
+	if (o1 <= o0 || i1 <= i0) return "";
+	const p = (r, a) => `${(cx + Math.cos(a) * r).toFixed(2)} ${(cy + Math.sin(a) * r).toFixed(2)}`;
+	const path = `M${p(ro, o0)}A${ro} ${ro} 0 ${o1 - o0 > Math.PI ? 1 : 0} 1 ${p(ro, o1)}L${p(ri, i1)}A${ri} ${ri} 0 ${i1 - i0 > Math.PI ? 1 : 0} 0 ${p(ri, i0)}Z`;
+	const solid = css([fill[0], fill[1], fill[2], 1]);
+	return `<g opacity="${fill[3].toFixed(3)}"><path d="${path}" fill="${solid}" stroke="${solid}" stroke-width="${corner * 2}" stroke-linejoin="round"/></g>`;
+}
+
 function glyph(name, x, y, size, fill) {
 	const d = icons[name];
 	if (!d) return "";
@@ -243,12 +258,13 @@ function wheel(scene, m, win11) {
 		const hv = m.hover[k] || 0;
 		const picked = m.picked === k;
 		const fade = m.picked !== null && !picked ? 1 - easeOut(m.close * 2) : 1;
-		const pop = hv * 5 + (picked ? 8 * Math.sin(m.close * Math.PI) : 0);
+		// hover only colours a slice, as the app does; a pick pops it out
+		const pop = picked ? 8 * Math.sin(m.close * Math.PI) : 0;
 		const ox = Math.cos(mid) * pop;
 		const oy = Math.sin(mid) * pop;
-		const ga = 3 / R_OUT;
+		const ga = 2 / R_OUT;
 		out += `<g opacity="${fade.toFixed(3)}">`;
-		out += petal(CX + ox, CY + oy, R_IN + 6, R_OUT - 6, a0 + ga, a1 - ga, corner, mix(tile, P.accent, hv));
+		out += slice(CX + ox, CY + oy, R_IN + 6, R_OUT - 6, a0, a1, 2, corner, mix(tile, P.accent, hv));
 		const ink = mix(P.text, P.onAccent, hv);
 		const label = isMore ? "More" : scene.slices[k].label;
 		const ic = isMore ? "more_horizontal" : scene.slices[k].icon || "";
@@ -291,7 +307,6 @@ function wheel(scene, m, win11) {
 			const on = m.ringOn === j;
 			out += petal(CX, CY + 3, r0, r1, s0, s1, rc, [0, 0, 0, 0.14]);
 			out += petal(CX, CY, r0, r1, s0, s1, rc, on ? P.accent : P.raised);
-			if (!on) out += `<path d="${sector(CX, CY, r0 + rc / 2, r1 - rc / 2, s0 + 0.005, s1 - 0.005)}" ${shape(NONE, P.strong)}/>`;
 			const md = (s0 + s1) / 2;
 			const rr = (r0 + r1) / 2;
 			out += arcText(l, CX, CY, rr, md, flipped(md), 12.5, on ? P.onAccent : P.text);

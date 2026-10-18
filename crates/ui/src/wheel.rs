@@ -21,6 +21,8 @@ const RING_IN: f32 = R_OUT + 8.0;
 const RING_OUT: f32 = R_OUT + 58.0;
 /// How far past the ring's ends (radians) and inside the slices' rim (px) the open ring holds on.
 const RING_SLACK: f32 = 0.12;
+/// The even gap between neighbouring slices, in logical pixels.
+const GAP: f32 = 4.0;
 const RIM: f32 = 28.0;
 const PILL_Y: f32 = 512.0;
 const PILL_H: f32 = 40.0;
@@ -252,7 +254,8 @@ pub fn label_shapes(v: &WheelView, fonts: &Fonts, win11: bool) -> Vec<(String, t
 	let n = count_on_page(v);
 	let (items, more) = page_items(v.slices.len(), v.page);
 	let corner = if win11 { 8.0 } else { 2.0 };
-	let ga = if n > 1 { 3.0 / R_OUT } else { 0.0 };
+	let gap = if n > 1 { GAP } else { 0.0 };
+	let ga = gap / 2.0 / R_OUT;
 	for k in 0..n {
 		let (a0, mid, a1) = angles(n, k);
 		let mid = if n == 1 { -PI / 2.0 } else { mid };
@@ -264,8 +267,7 @@ pub fn label_shapes(v: &WheelView, fonts: &Fonts, win11: bool) -> Vec<(String, t
 		};
 		let fit = fit_label(fonts, &label, has_icon, a1 - a0 - 2.0 * ga, mid);
 		let (r_in, r_out) = (R_IN + 6.0 + corner, R_OUT - 6.0 - corner);
-		let pad = corner / ((r_in + r_out) / 2.0);
-		let Some(region) = ring_segment(CX, CY, r_in, r_out, a0 + ga + pad, a1 - ga - pad) else {
+		let Some(region) = slice_shape(CX, CY, r_in, r_out, a0, a1, gap / 2.0 + corner) else {
 			continue;
 		};
 		for (line, r) in &fit.lines {
@@ -313,7 +315,7 @@ pub fn hit(v: &WheelView, fonts: &Fonts, x: f32, y: f32) -> Hover {
 		let spans = ring_layout(v, fonts, i);
 		if let (Some(first), Some(last)) = (spans.first(), spans.last()) {
 			let in_arc = angle_in(a, first.0 - RING_SLACK, last.1 + RING_SLACK);
-			if in_arc && d >= RING_IN - 4.0 && d < RING_OUT + 40.0 {
+			if in_arc && (RING_IN - 4.0..RING_OUT + 40.0).contains(&d) {
 				let off = |m: f32| (a - m + PI).rem_euclid(TAU) - PI;
 				let j = (0..spans.len())
 					.min_by(|&x, &y| {
@@ -427,25 +429,27 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 		} else {
 			1.0
 		};
-		let pop = (hv * 5.0 + if picked { 8.0 * (m.close * PI).sin() } else { 0.0 }) * s;
+		// hover only colours a slice; moving it would crowd its neighbours. A pick pops it out
+		let pop = if picked { 8.0 * (m.close * PI).sin() * s } else { 0.0 };
 		let (ox, oy) = (mid.cos() * pop, mid.sin() * pop);
-		let gap = if n > 1 { 3.0 * s } else { 0.0 };
-		let ga = gap / (R_OUT * s);
+		let gap = if n > 1 { GAP * s } else { 0.0 };
+		let ga = gap / 2.0 / (R_OUT * s);
 		let fill = tile.mix(p.accent, hv).alpha(fade);
-		petal(
+		slice(
 			&mut pm,
 			cx + ox,
 			cy + oy,
 			(R_IN + 6.0) * s,
 			(R_OUT - 6.0) * s,
-			a0 + ga,
-			a1 - ga,
+			a0,
+			a1,
+			gap,
 			corner,
 			fill,
 		);
 		if theme.high_contrast
 			&& hovered
-			&& let Some(seg) = ring_segment(cx, cy, (R_IN + 6.0) * s, (R_OUT - 6.0) * s, a0 + ga, a1 - ga)
+			&& let Some(seg) = slice_shape(cx, cy, (R_IN + 6.0) * s, (R_OUT - 6.0) * s, a0, a1, gap / 2.0)
 		{
 			let st = tiny_skia::Stroke {
 				width: 2.0 * s,
@@ -504,21 +508,29 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 		}
 		if hovered
 			&& v.keyboard
-			&& let Some(seg) = ring_segment(cx + ox, cy + oy, (R_IN + 3.0) * s, (R_OUT - 3.0) * s, a0 + ga, a1 - ga)
-		{
+			&& let Some(seg) = slice_shape(
+				cx + ox,
+				cy + oy,
+				(R_IN + 4.0) * s,
+				(R_OUT - 4.0) * s,
+				a0,
+				a1,
+				gap / 2.0 - 2.0 * s,
+			) {
 			let st = tiny_skia::Stroke {
 				width: 2.0 * s,
 				..Default::default()
 			};
 			pm.stroke_path(&seg, &paint(p.text), &st, Transform::identity(), None);
 			// Windows' focus outline is two rings: the text colour outside, the surface inside
-			if let Some(inner) = ring_segment(
+			if let Some(inner) = slice_shape(
 				cx + ox,
 				cy + oy,
-				(R_IN + 4.5) * s,
-				(R_OUT - 4.5) * s,
-				a0 + ga + 1.5 / R_OUT,
-				a1 - ga - 1.5 / R_OUT,
+				(R_IN + 5.5) * s,
+				(R_OUT - 5.5) * s,
+				a0,
+				a1,
+				gap / 2.0 - 0.5 * s,
 			) {
 				let st = tiny_skia::Stroke {
 					width: s.max(1.0),
@@ -555,22 +567,18 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 						p.shadow.alpha(0.5 * alpha),
 					);
 				}
+				// fill and shadow only, like Windows 11's menus; high contrast keeps an edge
 				let bg = if on { p.accent } else { p.raised };
 				petal(&mut pm, cx, cy, r0, r1, *a0, *a1, rc, bg.alpha(alpha));
-				if let Some(seg) = ring_segment(cx, cy, r0 + rc / 2.0, r1 - rc / 2.0, *a0 + 0.005, *a1 - 0.005)
-					&& !on
+				if theme.high_contrast
+					&& !on && let Some(seg) =
+					ring_segment(cx, cy, r0 + rc / 2.0, r1 - rc / 2.0, *a0 + 0.005, *a1 - 0.005)
 				{
 					let st = tiny_skia::Stroke {
 						width: s.max(1.0),
 						..Default::default()
 					};
-					pm.stroke_path(
-						&seg,
-						&paint(p.stroke.alpha(alpha * 1.5)),
-						&st,
-						Transform::identity(),
-						None,
-					);
+					pm.stroke_path(&seg, &paint(p.stroke), &st, Transform::identity(), None);
 				}
 				let mid = (a0 + a1) / 2.0;
 				let rr = (r0 + r1) / 2.0;
