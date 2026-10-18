@@ -50,22 +50,21 @@ TapWheel converts files on Windows 10 and 11 without opening an app. Start dragg
 
 ## Installation
 
-Get it from the [Microsoft Store](https://apps.microsoft.com/detail/9MW1GB4106VS). The Store version is signed by Microsoft and updates itself.
+- [Microsoft Store](https://apps.microsoft.com/detail/9MW1GB4106VS): signed by Microsoft, updates itself.
+- [Portable zip](https://github.com/muxover/tapwheel/releases/latest): unzip anywhere and run `tapwheel.exe`. No admin rights needed, and it adds a right-click entry.
 
-Or download `TapWheel-<version>-windows-x64.zip` from the [latest release](https://github.com/muxover/tapwheel/releases/latest), unzip it anywhere and run `tapwheel.exe`. It installs nothing else and needs no admin rights. The portable build also adds TapWheel to the right-click menu ("Show more options" on Windows 11).
-
-The zip isn't code-signed, so Windows SmartScreen may ask before the first run.
+The zip isn't code-signed, so SmartScreen may ask once before the first run.
 
 ---
 
 ## Quick Start
 
-1. Run TapWheel. Its window shows the keys and a button that makes a folder of sample files to practise on.
-2. Start dragging any file. Keep the mouse button down.
+1. Run TapWheel. Its window has a button that makes sample files to practise on.
+2. Start dragging a file and keep the mouse button down.
 3. Tap Shift. The Convert wheel opens under the pointer.
-4. Drop the file on a slice. Drop it in the middle, or press Esc, to cancel.
+4. Drop on a slice. Drop in the middle, or press Esc, to cancel.
 
-Tap Ctrl or Alt while the wheel is open to switch to Tools or Actions. Closing the window leaves TapWheel running in the tray.
+Tap Ctrl or Alt on an open wheel to switch to Tools or Actions. Closing the window keeps TapWheel in the tray.
 
 ---
 
@@ -75,27 +74,30 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
-| Convert key | Shift | Key you tap during a drag for the Convert wheel |
+| Convert key | Shift | Key to tap during a drag for the Convert wheel |
 | Tools key | Ctrl | Key for the Tools wheel |
 | Actions key | Alt | Key for the Actions wheel |
 | Start with Windows | On | Starts TapWheel in the tray when you sign in |
-| Favorites first | On | Moves the slices you pick most to the top of each wheel |
-| Pause TapWheel | Off | Ignores key taps until you turn it back off (resets when TapWheel restarts) |
+| Favorites first | On | Moves the slices you pick most to the top |
+| Pause TapWheel | Off | Ignores key taps until turned off again or TapWheel restarts |
 
 ---
 
 ## Privacy
 
-TapWheel makes no network connections. There's no account, no telemetry and no update check. Files are converted by a copy of FFmpeg that ships inside the app, and the results stay in the folder you dragged from. To see when you tap a key during a drag, TapWheel watches the keyboard and mouse while it runs. It only acts on Shift, Ctrl, Alt and Esc, never records what you type, and passes every key and click on untouched.
+- No network connections: no account, no telemetry, no update checks.
+- Files are converted on your PC by a bundled FFmpeg and stay in their folder.
+- The keyboard and mouse are watched only to spot a quick tap of Shift, Ctrl or Alt during a drag.
+- Nothing you type is recorded, and every key and click passes through untouched.
 
 ---
 
 ## Limitations
 
-- Windows doesn't let a normal app see drags that start in an app running as administrator, so the wheel won't open over those.
-- Files inside a ZIP or on a phone that Explorer shows without copying them first can't be converted. Copy them to a folder first.
-- Documents, PDFs and Office files aren't supported yet.
-- AVIF and WebM take noticeably longer than other formats on large inputs.
+- Drags from apps running as administrator can't reach the wheel.
+- Files Explorer shows inside a ZIP or on a phone need copying to a folder first.
+- No documents, PDFs or Office files yet.
+- AVIF and WebM are slow on large files.
 
 ---
 
