@@ -1,0 +1,18 @@
+[package]
+name = "tapwheel-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+flate2 = "1.1.10"
+imagequant = "4.4.1"
+png = "0.18.1"
+serde = { version = "1.0.229", features = ["derive"] }
+sevenz-rust2 = { version = "0.20.2", features = ["compress"] }
+tar = "0.4.46"
+toml = "1.1.8"
+zip = { version = "9", default-features = false, features = ["deflate"] }

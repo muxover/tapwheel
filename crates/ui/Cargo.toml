@@ -1,0 +1,12 @@
+[package]
+name = "tapwheel-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+ab_glyph = "0.2.32"
+tiny-skia = "0.12.0"

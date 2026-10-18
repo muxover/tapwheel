@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: tapwheel-windows
+          path: dist
+      - name: Release notes
+        id: notes
+        run: |
+          file="release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$file" ]; then
+            title=$(head -n1 "$file" | sed -E 's/^# +//; s/^TapWheel +//')
+            echo "file=$file" >> "$GITHUB_OUTPUT"
+            echo "name=$title" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+          cd dist && sha256sum TapWheel-*-windows-x64.zip > checksums.txt
+      - uses: softprops/action-gh-release@v3
+        with:
+          name: ${{ steps.notes.outputs.name }}
+          body_path: ${{ steps.notes.outputs.file }}
+          generate_release_notes: ${{ steps.notes.outputs.file == '' }}
+          files: |
+            dist/TapWheel-*-windows-x64.zip
+            dist/checksums.txt
