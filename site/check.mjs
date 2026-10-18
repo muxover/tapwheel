@@ -1,4 +1,5 @@
-// Loads every page at phone to wide widths and fails on layout problems.
+// Loads every page at phone to wide widths and fails on layout problems, link order, contrast,
+// accent overuse, a hidden header part and search tags.
 // node site/check.mjs [base url]   (serves site/public itself when no url is given)
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
@@ -89,12 +90,93 @@ for (const page of pages) {
 				if (r.height < 44 && getComputedStyle(a).display !== "inline") out.push(`small target ${Math.round(r.height)}px: "${a.textContent.trim().slice(0, 30)}"`);
 			}
 			if (/\.\.\.|…/.test(document.body.innerText)) out.push("ellipsis in text");
+			// link lists run shortest first, except a header that follows the page
+			for (const list of document.querySelectorAll("nav, ul, ol")) {
+				if (list.closest("[data-order='page']")) continue;
+				const links = list.matches("nav") ? [...list.querySelectorAll(":scope > a")] : [...list.children].map((li) => (li.children.length === 1 && li.firstElementChild.tagName === "A" && li.textContent.trim() === li.firstElementChild.textContent.trim() ? li.firstElementChild : null));
+				if (links.length < 2 || links.some((a) => !a)) continue;
+				const lens = links.map((a) => a.textContent.trim().length);
+				if (lens.some((n, i) => i && n < lens[i - 1])) out.push(`links not shortest first: ${links.map((a) => a.textContent.trim()).join(", ")}`);
+			}
+			// colour: parse, find what's behind, measure contrast
+			const rgb = (c) => {
+				const m = c.match(/[\d.]+/g);
+				return m ? m.map(Number) : [0, 0, 0, 0];
+			};
+			const lum = ([r, g, b]) => {
+				const f = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+				return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+			};
+			const behind = (el) => {
+				for (let e = el; e; e = e.parentElement) {
+					const c = rgb(getComputedStyle(e).backgroundColor);
+					if ((c[3] ?? 1) > 0.5) return c;
+				}
+				return rgb(getComputedStyle(document.body).backgroundColor);
+			};
+			const skip = (el) => el.closest(".tw-scope, svg, iframe, .try-frame, .skip");
+			for (const el of document.querySelectorAll("h1, h2, h3, p, li, a, button, summary, dt, dd, span, strong, figcaption, label")) {
+				if (!el.offsetParent || skip(el)) continue;
+				if (![...el.childNodes].some((n) => n.nodeType === 3 && n.data.trim())) continue;
+				const cs = getComputedStyle(el);
+				if (Number(cs.opacity) < 0.5) continue;
+				const fg = rgb(cs.color);
+				const bg = behind(el);
+				const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+				const ratio = (a + 0.05) / (b + 0.05);
+				const size = parseFloat(cs.fontSize);
+				const large = size >= 24 || (size >= 18.66 && Number(cs.fontWeight) >= 600);
+				if (ratio < (large ? 3 : 4.5)) out.push(`contrast ${ratio.toFixed(2)}: ${el.tagName} "${el.textContent.trim().slice(0, 30)}"`);
+			}
+			// the accent marks the main action and what's live, never decoration
+			const accent = getComputedStyle(document.documentElement).getPropertyValue("--blue").trim();
+			if (accent) {
+				const probe = document.createElement("i");
+				probe.style.color = accent;
+				document.body.append(probe);
+				const want = getComputedStyle(probe).color;
+				probe.remove();
+				let uses = 0;
+				for (const el of document.querySelectorAll("body *")) {
+					if (!el.offsetParent || skip(el)) continue;
+					const cs = getComputedStyle(el);
+					const after = getComputedStyle(el, "::after");
+					if (cs.backgroundColor === want || cs.color === want || cs.borderTopColor === want || (after.content !== "none" && after.backgroundColor === want)) uses++;
+				}
+				if (uses > 12) out.push(`the accent is used ${uses} times`);
+			}
+			// the header: logo, links and the button visible, inside it and not covered
+			const header = document.querySelector(".header");
+			for (const y of [0, Math.round(document.documentElement.scrollHeight / 2)]) {
+				scrollTo(0, y);
+				const box = header.getBoundingClientRect();
+				const parts = [header.querySelector(".brand"), header.querySelector(".button"), ...(innerWidth > 800 ? header.querySelectorAll(".nav a") : [])];
+				for (const el of parts) {
+					const r = el.getBoundingClientRect();
+					const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+					if (!r.width || r.top < box.top - 1 || r.bottom > box.bottom + 1 || !el.contains(hit)) out.push(`header part hidden at ${y}px: "${el.textContent.trim()}"`);
+				}
+			}
+			scrollTo(0, 0);
+			// search: description length and title shape
+			const desc = document.querySelector('meta[name="description"]')?.content || "";
+			if (desc.length < 20 || desc.length > 160) out.push(`description is ${desc.length} characters`);
+			if (!/ · muxover$/.test(document.title)) out.push(`title doesn't end with the brand: "${document.title}"`);
 			return { out, links: [...document.querySelectorAll("a[href^='/'], link[href^='/'], img[src^='/'], script[src^='/']")].map((e) => e.getAttribute("href") || e.getAttribute("src")) };
 		});
 		for (const f of found.out) problems.push(`${page} @${width}: ${f}`);
 		for (const e of errors) problems.push(`${page} @${width}: console: ${e}`);
 		for (const l of found.links) seen.add(l.split("#")[0] || "/");
 		await p.close();
+	}
+}
+
+// a layout class defined twice once collapsed a live header
+{
+	const css = await readFile(new URL("./public/style.css", import.meta.url), "utf8");
+	for (const name of ["header", "nav", "bar", "wrap", "brand"]) {
+		const defs = css.match(new RegExp(`(^|\\n)\\.${name}\\s*\\{`, "g")) || [];
+		if (defs.length > 1) problems.push(`.${name} is defined ${defs.length} times in style.css`);
 	}
 }
 
