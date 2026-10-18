@@ -336,6 +336,7 @@ const EDITORS = {
 	contents: "contents",
 	rename: "rename",
 	info: "info",
+	snapshot: "snapshot",
 };
 
 async function start(init) {

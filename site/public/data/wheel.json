@@ -19,6 +19,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -400,6 +401,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -669,7 +671,8 @@
           "ring": [
             "Middle",
             "First",
-            "Every 10 s"
+            "Every 10 s",
+            "Custom"
           ],
           "window": false
         },
@@ -740,6 +743,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -884,7 +888,7 @@
           "desc": "Make an iPhone ringtone",
           "icon": "",
           "id": "to-m4r",
-          "label": "Ringtone",
+          "label": "M4R",
           "ring": [],
           "window": false
         }
@@ -932,9 +936,7 @@
         "snd",
         "voc",
         "w64",
-        "spx",
-        "mid",
-        "midi"
+        "spx"
       ],
       "sample": "song.mp3",
       "tools": [
@@ -1080,6 +1082,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -1291,6 +1294,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -1509,6 +1513,18 @@
           "window": false
         },
         {
+          "desc": "Cut into smaller files",
+          "icon": "split_vertical",
+          "id": "split",
+          "label": "Split",
+          "ring": [
+            "1,000 lines",
+            "100 lines",
+            "10,000 lines"
+          ],
+          "window": false
+        },
+        {
           "desc": "Windows or Unix line ends",
           "icon": "text_wrap",
           "id": "line_endings",
@@ -1520,15 +1536,11 @@
           "window": false
         },
         {
-          "desc": "Cut into smaller files",
-          "icon": "split_vertical",
-          "id": "split",
-          "label": "Split",
-          "ring": [
-            "1,000 lines",
-            "100 lines",
-            "10,000 lines"
-          ],
+          "desc": "Count lines and words",
+          "icon": "number_symbol",
+          "id": "stats",
+          "label": "Count",
+          "ring": [],
           "window": false
         },
         {
@@ -1560,6 +1572,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],
@@ -1883,6 +1896,7 @@
             "Path",
             "Name",
             "Base name",
+            "Extension",
             "Quoted",
             "File URL"
           ],

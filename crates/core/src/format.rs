@@ -140,7 +140,7 @@ impl Format {
 			Format::Opus => "Opus",
 			Format::Aiff => "AIFF",
 			Format::Wma => "WMA",
-			Format::M4r => "Ringtone",
+			Format::M4r => "M4R",
 			Format::Txt => "TXT",
 			Format::Md => "Markdown",
 			Format::Html => "HTML",

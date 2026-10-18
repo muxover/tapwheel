@@ -35,6 +35,7 @@ impl App {
 				let what = match which {
 					"name" => plural(files.len(), "the name", "names"),
 					"stem" => plural(files.len(), "the base name", "base names"),
+					"ext" => plural(files.len(), "the extension", "extensions"),
 					"uri" => plural(files.len(), "the file URL", "file URLs"),
 					"quoted" => plural(files.len(), "the quoted path", "quoted paths"),
 					_ => plural(files.len(), "the path", "paths"),

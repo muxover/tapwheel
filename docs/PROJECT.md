@@ -29,11 +29,10 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-18: wheel and ring labels follow the curve of their slice and never leave it. A test draws every wheel and fails if any letter falls outside its shape; a name that can't fit on two curved lines gets a shorter name.
 - 2026-10-18: the website uses Windows blue as its accent, taken from the app, because its job is to show a Windows app.
 - 2026-10-18: from the roadmap review, v0.1.0 adds Copy name and the other clipboard choices, Properties, Open with, Duplicate, Rename with a batch preview, File info, preflight checks, an Undo that checks the file first, and Retry and batch summaries on cards. Open containing folder is out (Explorer is already open where the drag started), file encryption is out until it has a security review (password ZIP and 7Z cover it), and there is no fourth key.
-<<<<<<< HEAD
 - 2026-10-18: the privacy page promises: the app makes no network connections; settings (keys, options, slice counts, recent Move to folders) stay in `%APPDATA%\TapWheel\settings.toml`; input is watched only for Shift, Ctrl, Alt, Tab and Esc and nothing typed is kept; the site sets no cookies and uses only Cloudflare Web Analytics. The zip version's tray menu has Remove from this PC, which deletes its right-click and start-up entries and its settings.
-=======
 - 2026-10-18: the privacy page also promises: errors go to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on the PC (error messages and file names, never typing, under 256 KB, removed by Remove from this PC, never sent anywhere).
->>>>>>> main
+- 2026-10-18: screenshots, screen recording and customizing the wheels are goals (asked for by Jax); they're planned for v0.2.0 next to Copy anything, which uses the same screen capture.
+- 2026-10-18: the Contents window extracts what you tick instead of dragging single items out, which WebView2 can't hand to Explorer.
 - 2026-10-18: the Store package can't write classic shell keys, so its right-click entry waits for the Explorer command handler in v0.2.0; the portable build adds a classic one.
 
 ## Status
@@ -70,7 +69,7 @@ Every tool works offline with what ships inside TapWheel (FFmpeg, our own Rust e
 | Tool | Ring choices | Window |
 |------|--------------|--------|
 | Crop | | Free or 1:1, 4:3, 3:2, 16:9, 9:16, 4:5; exact W×H; arrow-key nudging; full resolution kept |
-| Add background | | Gradients, colours, blur of the picture itself; padding, corners, shadow, ratio (Auto, 1:1, 16:9, 4:5, 9:16) |
+| Add background | | Gradients, colours, any colour, your own picture, blur of the picture itself; padding, corners, shadow, ratio (Auto, 1:1, 16:9, 4:5, 9:16) |
 | Remove background | | Offline AI cut-out to transparent PNG; optional window to refine edges and pick a fill |
 | Compress | Balanced, Smaller, Best, Custom | Quality, target size in KB, longest edge; result size shown live |
 | Resize | 50%, 1920, 1280, 1080, Custom | Width, height, percent, keep proportions |
@@ -97,7 +96,7 @@ Every tool works offline with what ships inside TapWheel (FFmpeg, our own Rust e
 | Resize | 720p, 1080p, 480p, 9:16 | |
 | Crop | | Same crop window as images, on a frame of the video |
 | Speed | 2×, 1.5×, 4×, 0.5× | Sound keeps its pitch |
-| Snapshot | Middle, First, Every 10 s | Pick the exact frame |
+| Snapshot | Middle, First, Every 10 s, Custom | Pick the exact frame |
 | Mute, Get audio, Rotate, Reverse | Rotate: Right, Left, 180°, Mirror, Flip | |
 | Join (2 or more) | | Order; different sizes fitted into the first one's frame |
 
@@ -146,7 +145,7 @@ Every tool works offline with what ships inside TapWheel (FFmpeg, our own Rust e
 
 - Reads: ZIP, 7Z, TAR, TAR.GZ, TGZ, TAR.BZ2, TAR.XZ, TAR.ZST, GZ, BZ2, XZ, ZST, and ZIP-based files (JAR, APK, CBZ, NUPKG, VSIX, WHL).
 - Convert to: ZIP, 7Z, TAR.GZ, TAR.XZ, TAR, TAR.BZ2, TAR.ZST.
-- Tools: Extract (here, into a folder named after it, safe against path tricks), Contents (window with every file, size and date; extract single items by dragging them out), Test (checks every file), Password (AES-256 ZIP or 7Z), Split (25 MB, 100 MB, 1 GB parts).
+- Tools: Extract (here, into a folder named after it, safe against path tricks), Contents (window with every file, size and date; tick files or folders to extract only those), Test (checks every file), Password (AES-256 ZIP or 7Z), Split (25 MB, 100 MB, 1 GB parts).
 - Folders and mixed selections: pack into any of the formats above, or with a password.
 
 ### Actions (Alt wheel, any file or folder)
@@ -191,8 +190,10 @@ Release blockers: a lost or replaced file, a claim the app can't back, a wheel t
 
 Rebuilt after the app's look is settled. Windows blue accent, dark page. Sections spaced at about 64 px, words and a visual side by side so no screen is a heading alone. A playable hero: a large wheel on a strip of Windows desktop where visitors drag the sample file and tap Shift, Ctrl or Alt (key buttons on phones), with picture tools running in the browser. Order: hero, the three wheels, the tool windows to try, every kind of file, the safety promises, the Windows looks, coming next, questions, download. Short silent clips from a Windows PC per tool once the app runs. The tool list is generated from the app (`site/public/data/wheel.json`, checked in CI).
 
-## v0.2.0: Copy anything and screen readers
+## v0.2.0: Copy anything, capture, your own wheels and screen readers
 
+- Capture, from the same shortcut and the tray: a screenshot of an area, a window or the whole screen, opened straight in the Annotate window or copied; a screen recording of an area, a window or a screen to MP4 or GIF, with or without sound and the pointer, a countdown, and Stop from the tray or the shortcut again. Both save next to each other in a folder you choose, and every result gets a card with the same tools as any file.
+- Your own wheels: hide, pin and reorder slices on each wheel; save a tool's settings as your own ring choice (for example "Compress to 2 MB"); pick which wheel each key opens; wheel size and the accent colour. Everything is in Settings, with a reset.
 - Copy anything: a shortcut (and a tray item) freezes the screen; drag over any area (a paused video, a picture, a PDF page, an app that won't let you select) and its text is copied with the offline Windows OCR, in the languages Windows has installed. Tables come out as tab-separated rows.
 - QR and barcodes: the same capture reads QR codes and common barcodes; links open or copy, Wi-Fi codes show the network and password, text is copied.
 - From the wheel: images get Copy text and Read QR; videos get Copy text from the current frame chosen in a frame picker.
@@ -221,7 +222,7 @@ From the roadmap review, reordered so each version builds on the last. Plans, no
 
 | Version | Theme | Main work |
 | --- | --- | --- |
-| v0.2.0 | Copy anything | Also: hide, pin and reorder slices; saved tool settings as ring choices |
+| v0.2.0 | Copy anything, capture, your own wheels | Screenshots and screen recording; hide, pin and reorder slices; saved tool settings as ring choices |
 | v0.5.0 | Automation | Multi-step recipes with preview, mixed-file batches that skip what doesn't fit, naming templates; recipes stay declarative, never shell commands |
 | v0.6.0 | File intelligence | Compare text, pictures and binaries; duplicate finder with review and no automatic deletes; folder summaries; similar pictures later |
 | v0.7.0 | Desktop layer | Command palette, quick preview, saved Float shelves, job history, per-monitor and per-device input settings |
