@@ -47,13 +47,7 @@ impl App {
 				}
 			}
 			Op::MoveTo => self.move_to(preset, files),
-			Op::Share => {
-				if let Err(e) = share::share(files) {
-					super::log::write(&format!("share: {e}"));
-					self.jobs
-						.problem(op, kind, files, format!("Sharing didn't open: {}", e.message()));
-				}
-			}
+			Op::Share => share::share(files, self.main as isize),
 			Op::Float => {
 				super::float::add(self.theme, files);
 			}
