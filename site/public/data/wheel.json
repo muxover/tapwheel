@@ -276,7 +276,10 @@
           "icon": "image_sparkle",
           "id": "remove_background",
           "label": "Remove BG",
-          "ring": [],
+          "ring": [
+            "Cut out",
+            "Touch up"
+          ],
           "window": false
         },
         {
