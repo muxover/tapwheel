@@ -22,6 +22,9 @@ pub static WHEEL_OPEN: AtomicBool = AtomicBool::new(false);
 pub static PAUSED: AtomicBool = AtomicBool::new(false);
 
 const NONE: u32 = u32::MAX;
+/// Tags the input TapWheel sends itself, so the hooks skip only that and still hear the
+/// on-screen keyboard, voice control and other tools that type for people.
+const OWN: usize = 0x7457_6865;
 const TAP_MS: u64 = 400;
 
 pub const KEY_SHIFT: usize = 0;
@@ -51,9 +54,8 @@ pub fn dragging() -> bool {
 unsafe extern "system" fn keyboard(code: i32, w: WPARAM, l: LPARAM) -> LRESULT {
 	if code == HC_ACTION as i32 {
 		let k = unsafe { &*(l as *const KBDLLHOOKSTRUCT) };
-		let injected = k.flags & LLKHF_INJECTED != 0;
 		let msg = w as u32;
-		if !injected {
+		if k.dwExtraInfo != OWN {
 			let down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
 			let up = msg == WM_KEYUP || msg == WM_SYSKEYUP;
 			match modifier(k.vkCode) {
@@ -89,8 +91,7 @@ unsafe extern "system" fn keyboard(code: i32, w: WPARAM, l: LPARAM) -> LRESULT {
 unsafe extern "system" fn mouse(code: i32, w: WPARAM, l: LPARAM) -> LRESULT {
 	if code == HC_ACTION as i32 {
 		let m = unsafe { &*(l as *const MSLLHOOKSTRUCT) };
-		let injected = m.flags & LLMHF_INJECTED != 0;
-		if !injected {
+		if m.dwExtraInfo != OWN {
 			match w as u32 {
 				WM_LBUTTONDOWN => {
 					DOWN.store(true, Ordering::Relaxed);
@@ -169,7 +170,7 @@ pub fn nudge() {
 				mouseData: 0,
 				dwFlags: MOUSEEVENTF_MOVE,
 				time: 0,
-				dwExtraInfo: 0,
+				dwExtraInfo: OWN,
 			},
 		},
 	};
