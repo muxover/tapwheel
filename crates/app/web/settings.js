@@ -182,6 +182,6 @@ function quality(crf) {
 
 function logo(size) {
 	const el = h("span", { style: { display: "inline-flex" } });
-	el.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#14161a"/><g fill="none" stroke="#3a3f47" stroke-width="2"><path d="M32 6v14M32 44v14M6 32h14M44 32h14"/></g><path d="M32 4a28 28 0 0 1 28 28H44a12 12 0 0 0-12-12z" fill="#b6f23a"/><circle cx="32" cy="32" r="8" fill="#262a31"/></svg>`;
+	el.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#14161a"/><g fill="none" stroke="#3a3f47" stroke-width="2"><path d="M32 6v14M32 44v14M6 32h14M44 32h14"/></g><path d="M32 4a28 28 0 0 1 28 28H44a12 12 0 0 0-12-12z" fill="#60cdff"/><circle cx="32" cy="32" r="8" fill="#262a31"/></svg>`;
 	return el;
 }
