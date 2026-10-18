@@ -322,19 +322,13 @@ pub fn acrylic(pm: &mut Pixmap, dark: bool) {
 		}
 		c
 	};
-	let (w, h) = (pm.width() as usize, pm.height());
-	for (i, px) in pm.data_mut().as_chunks_mut::<4>().0.iter_mut().enumerate() {
+	for px in pm.data_mut().as_chunks_mut::<4>().0.iter_mut() {
 		let b = [px[0] as f32, px[1] as f32, px[2] as f32];
 		let lit = set_lum(b, lum(tint));
 		let b1: [f32; 3] = std::array::from_fn(|k| b[k] + (lit[k] - b[k]) * lum_opacity);
 		let colored = set_lum(tint, lum(b1));
-		// stable noise per pixel, about 2% either way
-		let (x, y) = ((i % w) as u32, (i / w) as u32);
-		let hsh = (x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663) ^ h.wrapping_mul(83_492_791))
-			.wrapping_mul(2_654_435_761);
-		let noise = ((hsh >> 24) as f32 / 255.0 - 0.5) * 0.04 * 255.0;
 		for k in 0..3 {
-			let v = b1[k] + (colored[k] - b1[k]) * tint_opacity + noise;
+			let v = b1[k] + (colored[k] - b1[k]) * tint_opacity;
 			px[k] = v.round().clamp(0.0, 255.0) as u8;
 		}
 		px[3] = 255;
@@ -397,4 +391,41 @@ pub fn ease_back(t: f32) -> f32 {
 	let t = t.clamp(0.0, 1.0);
 	let c = 1.4;
 	1.0 + (c + 1.0) * (t - 1.0).powi(3) + c * (t - 1.0).powi(2)
+}
+
+/// Windows 11 acrylic from a quarter-size copy of the screen: blurred, tinted, scaled up to
+/// `w` × `h`, then a fine grain at full size (grain added before scaling up turns into blotches).
+pub fn frost(mut small: Pixmap, w: u32, h: u32, dark: bool) -> Option<Pixmap> {
+	// about Windows' 30 px acrylic blur once scaled back up
+	blur(&mut small, 8);
+	acrylic(&mut small, dark);
+	let mut full = Pixmap::new(w, h)?;
+	let paint = tiny_skia::PixmapPaint {
+		quality: tiny_skia::FilterQuality::Bilinear,
+		..Default::default()
+	};
+	let (sw, sh) = (small.width() as f32, small.height() as f32);
+	full.draw_pixmap(
+		0,
+		0,
+		small.as_ref(),
+		&paint,
+		Transform::from_scale(w as f32 / sw, h as f32 / sh),
+		None,
+	);
+	grain(&mut full);
+	Some(full)
+}
+
+/// Acrylic's noise: about 1.5% either way per pixel, the same every time for the same pixel.
+fn grain(pm: &mut Pixmap) {
+	let w = pm.width() as usize;
+	for (i, px) in pm.data_mut().as_chunks_mut::<4>().0.iter_mut().enumerate() {
+		let (x, y) = ((i % w) as u32, (i / w) as u32);
+		let hsh = (x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663)).wrapping_mul(2_654_435_761);
+		let noise = ((hsh >> 24) as f32 / 255.0 - 0.5) * 0.03 * 255.0;
+		for v in &mut px[..3] {
+			*v = (*v as f32 + noise).round().clamp(0.0, 255.0) as u8;
+		}
+	}
 }
