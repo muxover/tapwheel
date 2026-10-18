@@ -466,7 +466,7 @@ fn background_comes_off() {
 	let out = run(&job, &e, &Defaults::default(), &mut |_| {}, &AtomicBool::new(false)).unwrap();
 	eprintln!("cut out in {:?}", started.elapsed());
 	let (_, _, rgba) = tapwheel_core::image::read_png(&out.output).unwrap();
-	let alphas: Vec<u8> = rgba.chunks_exact(4).map(|p| p[3]).collect();
+	let alphas: Vec<u8> = rgba.as_chunks::<4>().0.iter().map(|p| p[3]).collect();
 	let clear = alphas.iter().filter(|a| **a == 0).count() as f32 / alphas.len() as f32;
 	let solid = alphas.iter().filter(|a| **a == 255).count() as f32 / alphas.len() as f32;
 	assert!(clear > 0.05 && solid > 0.05, "clear {clear}, solid {solid}");
