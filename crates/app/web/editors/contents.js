@@ -31,8 +31,9 @@ export default async function contents(init) {
 	ui.stage.replaceChildren(box);
 	const fmt = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 	const label = () => {
-		ui.save.textContent = picked.size ? `Extract ${picked.size} picked` : "Extract all";
-		ui.setOut(picked.size ? `Extracts what you picked into a folder named <b>${stem(file.name)}</b> next to it` : `Extracts into a folder named <b>${stem(file.name)}</b> next to it`);
+		ui.save.textContent = picked.size ? "Extract selected" : "Extract all";
+		const what = picked.size === 1 ? "the item you ticked" : `the ${picked.size} items you ticked`;
+		ui.setOut(picked.size ? `Extracts ${what} into a folder named <b>${stem(file.name)}</b> next to it` : `Extracts everything into a folder named <b>${stem(file.name)}</b> next to it`);
 	};
 	function show(q) {
 		const list = items.filter((i) => !q || i.name.toLowerCase().includes(q)).slice(0, 5000);

@@ -760,11 +760,21 @@ pub fn wav_to_mp3(e: &Engines, wav: &Path, part: &Path, pr: Progress, c: &Atomic
 }
 
 /// A strip of `count` frames across the video, each `height` pixels tall, for a timeline.
-pub fn filmstrip(e: &Engines, input: &Path, count: u32, height: u32, out_png: &Path) -> Result<(), Error> {
-	let p = ff::probe(&e.ffprobe, input)?;
-	let every = (p.duration / count as f64).max(0.05);
+/// `count` frames spread over a video of `duration` seconds, side by side, `height` px tall. Only
+/// keyframes are decoded, so it stays quick however long the video is.
+pub fn filmstrip(
+	e: &Engines,
+	input: &Path,
+	duration: f64,
+	count: u32,
+	height: u32,
+	out_png: &Path,
+) -> Result<(), Error> {
+	let every = (duration / count as f64).max(0.05);
 	let vf = format!("fps=1/{every:.3},scale=-2:{height}:flags=fast_bilinear,tile={count}x1");
 	Run::new(&e.ffmpeg)
+		.arg("-skip_frame")
+		.arg("nokey")
 		.input(input)
 		.args(os(strs(&[
 			"-map",

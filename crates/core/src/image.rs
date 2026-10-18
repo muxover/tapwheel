@@ -182,6 +182,76 @@ fn decode_special(e: &Engines, input: &Path, ext: &str) -> Result<Option<PathBuf
 }
 
 /// Makes the input readable by FFmpeg and works out how to stand it upright.
+/// Width and height read straight from a PNG, JPEG, GIF, WebP or BMP header, without starting
+/// FFmpeg. None for anything else or anything odd, and the caller asks FFmpeg instead.
+pub fn header_size(path: &Path) -> Option<(u32, u32)> {
+	use std::io::{Read, Seek, SeekFrom};
+	let mut f = fs::File::open(path).ok()?;
+	let mut head = [0u8; 32];
+	f.read_exact(&mut head).ok()?;
+	let be16 = |b: &[u8]| u16::from_be_bytes([b[0], b[1]]) as u32;
+	let le16 = |b: &[u8]| u16::from_le_bytes([b[0], b[1]]) as u32;
+	let be32 = |b: &[u8]| u32::from_be_bytes([b[0], b[1], b[2], b[3]]);
+	let le32 = |b: &[u8]| u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
+	let size = if head.starts_with(b"\x89PNG\r\n\x1a\n") && &head[12..16] == b"IHDR" {
+		(be32(&head[16..20]), be32(&head[20..24]))
+	} else if head.starts_with(b"GIF8") {
+		(le16(&head[6..8]), le16(&head[8..10]))
+	} else if head.starts_with(b"BM") {
+		(le32(&head[18..22]), (le32(&head[22..26]) as i32).unsigned_abs())
+	} else if head.starts_with(b"RIFF") && &head[8..12] == b"WEBP" {
+		match &head[12..16] {
+			b"VP8 " => {
+				let mut b = [0u8; 30];
+				f.seek(SeekFrom::Start(0)).ok()?;
+				f.read_exact(&mut b).ok()?;
+				(le16(&b[26..28]) & 0x3fff, le16(&b[28..30]) & 0x3fff)
+			}
+			b"VP8L" => {
+				let b = &head[21..25];
+				let bits = le32(b);
+				((bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1)
+			}
+			b"VP8X" => {
+				let w = 1 + (head[24] as u32 | (head[25] as u32) << 8 | (head[26] as u32) << 16);
+				let h = 1 + (head[27] as u32 | (head[28] as u32) << 8 | (head[29] as u32) << 16);
+				(w, h)
+			}
+			_ => return None,
+		}
+	} else if head.starts_with(&[0xff, 0xd8]) {
+		// walk the JPEG's segments to the frame header; EXIF and the like are skipped over
+		let mut at = 2u64;
+		loop {
+			let mut m = [0u8; 4];
+			f.seek(SeekFrom::Start(at)).ok()?;
+			f.read_exact(&mut m).ok()?;
+			if m[0] != 0xff {
+				return None;
+			}
+			let marker = m[1];
+			if marker == 0xd8 || marker == 0x01 || (0xd0..=0xd7).contains(&marker) {
+				at += 2;
+				continue;
+			}
+			let len = be16(&m[2..4]) as u64;
+			let sof = matches!(marker, 0xc0..=0xcf) && !matches!(marker, 0xc4 | 0xc8 | 0xcc);
+			if sof {
+				let mut b = [0u8; 5];
+				f.read_exact(&mut b).ok()?;
+				break (be16(&b[3..5]), be16(&b[1..3]));
+			}
+			if marker == 0xda || len < 2 {
+				return None;
+			}
+			at += 2 + len;
+		}
+	} else {
+		return None;
+	};
+	(size.0 > 0 && size.1 > 0).then_some(size)
+}
+
 pub fn source(e: &Engines, input: &Path) -> Result<Source, Error> {
 	let ext = ext_of(input);
 	if let Some(tmp) = decode_special(e, input, &ext)? {
@@ -655,4 +725,30 @@ pub fn preview(e: &Engines, input: &Path) -> Result<PathBuf, Error> {
 /// What a picture's format would be after a recipe that keeps the format.
 pub fn kept_format(input: &Path) -> Format {
 	image_format_for(&ext_of(input)).unwrap_or_else(|| keep(input))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn sizes_come_from_the_header() {
+		let dir = std::env::temp_dir().join(format!("tw-head-{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+		let png = dir.join("a.png");
+		write_png(&png, 37, 21, &vec![200u8; 37 * 21 * 4]).unwrap();
+		assert_eq!(header_size(&png), Some((37, 21)));
+		// a JPEG frame header behind a big APP1 block, as phone photos have
+		let mut jpg = vec![0xff, 0xd8, 0xff, 0xe1, 0x40, 0x02];
+		jpg.extend(vec![0u8; 0x4000]);
+		jpg.extend([0xff, 0xc0, 0x00, 0x11, 0x08, 0x02, 0x37, 0x04, 0xd2, 0x03]);
+		jpg.extend(vec![0u8; 12]);
+		let j = dir.join("a.jpg");
+		fs::write(&j, &jpg).unwrap();
+		assert_eq!(header_size(&j), Some((1234, 567)));
+		let txt = dir.join("a.txt");
+		fs::write(&txt, b"not a picture at all, just words here").unwrap();
+		assert_eq!(header_size(&txt), None);
+		let _ = fs::remove_dir_all(dir);
+	}
 }

@@ -191,3 +191,8 @@ pub fn get_x(l: isize) -> i32 {
 pub fn get_y(l: isize) -> i32 {
 	((l >> 16) & 0xffff) as i16 as i32
 }
+
+/// Joins or leaves another thread's input queue, for handing the foreground to a new window.
+pub fn attach_input(ours: u32, theirs: u32, on: bool) -> bool {
+	unsafe { windows_sys::Win32::System::Threading::AttachThreadInput(ours, theirs, on as i32) != 0 }
+}
