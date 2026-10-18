@@ -10,10 +10,10 @@ use crate::text::{Fonts, Weight};
 use crate::theme::{Rgba, Theme};
 use crate::wrap;
 
-pub const WIDTH: f32 = 520.0;
-pub const HEIGHT: f32 = 568.0;
+pub const WIDTH: f32 = 600.0;
+pub const HEIGHT: f32 = 600.0;
 pub const CX: f32 = WIDTH / 2.0;
-pub const CY: f32 = 258.0;
+pub const CY: f32 = 290.0;
 pub const R_OUT: f32 = 172.0;
 pub const R_IN: f32 = 70.0;
 const R_CENTER: f32 = 62.0;
@@ -24,7 +24,9 @@ const RING_SLACK: f32 = 0.12;
 /// The even gap between neighbouring slices, in logical pixels.
 const GAP: f32 = 4.0;
 const RIM: f32 = 28.0;
-const PILL_Y: f32 = 512.0;
+/// The reach of the invisible layer that keeps the pointer on the wheel: past the ring's slack.
+const CATCH: f32 = RING_OUT + 44.0;
+const PILL_Y: f32 = CY + 254.0;
 const PILL_H: f32 = 40.0;
 /// Slices on one page; with more, the last one turns the page.
 pub const PER_PAGE: usize = 8;
@@ -367,6 +369,10 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 	let p = theme.palette();
 	let s = scale;
 	let (cx, cy) = (CX * s, CY * s);
+	// Windows lets the pointer fall through a layered window's fully clear pixels, and a drag
+	// that crosses one "leaves" the wheel. An all but invisible disc out past the ring keeps the
+	// gaps between slices, the ring and its chips part of the wheel.
+	fill_circle(&mut pm, cx, cy, CATCH * s, Rgba::hex(0x000000).alpha(2.0 / 255.0));
 	let m = &v.motion;
 	let n = count_on_page(v);
 	let (items, more) = page_items(v.slices.len(), v.page);

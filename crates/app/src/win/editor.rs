@@ -98,9 +98,12 @@ impl App {
 			static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1_000_000);
 			let token = format!("p{}", NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
 			files_map.lock().unwrap().insert(token.clone(), path.to_path_buf());
-			format!("tapwheel://localhost/file/{token}/{}", web::urlencode(&file_name(path)))
+			// a same-site path: WebView2 serves the pages from http://tapwheel.localhost, where a
+			// tapwheel:// address would never load
+			format!("/file/{token}/{}", web::urlencode(&file_name(path)))
 		};
 		std::thread::spawn(move || {
+			let started = std::time::Instant::now();
 			let never = AtomicBool::new(false);
 			let mut out = Vec::new();
 			for (i, f) in files.iter().enumerate() {
@@ -184,9 +187,14 @@ impl App {
 					Ok(())
 				})();
 				if let Err(e) = result {
+					super::log::write(&format!("{op:?} preparing {}: {e}", file_name(f)));
 					info["error"] = json!(e.to_string());
 				}
 				out.push(info);
+			}
+			let took = started.elapsed().as_millis();
+			if took > 500 {
+				super::log::write(&format!("slow: {op:?} took {took} ms to get its files ready"));
 			}
 			send(json!({ "type": "prepared", "files": out }));
 		});
@@ -196,8 +204,7 @@ impl App {
 		let cmd = msg["cmd"].as_str().unwrap_or("");
 		match cmd {
 			"ready" => {
-				if let Some(w) = self.web.get(hwnd) {
-					let mut init = w.init.clone();
+				if let Some(mut init) = self.web.get(hwnd).map(|w| w.init.clone()) {
 					init["type"] = json!("init");
 					self.web.send(hwnd, &init);
 				}
@@ -239,6 +246,11 @@ impl App {
 				}
 			}
 			"close" => web::close(self, hwnd),
+			// errors inside a page, which would otherwise vanish with it
+			"log" => super::log::write(&format!(
+				"page: {}",
+				msg["text"].as_str().unwrap_or("").chars().take(500).collect::<String>()
+			)),
 			"renamePreview" | "rename" => {
 				let Some(w) = self.web.get(hwnd) else { return };
 				let inputs = w.inputs.clone();

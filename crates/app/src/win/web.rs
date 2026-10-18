@@ -37,6 +37,10 @@ pub struct WebWin {
 	/// What the page needs first; sent when it says it's ready.
 	pub init: Value,
 	pub inputs: Vec<PathBuf>,
+	/// Set once the page has its first message; anything sent before then waits in `held`, since
+	/// a script run before the page has loaded is simply lost.
+	ready: bool,
+	held: Vec<Value>,
 }
 
 /// Messages between the WebView threads and the UI thread.
@@ -75,9 +79,22 @@ impl Web {
 		self.windows.iter().find(|w| w.hwnd == hwnd)
 	}
 
-	pub fn send(&self, hwnd: HWND, msg: &Value) {
-		if let Some(w) = self.get(hwnd) {
+	/// Sends a message to a page. The first is always `init`, answering the page's "ready";
+	/// anything that comes earlier (a fast preview, say) is held and follows it in order.
+	pub fn send(&mut self, hwnd: HWND, msg: &Value) {
+		let Some(w) = self.windows.iter_mut().find(|w| w.hwnd == hwnd) else {
+			return;
+		};
+		if msg["type"] == "init" {
+			w.ready = true;
 			let _ = w.view.evaluate_script(&format!("window.TW && TW.receive({msg})"));
+			for m in std::mem::take(&mut w.held) {
+				let _ = w.view.evaluate_script(&format!("window.TW && TW.receive({m})"));
+			}
+		} else if w.ready {
+			let _ = w.view.evaluate_script(&format!("window.TW && TW.receive({msg})"));
+		} else {
+			w.held.push(msg.clone());
 		}
 	}
 
@@ -395,6 +412,8 @@ pub fn open_sized(a: &mut App, page: Page, mut init: Value, inputs: Vec<PathBuf>
 		page,
 		init,
 		inputs,
+		ready: false,
+		held: Vec::new(),
 	});
 	unsafe {
 		ShowWindow(hwnd, SW_SHOWNORMAL);

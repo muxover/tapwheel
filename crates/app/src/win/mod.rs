@@ -5,6 +5,7 @@ mod editor;
 mod float;
 mod hooks;
 mod jobs;
+mod log;
 mod share;
 mod shell;
 mod system;
@@ -24,5 +25,6 @@ pub const WM_APP_PAGE: u32 = WM_APP + 6;
 pub const WM_APP_WEB: u32 = WM_APP + 7;
 
 pub fn run() -> i32 {
+	log::catch_panics();
 	app::run()
 }
