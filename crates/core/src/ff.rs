@@ -1,5 +1,3 @@
-//! Running FFmpeg and FFprobe, and the arguments each recipe needs.
-
 use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::io::{BufRead, BufReader, Read};

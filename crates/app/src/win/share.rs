@@ -1,5 +1,3 @@
-//! The Windows share window (Nearby Sharing, mail, apps) and the folder picker.
-
 use std::path::{Path, PathBuf};
 
 use windows::ApplicationModel::DataTransfer::{DataRequestedEventArgs, DataTransferManager};

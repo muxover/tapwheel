@@ -1,8 +1,5 @@
-// A looping, faithful replay of using TapWheel: a file is dragged, a key is tapped, the wheel
-// opens, a slice and a ring choice are picked, and the result card arrives. The wheel is drawn
-// with the same geometry, icons, colours and timings as the real one (crates/ui/src/wheel.rs),
-// so the page shows what the app does rather than a drawing of it. Used by the settings home
-// page and by the website.
+// A looping replay of using TapWheel, drawn with the same geometry, icons, colours and timings
+// as crates/ui/src/wheel.rs. Used by the settings home page and by the website.
 
 import { icons } from "./icons.js";
 
@@ -526,10 +523,7 @@ const CSS = `
 .tw-demo .steps button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:transparent}
 `;
 
-/**
- * The demo element. Pauses while off screen or hidden; with reduced motion it shows a still of
- * each scene's choice instead of moving.
- */
+/** Pauses while off screen or hidden; with reduced motion it shows a still of each scene's choice. */
 export function demo({ scenes = SCENES, labels = true, scene = 0, at = null } = {}) {
 	if (!document.getElementById("tw-demo-css")) {
 		const st = document.createElement("style");

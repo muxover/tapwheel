@@ -1,5 +1,3 @@
-//! Code and markup: formatting, minifying, highlighting.
-
 use std::borrow::Cow;
 
 use crate::Error;

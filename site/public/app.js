@@ -52,8 +52,6 @@ for (const seg of document.querySelectorAll("[data-look]")) {
 
 $("#hero-demo")?.append(demo());
 
-// --- the tool windows -------------------------------------------------------------------------
-
 const TRY = [
 	["crop", "Crop", "crop", "photo.jpg"],
 	["add_background", "Add background", "image_add", "plant.png"],
@@ -152,8 +150,6 @@ function setupTry() {
 		}
 	}, { rootMargin: "400px" }).observe(body);
 }
-
-// --- every kind of file -----------------------------------------------------------------------
 
 // what each kind's wheel animation picks, and what the app's card says after
 const PICKS = {
@@ -274,8 +270,6 @@ function setupStats(data) {
 	set("tools", tools.size);
 }
 
-// --- the four looks ---------------------------------------------------------------------------
-
 function setupLooks() {
 	const grid = $("#looks-grid");
 	if (!grid) return;
@@ -291,8 +285,6 @@ function setupLooks() {
 		grid.append(h("figure", {}, scope, h("figcaption", {}, name)));
 	}
 }
-
-// --- start ------------------------------------------------------------------------------------
 
 setupTry();
 setupLooks();

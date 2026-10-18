@@ -1,5 +1,3 @@
-// The bridge between a page and the app, plus the small building blocks every page uses.
-
 import { icon } from "./icons.js";
 
 const TW = { init: null, prepared: null, waiting: [] };
@@ -107,7 +105,6 @@ export function toast(text, error = false) {
 	toastTimer = setTimeout(() => el.classList.remove("show"), error ? 5000 : 2600);
 }
 
-/** A labelled group box. */
 export function group(label, ...kids) {
 	const value = h("span", { class: "value" });
 	const box = h("section", { class: "group" }, label ? h("div", { class: "label" }, h("span", {}, label), value) : null, ...kids);
@@ -177,7 +174,6 @@ export function numberInput(value, { min = 0, max = 100000, step = 1, onchange, 
 	return input;
 }
 
-/** Name of a file without its extension. */
 export function stem(name) {
 	const lower = name.toLowerCase();
 	for (const d of [".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst"]) if (lower.endsWith(d)) return name.slice(0, -d.length);

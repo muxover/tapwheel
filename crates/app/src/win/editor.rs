@@ -1,6 +1,3 @@
-//! What each editor window is given, the slow preparation done for it in the background, and
-//! what happens with the answers pages send back.
-
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
@@ -188,7 +185,6 @@ impl App {
 		});
 	}
 
-	/// A message from a page.
 	pub fn web_message(&mut self, hwnd: HWND, msg: Value) {
 		let cmd = msg["cmd"].as_str().unwrap_or("");
 		match cmd {
