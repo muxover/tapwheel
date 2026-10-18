@@ -88,9 +88,7 @@ mod win {
 		let synth = SpeechSynthesizer::new().map_err(fail)?;
 		if let Some(id) = voice
 			&& let Ok(all) = SpeechSynthesizer::AllVoices()
-			&& let Some(v) = all
-				.into_iter()
-				.find(|v| v.Id().map(|i| i.to_string() == id).unwrap_or(false))
+			&& let Some(v) = all.into_iter().find(|v| v.Id().map(|i| i == id).unwrap_or(false))
 		{
 			synth.SetVoice(&v).map_err(fail)?;
 		}

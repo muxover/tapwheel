@@ -382,41 +382,147 @@ pub fn insert_exif(file: &[u8], exif: &[u8]) -> Option<Vec<u8>> {
 	}
 }
 
-/// Every EXIF field a photo carries, as (section, name, value) for the Metadata window.
+/// Every EXIF field a photo carries, as (section, name, value) for the Metadata window, with
+/// plain names, the location first and the technical leftovers last.
 pub fn fields(file: &[u8]) -> Vec<(String, String, String)> {
+	use exif::Tag as T;
 	let Some(r) = exif_range(file) else { return Vec::new() };
 	let Ok(exif) = exif::Reader::new().read_raw(file[r].to_vec()) else {
 		return Vec::new();
 	};
-	let mut out: Vec<(String, String, String)> = exif
+	let coords = coordinates(&exif);
+	let mut out: Vec<(u8, String, String, String)> = exif
 		.fields()
 		.filter(|f| f.ifd_num == exif::In::PRIMARY)
+		.filter(|f| !matches!(f.tag, T::ExifIFDPointer | T::GPSInfoIFDPointer | T::InteropIFDPointer))
+		// the coordinates line says these better
 		.filter(|f| {
-			!matches!(
-				f.tag,
-				exif::Tag::ExifIFDPointer | exif::Tag::GPSInfoIFDPointer | exif::Tag::InteropIFDPointer
-			)
+			coords.is_none()
+				|| !matches!(
+					f.tag,
+					T::GPSLatitude | T::GPSLatitudeRef | T::GPSLongitude | T::GPSLongitudeRef
+				)
 		})
 		.map(|f| {
-			let section = match f.tag.context() {
-				exif::Context::Gps => "Location",
-				exif::Context::Exif => "Camera",
-				_ => "Picture",
+			let (rank, section) = section_of(f.tag);
+			let value = match &f.value {
+				exif::Value::Ascii(parts) => parts
+					.iter()
+					.map(|p| String::from_utf8_lossy(p).trim_end_matches('\0').trim().to_string())
+					.collect::<Vec<_>>()
+					.join(", "),
+				_ => f.display_value().with_unit(&exif).to_string(),
 			};
-			let value = f.display_value().with_unit(&exif).to_string();
 			(
+				rank,
 				section.to_string(),
-				f.tag.to_string(),
+				plain_name(f.tag),
 				value.chars().take(200).collect::<String>(),
 			)
 		})
-		.filter(|(_, _, v)| !v.trim().is_empty())
+		.filter(|(_, _, _, v)| !v.trim().is_empty())
 		.collect();
-	if let Some((lat, lon)) = coordinates(&exif) {
-		out.insert(
+	if let Some((lat, lon)) = coords {
+		out.push((
 			0,
-			("Location".into(), "Coordinates".into(), format!("{lat:.5}, {lon:.5}")),
-		);
+			"Location".into(),
+			"Coordinates".into(),
+			format!("{lat:.5}, {lon:.5}"),
+		));
+	}
+	// stable, so the photo's own order stays within a section; coordinates lead their section
+	out.sort_by_key(|(rank, _, name, _)| (*rank, name != "Coordinates"));
+	out.into_iter().map(|(_, s, n, v)| (s, n, v)).collect()
+}
+
+fn section_of(tag: exif::Tag) -> (u8, &'static str) {
+	use exif::Tag as T;
+	match tag {
+		_ if tag.context() == exif::Context::Gps => (0, "Location"),
+		T::Make
+		| T::Model
+		| T::LensMake
+		| T::LensModel
+		| T::LensSpecification
+		| T::BodySerialNumber
+		| T::CameraOwnerName => (1, "Camera"),
+		T::ExposureTime
+		| T::FNumber
+		| T::PhotographicSensitivity
+		| T::FocalLength
+		| T::FocalLengthIn35mmFilm
+		| T::Flash
+		| T::WhiteBalance
+		| T::ExposureBiasValue
+		| T::MeteringMode
+		| T::ExposureProgram
+		| T::ExposureMode
+		| T::DigitalZoomRatio
+		| T::SceneCaptureType => (2, "Shot"),
+		T::DateTimeOriginal
+		| T::DateTimeDigitized
+		| T::DateTime
+		| T::OffsetTime
+		| T::OffsetTimeOriginal
+		| T::OffsetTimeDigitized
+		| T::ImageDescription
+		| T::Artist
+		| T::Copyright
+		| T::Software
+		| T::Orientation
+		| T::PixelXDimension
+		| T::PixelYDimension
+		| T::ImageWidth
+		| T::ImageLength => (3, "Picture"),
+		_ => (4, "Technical"),
+	}
+}
+
+fn plain_name(tag: exif::Tag) -> String {
+	use exif::Tag as T;
+	let known = match tag {
+		T::Make => "Maker",
+		T::Model => "Model",
+		T::LensMake => "Lens maker",
+		T::LensModel => "Lens",
+		T::LensSpecification => "Lens range",
+		T::BodySerialNumber => "Serial number",
+		T::CameraOwnerName => "Owner",
+		T::ExposureTime => "Shutter",
+		T::FNumber => "Aperture",
+		T::PhotographicSensitivity => "ISO",
+		T::FocalLength => "Focal length",
+		T::FocalLengthIn35mmFilm => "35 mm equivalent",
+		T::ExposureBiasValue => "Exposure compensation",
+		T::MeteringMode => "Metering",
+		T::ExposureProgram => "Program",
+		T::DateTimeOriginal => "Taken",
+		T::DateTimeDigitized => "Digitised",
+		T::DateTime => "Changed",
+		T::OffsetTimeOriginal => "Time zone",
+		T::ImageDescription => "Description",
+		T::Artist => "Author",
+		T::PixelXDimension | T::ImageWidth => "Width",
+		T::PixelYDimension | T::ImageLength => "Height",
+		T::GPSAltitude => "Altitude",
+		T::GPSImgDirection => "Facing",
+		T::GPSSpeed => "Speed",
+		T::GPSDateStamp => "Date",
+		T::GPSTimeStamp => "Time",
+		_ => "",
+	};
+	if !known.is_empty() {
+		return known.into();
+	}
+	// "FocalPlaneXResolution" reads as "Focal plane x resolution"
+	let raw = tag.to_string();
+	let raw = raw.strip_prefix("GPS").unwrap_or(&raw);
+	let mut out = String::new();
+	for (i, c) in raw.chars().enumerate() {
+		if c.is_uppercase() && i > 0 {
+			out.push(' ');
+		}
+		out.push(if i == 0 { c } else { c.to_ascii_lowercase() });
 	}
 	out
 }
@@ -484,6 +590,67 @@ pub(crate) mod tests {
 		j.extend([0xff, 0xfe, 0, 6, b'h', b'i', b'!', b'!']);
 		j.extend([0xff, 0xda, 0, 2, 1, 2, 3, 0xff, 0xd9]);
 		j
+	}
+
+	#[test]
+	fn fields_read_like_a_person_wrote_them() {
+		use exif::experimental::Writer;
+		use exif::{Field, In, Rational, Tag, Value};
+		let ascii = |s: &str| Value::Ascii(vec![s.as_bytes().to_vec()]);
+		let deg = |d: u32| {
+			Value::Rational(vec![
+				Rational::from((d, 1)),
+				Rational::from((30, 1)),
+				Rational::from((0, 1)),
+			])
+		};
+		let tags = [
+			Field {
+				tag: Tag::Model,
+				ifd_num: In::PRIMARY,
+				value: ascii("Pixel 9"),
+			},
+			Field {
+				tag: Tag::PhotographicSensitivity,
+				ifd_num: In::PRIMARY,
+				value: Value::Short(vec![200]),
+			},
+			Field {
+				tag: Tag::GPSLatitudeRef,
+				ifd_num: In::PRIMARY,
+				value: ascii("S"),
+			},
+			Field {
+				tag: Tag::GPSLatitude,
+				ifd_num: In::PRIMARY,
+				value: deg(33),
+			},
+			Field {
+				tag: Tag::GPSLongitudeRef,
+				ifd_num: In::PRIMARY,
+				value: ascii("E"),
+			},
+			Field {
+				tag: Tag::GPSLongitude,
+				ifd_num: In::PRIMARY,
+				value: deg(151),
+			},
+		];
+		let mut w = Writer::new();
+		for f in &tags {
+			w.push_field(f);
+		}
+		let mut tiff = std::io::Cursor::new(Vec::new());
+		w.write(&mut tiff, false).unwrap();
+		let jpg = insert_exif(&[0xff, 0xd8, 0xff, 0xd9], &tiff.into_inner()).unwrap();
+		let got = fields(&jpg);
+		assert_eq!(
+			got[0],
+			("Location".into(), "Coordinates".into(), "-33.50000, 151.50000".into())
+		);
+		assert!(got.contains(&("Camera".into(), "Model".into(), "Pixel 9".into())));
+		assert!(got.contains(&("Shot".into(), "ISO".into(), "200".into())));
+		assert!(!got.iter().any(|(_, n, _)| n.contains("atitude")), "{got:?}");
 	}
 
 	#[test]
