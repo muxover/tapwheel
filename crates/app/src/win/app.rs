@@ -34,6 +34,8 @@ const WHEEL_CLASS: &str = "TapWheel.Wheel";
 const HUD_CLASS: &str = "TapWheel.Hud";
 const HOME_CLASS: &str = "TapWheel.Home";
 
+const WM_MOUSELEAVE: u32 = 0x02a3;
+
 const T_APPEAR: usize = 1;
 const T_NUDGE: usize = 2;
 const T_HIDE: usize = 3;

@@ -52,8 +52,7 @@ pub fn theme() -> Theme {
 }
 
 fn high_contrast_is_light() -> bool {
-	use windows_sys::Win32::Graphics::Gdi::GetSysColor;
-	use windows_sys::Win32::UI::WindowsAndMessaging::COLOR_WINDOW;
+	use windows_sys::Win32::Graphics::Gdi::{COLOR_WINDOW, GetSysColor};
 	let c = unsafe { GetSysColor(COLOR_WINDOW) };
 	let (r, g, b) = (c & 0xff, (c >> 8) & 0xff, (c >> 16) & 0xff);
 	r + g + b > 384
