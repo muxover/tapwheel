@@ -27,6 +27,10 @@
 		combine: { tool: "combine", kind: "image", files: ["photo", "plant"] },
 		protect: { tool: "protect", kind: "folder", files: ["folder"] },
 		contents: { tool: "contents", kind: "archive", files: ["album"] },
+		rename: { tool: "rename", kind: "image", files: ["photo", "plant"] },
+		snapshot: { tool: "snapshot", kind: "video", files: ["clip"] },
+		touchup: { tool: "remove_background", kind: "image", files: ["plantphoto"] },
+		info: { tool: "info", kind: "image", files: ["photo"] },
 	};
 	const LABELS = {
 		crop: ["Crop", "Cut to a size or shape"],
@@ -43,8 +47,19 @@
 		combine: ["Combine", "Lay them out in one picture"],
 		protect: ["Password", "Lock it with a password"],
 		contents: ["Contents", "See what's inside"],
+		rename: ["Rename", "New names, one or many"],
+		snapshot: ["Snapshot", "Save a frame as a picture"],
+		remove_background: ["Remove BG", "Cut out the subject"],
+		info: ["File info", "Size, real type and details"],
 	};
 	const setup = TOOLS[id] || TOOLS.crop;
+	// samples only these windows use: a photo with its background, and the app's cut-out of it
+	const EXTRA = {
+		plantphoto: {
+			file: { name: "plant.jpg", path: "C:\\Users\\you\\Pictures\\plant.jpg", ext: "jpg", size: 56706 },
+			prep: { url: "plant-photo.jpg", cutout: "plant.png" },
+		},
+	};
 	const base = "/try/";
 	const saved = new Map();
 	let data = null;
@@ -72,15 +87,16 @@
 
 	async function ready() {
 		const d = await load();
-		inputs = setup.files.map((k) => (k === "folder" ? { name: "album", path: "C:\\Users\\you\\Pictures\\album", ext: "", size: 0 } : d.files[k]));
+		inputs = setup.files.map((k) => (k === "folder" ? { name: "album", path: "C:\\Users\\you\\Pictures\\album", ext: "", size: 0 } : EXTRA[k]?.file || d.files[k]));
 		const [label, describe] = LABELS[setup.tool];
 		const title = inputs.length === 1 ? `${label} · ${inputs[0].name}` : `${label} · ${inputs.length} files`;
 		receive({ type: "init", page: "editor", title, tool: setup.tool, label, describe, kind: setup.kind, files: inputs, defaults: d.defaults, presets: [], theme });
 		// the app prepares previews in the background; a short wait shows the loading state honestly
 		setTimeout(() => {
 			const files = setup.files.map((k, index) => {
-				const p = k === "folder" ? {} : { ...d.prepared[k] };
-				for (const key of ["url", "filmstrip"]) if (p[key]) p[key] = base + p[key];
+				const p = k === "folder" ? {} : { ...(EXTRA[k]?.prep || d.prepared[k]) };
+				for (const key of ["url", "filmstrip", "cutout"]) if (p[key]) p[key] = base + p[key];
+				if (setup.tool === "info") return { index, info: details(d.files[k], p) };
 				return { index, ...p };
 			});
 			receive({ type: "prepared", files });
@@ -274,11 +290,55 @@
 			}
 			case "protect":
 				return { note: `Saves album.${recipe.format === "7z" ? "7z" : "zip"} locked with AES-256${recipe.format === "7z" ? ", file names hidden too" : ""}` };
-			case "extract":
-				return { note: `Unpacks ${d.prepared.album.items.filter((i) => !i.dir).length} files into a folder named album` };
+			case "extract": {
+				const n = recipe.only?.length;
+				return { note: n ? `Unpacks the ${n === 1 ? "item" : `${n} items`} you ticked into a folder named album` : `Unpacks ${d.prepared.album.items.filter((i) => !i.dir).length} files into a folder named album` };
+			}
+			case "snapshot":
+				return { note: `Saves ${named(file, "frame", "png")}, the frame at ${time(recipe.at.at ?? 0)}, at full size` };
 			default:
 				return { note: "Done" };
 		}
+	}
+
+	// what File info shows for a sample, worked out the way the app does
+	function details(f, p) {
+		const ext = f.ext.toUpperCase() === "JPEG" ? "JPG" : f.ext.toUpperCase();
+		const day = Date.UTC(2026, 9, 12, 9, 41) / 1000;
+		return { name: f.name, folder: "C:\\Users\\you\\Pictures", size: f.size, kind: setup.kind, named: ext, actual: ext, matches: true, created: day, modified: day + 3600, items: null, unpacked: null, width: p.width || null, height: p.height || null, duration: null, video: null, audio: null, fps: null, lines: null, words: null };
+	}
+
+	// Rename's preview, following crates/core/src/files.rs
+	const RESERVED = /^(con|prn|aux|nul|com\d|lpt\d)$/i;
+	const SMALL = new Set(["a", "an", "and", "as", "at", "but", "by", "for", "in", "of", "on", "or", "the", "to", "vs", "via"]);
+	const cased = (s, c) =>
+		c === "upper" ? s.toUpperCase()
+		: c === "lower" ? s.toLowerCase()
+		: c === "title" ? s.split(" ").map((w, i) => (i && SMALL.has(w.toLowerCase()) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())).join(" ")
+		: c === "sentence" ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+		: s;
+	function renamePlan(rule) {
+		const many = inputs.length > 1;
+		const plan = inputs.map((f, i) => {
+			const dot = f.name.lastIndexOf(".");
+			const ext = dot > 0 ? f.name.slice(dot) : "";
+			let st = rule.base || (dot > 0 ? f.name.slice(0, dot) : f.name);
+			if (rule.find) st = st.split(rule.find).join(rule.replace || "");
+			st = `${rule.prefix || ""}${cased(st, rule.case)}${rule.suffix || ""}`;
+			if (rule.number || (many && rule.base)) st += ` ${String((rule.start || 0) + i).padStart(Math.max(1, rule.pad || 1), "0")}`;
+			const to = st + ext;
+			const bad = /[<>:"/\\|?*\x00-\x1f]/.exec(to);
+			const problem = !st.trim() ? "the name is empty" : bad ? `names can't contain ${bad[0]}` : /[. ]$/.test(to) ? "names can't end with a dot or a space" : RESERVED.test(st) ? `Windows keeps ${st} for itself` : null;
+			return { from: f.name, to, problem };
+		});
+		const seen = new Set();
+		for (const r of plan) {
+			if (r.problem) continue;
+			const k = r.to.toLowerCase();
+			if (seen.has(k)) r.problem = "another file gets this name too";
+			seen.add(k);
+		}
+		return plan;
 	}
 
 	async function apply(msg) {
@@ -297,6 +357,16 @@
 			if (msg.cmd === "ready") ready();
 			else if (msg.cmd === "apply") apply(msg);
 			else if (msg.cmd === "close") tell({ type: "close" });
+			else if (msg.cmd === "renamePreview") receive({ type: "renamePlan", items: renamePlan(msg.rule) });
+			else if (msg.cmd === "rename") {
+				const done = renamePlan(msg.rule).filter((r) => r.from !== r.to);
+				tell({ type: "result", name: done.length === 1 ? `Renamed to ${done[0].to}` : `Renamed ${done.length} items`, note: done.map((r) => `${r.from} to ${r.to}`).join(", ") });
+			} else if (msg.cmd === "copyText") {
+				navigator.clipboard?.writeText(msg.text).then(
+					() => receive({ type: "toast", message: `Copied ${msg.what || "it"}` }),
+					() => receive({ type: "error", message: "The browser didn't allow copying here" }),
+				);
+			}
 		},
 	};
 

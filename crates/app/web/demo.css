@@ -7,7 +7,7 @@
 	border: 1px solid var(--stroke);
 	background:
 		radial-gradient(120% 90% at 85% 10%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 60%),
-		radial-gradient(90% 80% at 0% 100%, color-mix(in srgb, #b6f23a 16%, transparent), transparent 60%),
+		radial-gradient(90% 80% at 0% 100%, color-mix(in srgb, #0047ab 24%, transparent), transparent 60%),
 		var(--stage);
 }
 
@@ -20,11 +20,36 @@
 .tw-demo .steps {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	justify-content: center;
-	gap: 8px;
+	gap: 8px 16px;
 	padding: 8px;
 	border-top: 1px solid var(--stroke);
 	background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.tw-demo .keys {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px;
+}
+
+.tw-demo .hint {
+	flex: 1 1 260px;
+	margin: 0;
+	padding: 0 8px;
+	font: 400 14px/20px var(--font);
+	color: var(--text-2);
+	min-height: 40px;
+	display: flex;
+	align-items: center;
+}
+
+.tw-demo.playable svg {
+	cursor: default;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 .tw-demo .steps button {
