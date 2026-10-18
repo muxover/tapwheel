@@ -178,6 +178,8 @@ Each phase ends with CI green on main; nothing is tagged before G.
 | F. Website | The redesign below, with real captures | The browser check passes; looked at on a phone |
 | G. Release | README, CHANGELOG, release notes and these notes through the humanizer; notices checked; one final script signs, rewrites history to one commit per version, tags and releases | The release builds from a fresh clone; the Store package passes the App Certification Kit |
 
+Progress: A is done. B, C and D are built and pass their tests in CI; the parts that need a Windows PC are checked in E.
+
 Release blockers: a lost or replaced file, a claim the app can't back, a wheel that opens when it shouldn't or a stuck key, text outside its shape, a crash on a broken file, missing licence notices, a Store certification failure, or a wheel that waits on a job.
 
 ### Website for launch

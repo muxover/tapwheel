@@ -371,7 +371,8 @@ impl Jobs {
 						b.error = Some(notes.join(" · "));
 					}
 					if !failures.is_empty() {
-						b.error = Some(format!("{} failed", failures.len()));
+						let ok = b.done.saturating_sub(failures.len());
+						b.error = Some(format!("{ok} done, {} failed", failures.len()));
 					}
 				}
 			});
