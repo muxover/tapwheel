@@ -51,7 +51,6 @@ pub const VIDEO_EXTS: &[&str] = &[
 pub const AUDIO_EXTS: &[&str] = &[
 	"mp3", "m4a", "m4b", "m4r", "aac", "wav", "wave", "flac", "ogg", "oga", "opus", "aif", "aiff", "aifc", "wma",
 	"alac", "amr", "ac3", "eac3", "dts", "caf", "mka", "mp2", "ape", "wv", "tta", "au", "snd", "voc", "w64", "spx",
-	"mid", "midi",
 ];
 pub const ICON_EXTS: &[&str] = &["ico", "icns", "cur", "svg", "svgz"];
 pub const PROGRAM_EXTS: &[&str] = &["exe", "dll", "cpl", "scr", "ocx", "mui", "sys"];

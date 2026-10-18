@@ -93,10 +93,13 @@ export default async function crop(init) {
 		: null;
 	const label = video ? h("div", { class: "hint", style: { textAlign: "center" } }, formatTime(media.currentTime)) : null;
 	if (scrub) {
+		const fill = () => scrub.style.setProperty("--fill", `${(Number(scrub.value) / (info.duration || 1)) * 100}%`);
 		scrub.addEventListener("input", () => {
 			media.currentTime = Number(scrub.value);
 			label.textContent = formatTime(media.currentTime);
+			fill();
 		});
+		fill();
 	}
 	ui.stage.replaceChildren(h("div", { style: { display: "grid", gap: "10px", justifyItems: "center", width: "100%" } }, wrap, scrub ? h("div", { style: { width: "min(560px, 90%)" } }, scrub, label) : null));
 

@@ -313,7 +313,7 @@ fn file_job(op: Op, recipe: &Recipe, input: &Path) -> Option<Job> {
 			},
 			&ext,
 		),
-		Recipe::Extract => unique_path(&dir, &stem, ""),
+		Recipe::Extract { .. } => unique_path(&dir, &stem, ""),
 		Recipe::Test => PathBuf::new(),
 		Recipe::Duplicate => unique_path(&dir, &format!("{stem} - Copy"), &ext),
 		Recipe::Pack { .. } | Recipe::Join | Recipe::Merge | Recipe::Combine { .. } | Recipe::Protect { .. } => {
@@ -340,7 +340,7 @@ fn file_job(op: Op, recipe: &Recipe, input: &Path) -> Option<Job> {
 		Recipe::CompressAudio { .. } | Recipe::Ringtone | Recipe::RemoveSilence { .. } | Recipe::Tags { .. } => {
 			audio || (video && matches!(recipe, Recipe::Ringtone))
 		}
-		Recipe::Extract | Recipe::Test | Recipe::SplitArchive { .. } => kind == Kind::Archive,
+		Recipe::Extract { .. } | Recipe::Test | Recipe::SplitArchive { .. } => kind == Kind::Archive,
 		_ => true,
 	};
 	if !fits {
@@ -465,6 +465,13 @@ mod tests {
 	#[test]
 	fn mismatches_plan_nothing() {
 		assert!(plan(Op::Mute, &Recipe::Mute, &[PathBuf::from("/x/a.png")]).is_empty());
-		assert!(plan(Op::Extract, &Recipe::Extract, &[PathBuf::from("/x/a.txt")]).is_empty());
+		assert!(
+			plan(
+				Op::Extract,
+				&Recipe::Extract { only: Vec::new() },
+				&[PathBuf::from("/x/a.txt")]
+			)
+			.is_empty()
+		);
 	}
 }

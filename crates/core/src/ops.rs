@@ -419,7 +419,12 @@ impl Op {
 		const FADE: &[Preset] = &[p("both", "Both"), p("in", "In"), p("out", "Out")];
 		const VOLUME: &[Preset] = &[p("+6", "+6 dB"), p("+3", "+3 dB"), p("-3", "−3 dB"), p("-6", "−6 dB")];
 		const CHANNELS: &[Preset] = &[p("mono", "Mono"), p("stereo", "Stereo")];
-		const SNAPSHOT: &[Preset] = &[p("middle", "Middle"), p("first", "First"), p("every", "Every 10 s")];
+		const SNAPSHOT: &[Preset] = &[
+			p("middle", "Middle"),
+			p("first", "First"),
+			p("every", "Every 10 s"),
+			CUSTOM,
+		];
 		const IMG_META: &[Preset] = &[p("all", "Remove all"), p("location", "Location"), CUSTOM];
 		const AUD_META: &[Preset] = &[CUSTOM, p("all", "Remove all")];
 		const SORT: &[Preset] = &[
@@ -446,6 +451,7 @@ impl Op {
 			p("path", "Path"),
 			p("name", "Name"),
 			p("stem", "Base name"),
+			p("ext", "Extension"),
 			p("quoted", "Quoted"),
 			p("uri", "File URL"),
 		];
@@ -547,6 +553,37 @@ fn targets(kind: Kind, exts: &[String]) -> Vec<Format> {
 	}
 }
 
+/// Text files whose lines belong to a structure: data, config, markup and subtitles.
+const STRUCTURED_TEXT: &[&str] = &[
+	"json",
+	"json5",
+	"geojson",
+	"plist",
+	"yaml",
+	"yml",
+	"toml",
+	"xml",
+	"html",
+	"htm",
+	"xhtml",
+	"csv",
+	"tsv",
+	"psv",
+	"ini",
+	"cfg",
+	"conf",
+	"properties",
+	"env",
+	"srt",
+	"vtt",
+	"ass",
+	"ssa",
+	"sub",
+	"ics",
+	"vcf",
+	"bib",
+];
+
 fn tools(kind: Option<Kind>, count: usize, exts: &[String]) -> Vec<Op> {
 	use Op::*;
 	let many = count > 1;
@@ -614,14 +651,29 @@ fn tools(kind: Option<Kind>, count: usize, exts: &[String]) -> Vec<Op> {
 		Some(Kind::Icon) => vec![ExtractIcons, IconSet, Favicon, WindowsIcon, MacIcon],
 		Some(Kind::Program) => vec![ExtractIcons],
 		Some(Kind::Text) => {
-			let mut t = vec![ReadAloud];
+			// Data, config and subtitle files have a structure that sorting, changing case or
+			// splitting lines would break, and reading them aloud makes no sense; records one per
+			// line can still be split and deduplicated.
+			let records = any_of(&["jsonl", "ndjson", "log"]);
+			let structured = !records && any_of(STRUCTURED_TEXT);
+			let mut t = if structured || records { vec![] } else { vec![ReadAloud] };
 			if any_of(crate::code::PRETTY_EXTS) {
 				t.push(Pretty);
 			}
 			if any_of(crate::code::MINIFY_EXTS) {
 				t.push(Minify);
 			}
-			t.extend([ToUtf8, CleanUp, SortLines, Dedupe, ChangeCase, LineEndings, Split]);
+			t.push(ToUtf8);
+			// trimming line ends would drop a TSV row's empty last column
+			if !any_of(&["tsv"]) {
+				t.push(CleanUp);
+			}
+			if records {
+				t.extend([Dedupe, Split]);
+			} else if !structured {
+				t.extend([SortLines, Dedupe, ChangeCase, Split]);
+			}
+			t.extend([LineEndings, Stats]);
 			if many {
 				t.insert(0, Merge);
 			}
@@ -777,6 +829,25 @@ mod tests {
 	fn terminal_only_for_folders_and_code() {
 		assert!(!choices(Wheel::Actions, &p(&["x.png"])).contains(&Op::Terminal));
 		assert!(choices(Wheel::Actions, &p(&["main.rs"])).contains(&Op::Terminal));
+	}
+
+	#[test]
+	fn structured_text_only_gets_tools_that_keep_it_whole() {
+		let tools = |f: &str| choices(Wheel::Tools, &[PathBuf::from(f)]);
+		for f in ["a.json", "a.yaml", "a.csv", "a.tsv", "a.srt", "a.ini", "a.xml"] {
+			let t = tools(f);
+			for bad in [Op::SortLines, Op::ChangeCase, Op::ReadAloud, Op::Split] {
+				assert!(!t.contains(&bad), "{f} offers {bad:?}");
+			}
+		}
+		assert!(
+			!tools("a.tsv").contains(&Op::CleanUp),
+			"trimming drops empty last columns"
+		);
+		assert!(tools("a.jsonl").contains(&Op::Split) && tools("a.jsonl").contains(&Op::Dedupe));
+		assert!(tools("notes.txt").contains(&Op::SortLines) && tools("notes.txt").contains(&Op::Stats));
+		// MIDI is notes, not sound: nothing here can play it
+		assert_ne!(crate::kind::kind_of(std::path::Path::new("song.mid")), Kind::Audio);
 	}
 
 	#[test]

@@ -5,7 +5,7 @@ import { group, h, on, segmented, send, shell, stem, toggle, numberInput } from 
 export default function rename(init) {
 	const files = init.files;
 	const many = files.length > 1;
-	const rule = { base: many ? "" : stem(files[0].name), find: "", replace: "", case: null, prefix: "", suffix: "", number: false, start: 1, pad: 2 };
+	const rule = { base: many ? "" : stem(files[0].name), find: "", replace: "", case: null, prefix: "", suffix: "", number: false, start: 1, pad: 2, date: false };
 	const field = (key, label, placeholder = "") => {
 		const el = h("input", { type: "text", value: rule[key], placeholder, "aria-label": label, spellcheck: "false" });
 		el.addEventListener("input", () => {
@@ -34,6 +34,7 @@ export default function rename(init) {
 				{ label: "lower", value: "lower" },
 				{ label: "UPPER", value: "upper" },
 			], "", (c) => ((rule.case = c || null), ask()))),
+			group("Date", toggle("Date in front", rule.date, (on) => ((rule.date = on), ask()), "The day it last changed, so names sort by date")),
 			group("Numbers", toggle("Number them", rule.number, (on) => ((rule.number = on), ask()), many ? "Added on its own when every file gets the same name" : ""), numbering),
 		],
 		onSave: async () => {

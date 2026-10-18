@@ -1,9 +1,10 @@
-// What's inside an archive, without unpacking it.
+// What's inside an archive, without unpacking it. Tick files or folders to take out only those.
 
 import { apply, formatSize, group, h, prepared, shell, stageLoading, stem } from "../tw.js";
 
 export default async function contents(init) {
 	const file = init.files[0];
+	const picked = new Set();
 	const search = h("input", { type: "search", placeholder: "Find a file", "aria-label": "Find a file" });
 	const summary = h("div", { class: "hint" });
 	const ui = shell({
@@ -11,7 +12,7 @@ export default async function contents(init) {
 		lead: file.name,
 		primary: "Extract all",
 		panel: [group("Search", search), group("Totals", summary)],
-		onSave: async () => apply({ do: "extract" }),
+		onSave: async () => apply({ do: "extract", ...(picked.size ? { only: [...picked] } : {}) }),
 	});
 	ui.setOut(`Extracts into a folder named <b>${stem(file.name)}</b> next to it`);
 	stageLoading(ui.stage, "Reading the archive");
@@ -29,18 +30,35 @@ export default async function contents(init) {
 	ui.stage.style.placeItems = "stretch";
 	ui.stage.replaceChildren(box);
 	const fmt = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+	const label = () => {
+		ui.save.textContent = picked.size ? `Extract ${picked.size} picked` : "Extract all";
+		ui.setOut(picked.size ? `Extracts what you picked into a folder named <b>${stem(file.name)}</b> next to it` : `Extracts into a folder named <b>${stem(file.name)}</b> next to it`);
+	};
 	function show(q) {
 		const list = items.filter((i) => !q || i.name.toLowerCase().includes(q)).slice(0, 5000);
 		body.replaceChildren(
 			...list.map((i) =>
 				h("tr", { style: { borderTop: "1px solid var(--stroke)" } },
-					h("td", { style: { padding: "6px 8px", wordBreak: "break-all" } }, i.dir ? `${i.name}` : i.name),
+					h("td", { style: { padding: "6px 8px", wordBreak: "break-all" } },
+						h("label", { class: "pick" }, tick(i.name), h("span", {}, i.name)),
+					),
 					h("td", { style: { padding: "6px 8px", color: "var(--text-2)" } }, i.dir ? "Folder" : formatSize(i.size)),
 					h("td", { style: { padding: "6px 8px", color: "var(--text-2)" } }, i.modified ? fmt.format(new Date(i.modified * 1000)) : ""),
 				),
 			),
 		);
 	}
+	function tick(name) {
+		const box = h("input", { type: "checkbox", "aria-label": `Pick ${name}` });
+		box.checked = picked.has(name);
+		box.addEventListener("change", () => {
+			if (box.checked) picked.add(name);
+			else picked.delete(name);
+			label();
+		});
+		return box;
+	}
 	search.addEventListener("input", () => show(search.value.trim().toLowerCase()));
 	show("");
+	label();
 }
