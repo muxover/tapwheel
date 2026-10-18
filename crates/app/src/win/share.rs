@@ -112,9 +112,8 @@ fn item(p: &Path) -> windows::core::Result<IStorageItem> {
 	}
 }
 
-/// Opens the Windows share sheet for these files at the pointer. All of it runs on a thread of its
-/// own, so looking the files up never stalls TapWheel; a failure is logged, kept for the card, and
-/// `main` is told to show it.
+/// The share sheet at the pointer, on its own thread so looking the files up never stalls the app;
+/// a failure is logged and `main` is told to show it on a card.
 pub fn share(files: &[PathBuf], main: isize) {
 	let files = files.to_vec();
 	std::thread::spawn(move || {
