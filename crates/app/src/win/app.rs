@@ -271,8 +271,14 @@ fn capture_backdrop(x: i32, y: i32, w: u32, h: u32) -> Option<Pixmap> {
 			mem, 0, 0, sw as i32, sh as i32, screen, x, y, w as i32, h as i32, SRCCOPY,
 		);
 		let src = std::slice::from_raw_parts(bits as *const u8, (sw * sh * 4) as usize);
-		for (dst, s) in small.data_mut().chunks_exact_mut(4).zip(src.chunks_exact(4)) {
-			dst.copy_from_slice(&[s[2], s[1], s[0], 255]);
+		for (dst, s) in small
+			.data_mut()
+			.as_chunks_mut::<4>()
+			.0
+			.iter_mut()
+			.zip(src.as_chunks::<4>().0)
+		{
+			*dst = [s[2], s[1], s[0], 255];
 		}
 		SelectObject(mem, old);
 		DeleteObject(bmp as HGDIOBJ);

@@ -196,6 +196,19 @@ pub fn pretty(text: &str, ext: &str) -> Result<String, Error> {
 	})
 }
 
+/// Extensions [`pretty`] can format.
+pub const PRETTY_EXTS: &[&str] = &[
+	"json", "geojson", "jsonl", "ndjson", "xml", "plist", "svg", "yaml", "yml", "toml", "css", "scss", "sass", "less",
+	"html", "htm", "xhtml", "vue", "svelte", "astro", "js", "mjs", "cjs", "jsx", "ts", "mts", "cts", "tsx", "sql",
+	"csv", "tsv",
+];
+
+/// Extensions [`minify`] can squeeze.
+pub const MINIFY_EXTS: &[&str] = &[
+	"json", "geojson", "xml", "plist", "svg", "svgz", "css", "js", "mjs", "cjs", "html", "htm", "xhtml", "yaml", "yml",
+	"toml", "csv", "tsv",
+];
+
 /// Squeezes out spaces and comments.
 pub fn minify(text: &str, ext: &str) -> Result<String, Error> {
 	Ok(match ext {
@@ -375,6 +388,20 @@ pub fn to_html(text: &str, ext: &str, title: &str) -> Result<String, Error> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn the_wheel_only_offers_what_works() {
+		for ext in PRETTY_EXTS {
+			if let Err(e) = pretty("", ext) {
+				assert!(!e.to_string().contains("can't be formatted"), "{ext}");
+			}
+		}
+		for ext in MINIFY_EXTS {
+			if let Err(e) = minify("", ext) {
+				assert!(!e.to_string().contains("can't be minified"), "{ext}");
+			}
+		}
+	}
 
 	#[test]
 	fn json_and_xml_tidy() {

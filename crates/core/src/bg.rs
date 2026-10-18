@@ -34,7 +34,7 @@ fn expand(e: &Engines) -> Result<std::path::PathBuf, Error> {
 	std::fs::create_dir_all(&dir)?;
 	let raw = std::fs::read(&half)?;
 	let mut full = Vec::with_capacity(raw.len() * 2);
-	for pair in raw.chunks_exact(2) {
+	for pair in raw.as_chunks::<2>().0.iter() {
 		let h = half::f16::from_le_bytes([pair[0], pair[1]]);
 		full.extend_from_slice(&h.to_f32().to_le_bytes());
 	}
@@ -167,7 +167,9 @@ pub fn mask(e: &Engines, rgba: &[u8], w: u32, h: u32) -> Result<Vec<f32>, Error>
 
 /// Applies a mask as transparency, with a gentle curve so edges stay soft but the background goes fully clear.
 pub fn cut_out(rgba: &[u8], mask: &[f32]) -> Vec<u8> {
-	rgba.chunks_exact(4)
+	rgba.as_chunks::<4>()
+		.0
+		.iter()
 		.zip(mask)
 		.flat_map(|(p, &m)| {
 			let a = ((m - 0.06) / 0.88).clamp(0.0, 1.0);

@@ -56,5 +56,5 @@ zip = { version = "9", default-features = false, features = ["deflate", "aes-cry
 zstd = "0.13"
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.62", features = ["Foundation", "Foundation_Collections", "Media_SpeechSynthesis", "Storage_Streams"] }
+windows = { version = "0.62", features = ["Foundation", "Foundation_Collections", "Media_Core", "Media_SpeechSynthesis", "Storage_Streams"] }
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_Com", "Win32_UI_WindowsAndMessaging"] }
