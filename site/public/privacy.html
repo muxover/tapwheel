@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Privacy · TapWheel</title>
+		<meta name="description" content="How TapWheel and its website handle your data: the app connects to nothing, and the site sets no cookies." />
+		<link rel="canonical" href="https://tapwheel.muxover.com/privacy" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
+		<link rel="stylesheet" href="/style.css" />
+		<meta name="theme-color" content="#0e0f12" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="TapWheel" />
+		<meta property="og:title" content="Privacy · TapWheel" />
+		<meta property="og:description" content="How TapWheel and its website handle your data: the app connects to nothing, and the site sets no cookies." />
+		<meta property="og:url" content="https://tapwheel.muxover.com/privacy" />
+		<meta property="og:image" content="https://tapwheel.muxover.com/img/og.png" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@muxover_" />
+	</head>
+	<body>
+		<a class="skip" href="#main">Skip to content</a>
+		<header class="header">
+			<div class="wrap">
+				<a class="brand" href="/" aria-label="TapWheel home"><img src="/favicon.svg" alt="" width="28" height="28" />TapWheel</a>
+				<nav class="nav" aria-label="Sections" data-order="page">
+					<a href="/#how">How it works</a>
+					<a href="/#formats">Formats</a>
+					<a href="/#privacy">Privacy</a>
+					<a href="/#faq">FAQ</a>
+				</nav>
+				<a class="button primary" href="/#download">Get TapWheel</a>
+			</div>
+		</header>
+
+		<main id="main">
+			<div class="wrap doc">
+				<h1>Privacy</h1>
+				<p class="dated">Last updated 18 October 2026</p>
+				<p>This page covers the TapWheel app and this website. TapWheel is made by Jax (muxover). If anything here is unclear, write to <a href="mailto:contact@muxover.com">contact@muxover.com</a>.</p>
+				<h2>The app</h2>
+				<p>TapWheel doesn't collect, send or store anything about you. It makes no network connections: no account, no telemetry, no crash reports, no ads and no update checks. The Microsoft Store version is updated by the Store itself.</p>
+				<p>Files you drop on the wheel are converted on your PC by a copy of FFmpeg that ships inside the app. The results are saved in the same folder as the original. Nothing is uploaded.</p>
+				<p>To notice when you tap Shift, Ctrl or Alt during a drag, TapWheel watches keyboard and mouse input while it runs. It only reacts to those keys and Esc, keeps no record of what you type or click, and passes every key and click on to Windows unchanged.</p>
+				<p>TapWheel saves its settings (your keys, the options in its window and how often you pick each slice, so favorites can move to the top) in <code>%APPDATA%\TapWheel\settings.toml</code> on your PC. Uninstalling the Store version removes it; with the zip version you can delete that folder yourself.</p>
+				<h2>This website</h2>
+				<p>The site sets no cookies and has no ads or trackers. It uses Cloudflare Web Analytics, which counts page views and load times without cookies and without following you across other sites. The site is hosted on Cloudflare, which processes standard request data such as IP addresses to serve pages and block attacks.</p>
+				<h2>Changes</h2>
+				<p>If this policy changes, the date at the top changes with it. TapWheel's source code is public on <a href="https://github.com/muxover/tapwheel">GitHub</a>, so anyone can check what the app does.</p>
+			</div>
+		</main>
+
+		<footer class="footer">
+			<div class="wrap">
+				<div class="cols">
+					<div>
+						<h2>TapWheel</h2>
+						<ul>
+							<li><a href="/privacy">Privacy</a></li>
+							<li><a href="/support">Support</a></li>
+						</ul>
+					</div>
+					<div>
+						<h2>Project</h2>
+						<ul>
+							<li><a href="https://github.com/muxover/tapwheel">GitHub</a></li>
+							<li><a href="https://github.com/muxover/tapwheel/releases">Releases</a></li>
+							<li><a href="https://github.com/muxover/tapwheel/blob/main/LICENSE">GPL-3.0 license</a></li>
+						</ul>
+					</div>
+					<div>
+						<h2>Made by</h2>
+						<ul>
+							<li><a href="https://x.com/muxover_">X</a></li>
+							<li><a href="https://muxover.com">muxover.com</a></li>
+						</ul>
+					</div>
+				</div>
+				<p class="base">TapWheel by Jax (muxover). Inspired by Tangerine for Mac, which is not affiliated with this&nbsp;project.</p>
+			</div>
+		</footer>
+	</body>
+</html>

@@ -1,0 +1,5 @@
+Contact: mailto:contact@muxover.com
+Expires: 2027-10-18T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://tapwheel.muxover.com/.well-known/security.txt
+Policy: https://github.com/muxover/tapwheel/blob/main/SECURITY.md

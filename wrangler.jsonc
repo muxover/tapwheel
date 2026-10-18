@@ -1,0 +1,10 @@
+{
+  "name": "tapwheel-site",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./site/public",
+    "not_found_handling": "404-page",
+    "html_handling": "drop-trailing-slash"
+  },
+  "routes": [{ "pattern": "tapwheel.muxover.com", "custom_domain": true }]
+}
