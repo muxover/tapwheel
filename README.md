@@ -113,7 +113,7 @@ tapwheel/
 │   └── app/                  # The Windows app: keys, drags, wheel, cards, tray, tool windows
 │       └── web/              # The tool windows and settings, shown in WebView2
 ├── engines/                  # Pinned FFmpeg, ONNX Runtime and model, and the script that fetches them
-├── packaging/                # Portable zip and Store package builder, Store manifest
+├── packaging/                # Portable zip and Store package builder, Store manifest and listing
 ├── site/                     # tapwheel.muxover.com, its sample files and its layout check
 ├── release-notes/            # One file per release
 └── docs/PROJECT.md           # Maintainer notes
