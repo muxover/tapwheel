@@ -19,6 +19,9 @@ pub const R_IN: f32 = 70.0;
 const R_CENTER: f32 = 62.0;
 const RING_IN: f32 = R_OUT + 8.0;
 const RING_OUT: f32 = R_OUT + 58.0;
+/// How far past the ring's ends (radians) and inside the slices' rim (px) the open ring holds on.
+const RING_SLACK: f32 = 0.12;
+const RIM: f32 = 28.0;
 const PILL_Y: f32 = 512.0;
 const PILL_H: f32 = 40.0;
 /// Slices on one page; with more, the last one turns the page.
@@ -302,20 +305,26 @@ pub fn hit(v: &WheelView, fonts: &Fonts, x: f32, y: f32) -> Hover {
 	let d = (dx * dx + dy * dy).sqrt();
 	let a = dy.atan2(dx);
 	let n = count_on_page(v);
-	// the open ring keeps the pointer while it moves out to a choice
-	if let Hover::Slice(i) | Hover::Ring(i, _) = v.hover
-		&& d > R_OUT - 6.0
-		&& d < RING_OUT + 16.0
-	{
+	// The open ring owns the band from the slices' outer edge to a little past its chips, across
+	// its whole arc. Its chips fan out wider than their slice, so on the way to an outer chip the
+	// pointer crosses the rim of a neighbour; that must not switch slices and close the ring.
+	// Inside the band the nearest chip is picked, so the gaps between chips are never dead.
+	if let Hover::Slice(i) | Hover::Ring(i, _) = v.hover {
 		let spans = ring_layout(v, fonts, i);
-		if let Some(j) = spans.iter().position(|(a0, a1)| angle_in(a, *a0 - 0.02, *a1 + 0.02))
-			&& d > RING_IN - 4.0
-		{
-			return Hover::Ring(i, j);
-		}
-		if !spans.is_empty() && d >= RING_IN - 4.0 {
-			let (a0, a1) = (spans[0].0, spans[spans.len() - 1].1);
-			if angle_in(a, a0 - 0.15, a1 + 0.15) {
+		if let (Some(first), Some(last)) = (spans.first(), spans.last()) {
+			let in_arc = angle_in(a, first.0 - RING_SLACK, last.1 + RING_SLACK);
+			if in_arc && d >= RING_IN - 4.0 && d < RING_OUT + 40.0 {
+				let off = |m: f32| (a - m + PI).rem_euclid(TAU) - PI;
+				let j = (0..spans.len())
+					.min_by(|&x, &y| {
+						let mx = off((spans[x].0 + spans[x].1) / 2.0).abs();
+						let my = off((spans[y].0 + spans[y].1) / 2.0).abs();
+						mx.total_cmp(&my)
+					})
+					.unwrap_or(0);
+				return Hover::Ring(i, j);
+			}
+			if in_arc && d > R_OUT - RIM && d < RING_IN - 4.0 {
 				return Hover::Slice(i);
 			}
 		}
@@ -814,6 +823,55 @@ mod tests {
 		// without a hovered slice the ring isn't there
 		v.hover = Hover::None;
 		assert_eq!(hit(&v, &f, CX + a.cos() * r, CY + a.sin() * r), Hover::None);
+	}
+
+	#[test]
+	fn the_way_out_to_a_ring_choice_never_drops_it() {
+		let f = fonts();
+		// a five-choice ring fans well past its own slice in an eight-slice wheel
+		let mut v = view(8, &["Balanced", "Smaller", "Best", "Custom", "Other"]);
+		v.hover = Hover::Slice(3);
+		let spans = ring_layout(&v, &f, 3);
+		let (_, mid, _) = angles(8, 3);
+		let step = TAU / 8.0;
+		assert!(
+			spans[0].0 < mid - step / 2.0 && spans[4].1 > mid + step / 2.0,
+			"the ring is wider than its slice"
+		);
+		// walk straight out to every chip, through the neighbours' rims, the gap and the chip
+		for (j, (a0, a1)) in spans.iter().enumerate() {
+			let a = (a0 + a1) / 2.0;
+			for r in [
+				R_OUT - 20.0,
+				R_OUT - 4.0,
+				R_OUT + 3.0,
+				RING_IN,
+				(RING_IN + RING_OUT) / 2.0,
+				RING_OUT + 20.0,
+			] {
+				let h = hit(&v, &f, CX + a.cos() * r, CY + a.sin() * r);
+				assert!(
+					matches!(h, Hover::Slice(3) | Hover::Ring(3, _)),
+					"chip {j} at {r}: {h:?}"
+				);
+				v.hover = h;
+			}
+			assert_eq!(v.hover, Hover::Ring(3, j));
+			v.hover = Hover::Slice(3);
+		}
+		// between two chips the nearer one is picked
+		let between = (spans[1].1 + spans[2].0) / 2.0 + 0.001;
+		let r = (RING_IN + RING_OUT) / 2.0;
+		assert_eq!(
+			hit(&v, &f, CX + between.cos() * r, CY + between.sin() * r),
+			Hover::Ring(3, 2)
+		);
+		// the inner part of a neighbour still switches to it
+		let (_, next, _) = angles(8, 4);
+		assert_eq!(
+			hit(&v, &f, CX + next.cos() * 100.0, CY + next.sin() * 100.0),
+			Hover::Slice(4)
+		);
 	}
 
 	#[test]

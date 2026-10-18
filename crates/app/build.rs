@@ -3,6 +3,8 @@ use std::path::PathBuf;
 fn main() {
 	println!("cargo:rerun-if-changed=build.rs");
 	println!("cargo:rerun-if-changed=tapwheel.manifest");
+	// the icon is drawn by the ui crate; redraw it whenever the mark changes
+	println!("cargo:rerun-if-changed=../ui/src/icon.rs");
 	if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
 		return;
 	}
