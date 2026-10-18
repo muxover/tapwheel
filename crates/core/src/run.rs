@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
+use std::time::SystemTime;
 
 use crate::Error;
 use crate::format::Format;
@@ -57,6 +59,134 @@ pub struct Outcome {
 	pub bytes_out: u64,
 	/// A short report shown on the card instead of sizes.
 	pub note: Option<String>,
+	/// How the output looked when the job finished, so Undo can tell if it changed since.
+	pub stamp: Option<Stamp>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Stamp {
+	pub size: u64,
+	pub modified: Option<SystemTime>,
+}
+
+pub fn stamp(path: &Path) -> Stamp {
+	let meta = fs::metadata(path).ok();
+	Stamp {
+		size: size_of(path),
+		modified: meta.and_then(|m| m.modified().ok()),
+	}
+}
+
+/// Whether `path` is still exactly what TapWheel wrote, so removing it loses nothing of yours.
+pub fn unchanged(path: &Path, was: Stamp) -> bool {
+	path.exists() && stamp(path) == was
+}
+
+/// `.tw-part` files of jobs still running, so a crash's leftovers can be cleared on the next start.
+static JOURNAL: Mutex<()> = Mutex::new(());
+
+fn journal(e: &Engines) -> PathBuf {
+	e.cache.join("parts.txt")
+}
+
+fn note_part(e: &Engines, part: &Path, running: bool) {
+	let _lock = JOURNAL.lock().unwrap_or_else(|p| p.into_inner());
+	let path = journal(e);
+	let mut lines: Vec<String> = fs::read_to_string(&path)
+		.unwrap_or_default()
+		.lines()
+		.map(str::to_string)
+		.collect();
+	let me = part.to_string_lossy().into_owned();
+	lines.retain(|l| *l != me);
+	if running {
+		lines.push(me);
+	}
+	let _ = fs::create_dir_all(&e.cache);
+	let _ = fs::write(&path, lines.join("\n"));
+}
+
+/// Removes `.tw-part` files a crash left behind, and returns how many there were.
+pub fn clear_leftovers(e: &Engines) -> usize {
+	let _lock = JOURNAL.lock().unwrap_or_else(|p| p.into_inner());
+	let path = journal(e);
+	let Ok(list) = fs::read_to_string(&path) else { return 0 };
+	let mut n = 0;
+	for line in list.lines().filter(|l| l.ends_with(".tw-part")) {
+		let p = Path::new(line);
+		if p.exists() {
+			remove(p);
+			n += 1;
+		}
+	}
+	let _ = fs::remove_file(&path);
+	n
+}
+
+/// Free bytes on the drive holding `dir`, where the system says.
+pub fn free_space(dir: &Path) -> Option<u64> {
+	#[cfg(windows)]
+	{
+		use std::os::windows::ffi::OsStrExt;
+		let wide: Vec<u16> = dir.as_os_str().encode_wide().chain([0]).collect();
+		let mut free = 0u64;
+		let ok = unsafe {
+			windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW(
+				wide.as_ptr(),
+				&mut free,
+				std::ptr::null_mut(),
+				std::ptr::null_mut(),
+			)
+		};
+		(ok != 0).then_some(free)
+	}
+	#[cfg(unix)]
+	{
+		use std::os::unix::ffi::OsStrExt;
+		let c = std::ffi::CString::new(dir.as_os_str().as_bytes()).ok()?;
+		let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+		let ok = unsafe { libc::statvfs(c.as_ptr(), &mut st) } == 0;
+		ok.then(|| st.f_bavail as u64 * st.f_frsize as u64)
+	}
+	#[cfg(not(any(windows, unix)))]
+	{
+		let _ = dir;
+		None
+	}
+}
+
+fn readable(path: &Path) -> std::io::Result<()> {
+	if path.is_dir() {
+		fs::read_dir(path).map(|_| ())
+	} else {
+		fs::File::open(path).map(|_| ())
+	}
+}
+
+/// Says what's wrong before any work starts: a file that can't be read, or too little room.
+pub fn preflight(job: &Job, bytes_in: u64) -> Result<(), Error> {
+	for input in &job.inputs {
+		if let Err(e) = readable(input) {
+			let name = input.file_name().unwrap_or_default().to_string_lossy();
+			return Err(Error::Engine(format!("{name} can't be read: {e}")));
+		}
+	}
+	let dir = job.output.parent().unwrap_or(Path::new("."));
+	let need = bytes_in + 64 * 1024 * 1024;
+	if let Some(free) = free_space(dir)
+		&& free < need
+	{
+		return Err(Error::Engine(format!(
+			"there isn't enough free space: about {} needed, {} free",
+			mb(need),
+			mb(free)
+		)));
+	}
+	Ok(())
+}
+
+fn mb(bytes: u64) -> String {
+	format!("{} MB", bytes.div_ceil(1024 * 1024))
 }
 
 pub fn size_of(path: &Path) -> u64 {
@@ -86,11 +216,16 @@ pub fn run(
 			bytes_in,
 			bytes_out: 0,
 			note: Some(note),
+			stamp: None,
 		});
 	}
+	preflight(job, bytes_in)?;
 	let part = part_path(&job.output);
-	if let Err(e) = execute(job, &part, engines, defaults, progress, cancel) {
+	note_part(engines, &part, true);
+	let done = execute(job, &part, engines, defaults, progress, cancel);
+	if let Err(e) = done {
 		remove(&part);
+		note_part(engines, &part, false);
 		return Err(e);
 	}
 	let output = if job.output.exists() {
@@ -113,11 +248,14 @@ pub fn run(
 	};
 	if let Err(e) = fs::rename(&part, &output) {
 		remove(&part);
+		note_part(engines, &part, false);
 		return Err(e.into());
 	}
+	note_part(engines, &part, false);
 	keep_date(job, &output);
 	Ok(Outcome {
 		bytes_out: size_of(&output),
+		stamp: Some(stamp(&output)),
 		output,
 		bytes_in,
 		note: None,
@@ -277,5 +415,78 @@ fn execute(
 		Recipe::Convert { to } => media::convert(e, d, input, *to, part, progress, cancel),
 		Recipe::CompressImage { quality, .. } if ext == "png" => pngquant::compress(input, part, *quality),
 		_ => media::run(e, d, &job.recipe, input, part, progress, cancel),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::ops::Op;
+
+	fn dir(tag: &str) -> PathBuf {
+		let d = std::env::temp_dir().join(format!("tw-run-{tag}-{}", std::process::id()));
+		let _ = fs::remove_dir_all(&d);
+		fs::create_dir_all(&d).unwrap();
+		d
+	}
+
+	fn engines(d: &Path) -> Engines {
+		let mut e = Engines::in_dir(d, d.join("scratch"));
+		e.cache = d.join("cache");
+		e
+	}
+
+	#[test]
+	fn undo_only_takes_what_is_unchanged() {
+		let d = dir("undo");
+		let input = d.join("notes.txt");
+		fs::write(&input, "b\na\n").unwrap();
+		let job = crate::plan(
+			Op::SortLines,
+			&Recipe::SortLines {
+				by: crate::recipe::SortBy::Az,
+			},
+			&[input],
+		)
+		.remove(0);
+		let out = run(
+			&job,
+			&engines(&d),
+			&Defaults::default(),
+			&mut |_| {},
+			&AtomicBool::new(false),
+		)
+		.unwrap();
+		let was = out.stamp.unwrap();
+		assert!(unchanged(&out.output, was));
+		fs::write(&out.output, "a\nb\nc\n").unwrap();
+		assert!(!unchanged(&out.output, was), "edited since");
+		assert!(
+			!fs::read_to_string(journal(&engines(&d)))
+				.unwrap_or_default()
+				.contains(".tw-part")
+		);
+	}
+
+	#[test]
+	fn a_crash_leaves_nothing_after_the_next_start() {
+		let d = dir("crash");
+		let e = engines(&d);
+		let part = d.join("photo-small.jpg.tw-part");
+		fs::write(&part, "half a file").unwrap();
+		note_part(&e, &part, true);
+		assert_eq!(clear_leftovers(&e), 1);
+		assert!(!part.exists());
+		assert_eq!(clear_leftovers(&e), 0);
+	}
+
+	#[test]
+	fn preflight_names_what_is_wrong() {
+		let d = dir("pre");
+		let gone = d.join("gone.txt");
+		let job = crate::plan(Op::CleanUp, &Recipe::CleanUp, std::slice::from_ref(&gone)).remove(0);
+		let err = preflight(&job, 0).unwrap_err().to_string();
+		assert!(err.contains("gone.txt can't be read"), "{err}");
+		assert!(free_space(&d).is_some_and(|f| f > 0));
 	}
 }
