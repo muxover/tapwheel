@@ -134,9 +134,9 @@ fn share_here(files: &[PathBuf]) -> windows::core::Result<()> {
 		windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_APARTMENTTHREADED)
 			.ok()?;
 	}
-	let step = |what: &str| {
-		move |e: windows::core::Error| windows::core::Error::new(e.code(), format!("{what}: {}", e.message()))
-	};
+	fn step(what: &'static str) -> impl Fn(windows::core::Error) -> windows::core::Error {
+		move |e| windows::core::Error::new(e.code(), format!("{what}: {}", e.message()))
+	}
 	let items: Vec<Option<IStorageItem>> = files
 		.iter()
 		.map(|p| item(p).map(Some))

@@ -98,7 +98,15 @@ fn main() {
 		"+faststart",
 		&s(&p("clip.mp4")),
 	]);
-	media::filmstrip(&e, &p("clip.mp4"), 14, 72, &p("strip.png")).unwrap();
+	media::filmstrip(
+		&e,
+		&p("clip.mp4"),
+		ff::probe(&e.ffprobe, &p("clip.mp4")).unwrap().duration,
+		14,
+		72,
+		&p("strip.png"),
+	)
+	.unwrap();
 
 	// code, and an archive holding a few of these
 	let ts = src.join("app.ts");

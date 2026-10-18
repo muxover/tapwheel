@@ -163,22 +163,37 @@ impl App {
 							info["hasVideo"] = json!(p.has_video());
 							info["hasAudio"] = json!(p.has_audio());
 							info["fps"] = json!(p.fps);
-							let playable = if media::plays_in_browser(f, &p) {
-								f.clone()
-							} else {
-								let copy = scratch_file(&engines, "play", if p.has_video() { "mp4" } else { "m4a" });
-								media::preview_copy(&engines, f, &p, &copy, &never)?;
-								copy
-							};
-							info["url"] = json!(share(&playable));
-							if p.has_video() {
-								let strip = scratch_file(&engines, "strip", "png");
-								if media::filmstrip(&engines, f, 14, 72, &strip).is_ok() {
-									info["filmstrip"] = json!(share(&strip));
-								}
+							// the playable copy, the frame strip and the sound wave each run FFmpeg on
+							// their own, so they run side by side
+							let (playable, strip, wave) = std::thread::scope(|sc| {
+								let playable = sc.spawn(|| {
+									if media::plays_in_browser(f, &p) {
+										Ok(f.clone())
+									} else {
+										let copy =
+											scratch_file(&engines, "play", if p.has_video() { "mp4" } else { "m4a" });
+										media::preview_copy(&engines, f, &p, &copy, &never).map(|_| copy)
+									}
+								});
+								let strip = sc.spawn(|| {
+									p.has_video().then(|| {
+										let strip = scratch_file(&engines, "strip", "png");
+										media::filmstrip(&engines, f, p.duration, 14, 72, &strip)
+											.ok()
+											.map(|_| strip)
+									})
+								});
+								let wave = sc.spawn(|| p.has_audio().then(|| media::waveform(&engines, f, 900)));
+								(playable.join(), strip.join(), wave.join())
+							});
+							let gone =
+								|| tapwheel_core::Error::Engine("getting the clip ready stopped unexpectedly".into());
+							info["url"] = json!(share(&playable.map_err(|_| gone())??));
+							if let Some(Some(strip)) = strip.map_err(|_| gone())? {
+								info["filmstrip"] = json!(share(&strip));
 							}
-							if p.has_audio() {
-								info["wave"] = json!(media::waveform(&engines, f, 900)?);
+							if let Some(wave) = wave.map_err(|_| gone())? {
+								info["wave"] = json!(wave?);
 							}
 						}
 						_ => {
