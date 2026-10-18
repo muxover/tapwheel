@@ -248,7 +248,7 @@ pub fn label_shapes(v: &WheelView, fonts: &Fonts, win11: bool) -> Vec<(String, t
 	let mut out = Vec::new();
 	let n = count_on_page(v);
 	let (items, more) = page_items(v.slices.len(), v.page);
-	let corner = if win11 { 10.0 } else { 2.0 };
+	let corner = if win11 { 8.0 } else { 2.0 };
 	let ga = if n > 1 { 3.0 / R_OUT } else { 0.0 };
 	for k in 0..n {
 		let (a0, mid, a1) = angles(n, k);
@@ -274,7 +274,7 @@ pub fn label_shapes(v: &WheelView, fonts: &Fonts, win11: bool) -> Vec<(String, t
 	if let Hover::Slice(i) | Hover::Ring(i, _) = v.hover
 		&& let Some(&k) = items.get(i)
 	{
-		let rc = if win11 { 12.0 } else { 2.0 };
+		let rc = if win11 { 8.0 } else { 2.0 };
 		for (j, (a0, a1)) in ring_layout(v, fonts, i).into_iter().enumerate() {
 			let label = &v.slices[k].ring[j];
 			let mid = (a0 + a1) / 2.0;
@@ -344,14 +344,7 @@ pub fn slice_index(v: &WheelView, i: usize) -> Option<usize> {
 }
 
 fn glass(theme: &Theme) -> Rgba {
-	let p = theme.palette();
-	if theme.high_contrast {
-		p.surface
-	} else if theme.win11 {
-		p.surface.alpha(if theme.dark { 0.82 } else { 0.78 })
-	} else {
-		p.surface
-	}
+	theme.palette().surface
 }
 
 /// Draws the wheel. `backdrop` is a blurred copy of the screen behind it, for the Windows 11 glass.
@@ -366,12 +359,13 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 	let m = &v.motion;
 	let n = count_on_page(v);
 	let (items, more) = page_items(v.slices.len(), v.page);
-	let corner = if theme.win11 { 10.0 * s } else { 2.0 * s };
+	let corner = if theme.win11 { 8.0 * s } else { 2.0 * s };
 
 	// disc, with frosted glass behind on Windows 11
 	if !theme.high_contrast {
 		shadow_circle(&mut pm, cx, cy, R_OUT * s, 16.0 * s, p.shadow);
 	}
+	let mut frosted = false;
 	if let Some(bd) = backdrop.filter(|_| theme.win11 && !theme.high_contrast)
 		&& let Some(mask) = disc_mask(w, h, cx, cy, R_OUT * s)
 	{
@@ -383,8 +377,12 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 			Transform::identity(),
 			Some(&mask),
 		);
+		frosted = true;
 	}
-	fill_circle(&mut pm, cx, cy, R_OUT * s, glass(theme));
+	// the backdrop already carries the acrylic tint; without one the disc is solid
+	if !frosted {
+		fill_circle(&mut pm, cx, cy, R_OUT * s, glass(theme));
+	}
 	stroke_circle(
 		&mut pm,
 		cx,
@@ -504,6 +502,21 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 				..Default::default()
 			};
 			pm.stroke_path(&seg, &paint(p.text), &st, Transform::identity(), None);
+			// Windows' focus outline is two rings: the text colour outside, the surface inside
+			if let Some(inner) = ring_segment(
+				cx + ox,
+				cy + oy,
+				(R_IN + 4.5) * s,
+				(R_OUT - 4.5) * s,
+				a0 + ga + 1.5 / R_OUT,
+				a1 - ga - 1.5 / R_OUT,
+			) {
+				let st = tiny_skia::Stroke {
+					width: s.max(1.0),
+					..Default::default()
+				};
+				pm.stroke_path(&inner, &paint(p.surface), &st, Transform::identity(), None);
+			}
 		}
 	}
 
@@ -517,7 +530,7 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 			let r0 = (R_OUT + (RING_IN - R_OUT) * grow) * s;
 			let r1 = (R_OUT + (RING_OUT - R_OUT) * grow) * s;
 			let alpha = ease_out(m.ring * 1.6);
-			let rc = if theme.win11 { 12.0 * s } else { 2.0 * s };
+			let rc = if theme.win11 { 8.0 * s } else { 2.0 * s };
 			for (j, (a0, a1)) in spans.iter().enumerate() {
 				let on = v.hover == Hover::Ring(i, j);
 				if !theme.high_contrast {
@@ -825,6 +838,7 @@ mod tests {
 			dark: true,
 			win11: true,
 			accent: Rgba::hex(0x0078d4),
+			shade: None,
 			high_contrast: false,
 		};
 		let mut v = view(10, &["One", "Two", "Three"]);

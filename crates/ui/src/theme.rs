@@ -68,6 +68,9 @@ pub struct Theme {
 	/// Windows 11 rounds corners and uses layered, softer surfaces; Windows 10 is square and flat.
 	pub win11: bool,
 	pub accent: Rgba,
+	/// The exact shade Windows uses for accent fills in this theme (AccentLight2 on dark,
+	/// AccentDark1 on light), when the system shares it.
+	pub shade: Option<Rgba>,
 	pub high_contrast: bool,
 }
 
@@ -172,12 +175,12 @@ impl Theme {
 		} else {
 			Rgba::hex(0x000000)
 		};
-		// like Windows' AccentLight2 on dark and AccentDark1 on light
-		let mut c = if self.dark {
+		// Windows' own AccentLight2 on dark and AccentDark1 on light, or close to them
+		let mut c = self.shade.unwrap_or(if self.dark {
 			self.accent.mix(Rgba::hex(0xffffff), 0.4)
 		} else {
 			self.accent.mix(Rgba::hex(0x000000), 0.12)
-		};
+		});
 		for _ in 0..10 {
 			if c.contrast(bg) >= 3.0 {
 				break;
@@ -200,6 +203,7 @@ mod tests {
 					dark,
 					win11: true,
 					accent: Rgba::hex(accent),
+					shade: None,
 					high_contrast: false,
 				};
 				let p = t.palette();

@@ -44,15 +44,16 @@ const T_PROBE: usize = 4;
 const T_PICK: usize = 10;
 const T_HUD: usize = 20;
 
-const OPEN_MS: f32 = 190.0;
-const CLOSE_MS: f32 = 140.0;
-const PICK_MS: f32 = 230.0;
-const HOVER_MS: f32 = 90.0;
-const RING_MS: f32 = 150.0;
-const PAGE_MS: f32 = 240.0;
-const CARD_IN_MS: f32 = 220.0;
-const CARD_OUT_MS: f32 = 160.0;
-const EXPAND_MS: f32 = 140.0;
+// Windows animation durations: 83, 167, 250 and 333 ms
+const OPEN_MS: f32 = 250.0;
+const CLOSE_MS: f32 = 167.0;
+const PICK_MS: f32 = 250.0;
+const HOVER_MS: f32 = 83.0;
+const RING_MS: f32 = 167.0;
+const PAGE_MS: f32 = 250.0;
+const CARD_IN_MS: f32 = 250.0;
+const CARD_OUT_MS: f32 = 167.0;
+const EXPAND_MS: f32 = 167.0;
 /// How long the pointer rests on More before the page turns.
 const MORE_DWELL_MS: u128 = 380;
 /// How long to wait for a drag to reach the wheel before deciding it carries no files.
@@ -236,7 +237,7 @@ fn approach(cur: f32, target: f32, dt_ms: f32, span_ms: f32) -> f32 {
 }
 
 /// A blurred copy of the screen behind a rectangle, for the Windows 11 glass.
-fn capture_backdrop(x: i32, y: i32, w: u32, h: u32) -> Option<Pixmap> {
+fn capture_backdrop(x: i32, y: i32, w: u32, h: u32, dark: bool) -> Option<Pixmap> {
 	let (sw, sh) = ((w / 4).max(1), (h / 4).max(1));
 	let mut small = Pixmap::new(sw, sh)?;
 	unsafe {
@@ -276,7 +277,9 @@ fn capture_backdrop(x: i32, y: i32, w: u32, h: u32) -> Option<Pixmap> {
 		DeleteDC(mem);
 		ReleaseDC(std::ptr::null_mut(), screen);
 	}
-	tapwheel_ui::draw::blur(&mut small, 5);
+	// about Windows' 30 px acrylic blur once scaled back up
+	tapwheel_ui::draw::blur(&mut small, 8);
+	tapwheel_ui::draw::acrylic(&mut small, dark);
 	let mut full = Pixmap::new(w, h)?;
 	let paint = tiny_skia::PixmapPaint {
 		quality: tiny_skia::FilterQuality::Bilinear,
@@ -510,7 +513,7 @@ impl App {
 		self.wheel.opened = Instant::now();
 		if self.theme.win11 && !self.theme.high_contrast {
 			let (w, h) = wheel::size(self.wheel.scale);
-			self.wheel.backdrop = capture_backdrop(self.wheel.x, self.wheel.y, w, h);
+			self.wheel.backdrop = capture_backdrop(self.wheel.x, self.wheel.y, w, h, self.theme.dark);
 		}
 		if mode == Mode::Pick && !self.wheel.ops.is_empty() {
 			self.wheel.hover = Hover::Slice(0);

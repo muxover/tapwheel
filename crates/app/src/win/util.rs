@@ -48,6 +48,26 @@ pub fn reg_dword(root: HKEY, key: &str, value: &str) -> Option<u32> {
 	(rc == 0).then_some(data)
 }
 
+pub fn reg_binary(root: HKEY, key: &str, value: &str) -> Option<Vec<u8>> {
+	let mut buf = vec![0u8; 256];
+	let mut size = buf.len() as u32;
+	let rc = unsafe {
+		RegGetValueW(
+			root,
+			wide(key).as_ptr(),
+			wide(value).as_ptr(),
+			RRF_RT_REG_BINARY,
+			std::ptr::null_mut(),
+			buf.as_mut_ptr() as *mut c_void,
+			&mut size,
+		)
+	};
+	(rc == 0).then(|| {
+		buf.truncate(size as usize);
+		buf
+	})
+}
+
 pub fn reg_string(root: HKEY, key: &str, value: &str) -> Option<String> {
 	let mut buf = vec![0u16; 512];
 	let mut size = (buf.len() * 2) as u32;
