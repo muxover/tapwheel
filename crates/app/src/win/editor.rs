@@ -199,10 +199,14 @@ impl App {
 						_ => {
 							// pictures: full size, upright, in a format the page can read
 							let preview = tapwheel_core::image::preview(&engines, f)?;
-							let p = ff::probe(&engines.ffprobe, &preview)?;
+							// the size from the file's header; FFmpeg only for unusual files
+							let (w, h) = match tapwheel_core::image::header_size(&preview) {
+								Some(size) => size,
+								None => ff::probe(&engines.ffprobe, &preview)?.shown_size(),
+							};
 							info["url"] = json!(share(&preview));
-							info["width"] = json!(p.shown_size().0);
-							info["height"] = json!(p.shown_size().1);
+							info["width"] = json!(w);
+							info["height"] = json!(h);
 						}
 					}
 					Ok(())
