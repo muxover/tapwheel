@@ -3,17 +3,15 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use tapwheel_core::kind::kind_of;
-use tapwheel_core::ops::selection_kind;
+use tapwheel_core::ops::{selection_badge, selection_kind};
+use tapwheel_core::run::Engines;
 use tapwheel_core::settings::Key;
-use tapwheel_core::{Kind, Op, Settings, Wheel, choices, plan};
-use tapwheel_ui::home::{self, Action, HomeView};
+use tapwheel_core::{Kind, Mode as OpMode, Op, Recipe, Settings, Wheel, choices, plan, recipe_for};
 use tapwheel_ui::hud::{self, Button, Card, HudView, State};
-use tapwheel_ui::wheel::{self, Hover, Slice, WheelView};
-use tapwheel_ui::{Fonts, Theme, icon};
+use tapwheel_ui::wheel::{self, Hover, KeyHint, Motion, Slice, WheelView};
+use tapwheel_ui::{Fonts, Theme};
 use tiny_skia::Pixmap;
 use windows_sys::Win32::Foundation::*;
-use windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute;
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::DataExchange::COPYDATASTRUCT;
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -28,101 +26,155 @@ use super::drop::{DropTarget, Target};
 use super::hooks::{self, Hooks};
 use super::jobs::Jobs;
 use super::util::*;
-use super::{WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_JOBS, WM_APP_TAP, WM_APP_TRAY, shell, system};
+use super::web::Web;
+use super::{
+	WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_JOBS, WM_APP_PAGE, WM_APP_TAP, WM_APP_TRAY, WM_APP_WEB, shell, system,
+};
 
 const MAIN_CLASS: &str = "TapWheel.Main";
 const WHEEL_CLASS: &str = "TapWheel.Wheel";
 const HUD_CLASS: &str = "TapWheel.Hud";
-const HOME_CLASS: &str = "TapWheel.Home";
 
 const WM_MOUSELEAVE: u32 = 0x02a3;
 
-const T_APPEAR: usize = 1;
+const T_ANIM: usize = 1;
 const T_NUDGE: usize = 2;
 const T_HIDE: usize = 3;
-const T_FADE: usize = 4;
-
-const FADE_OUT_MS: f32 = 90.0;
-const CARD_IN_MS: f32 = 180.0;
-const CARD_OUT_MS: f32 = 150.0;
+const T_PROBE: usize = 4;
 const T_PICK: usize = 10;
 const T_HUD: usize = 20;
+
+const OPEN_MS: f32 = 190.0;
+const CLOSE_MS: f32 = 140.0;
+const PICK_MS: f32 = 230.0;
+const HOVER_MS: f32 = 90.0;
+const RING_MS: f32 = 150.0;
+const PAGE_MS: f32 = 240.0;
+const CARD_IN_MS: f32 = 220.0;
+const CARD_OUT_MS: f32 = 160.0;
+const EXPAND_MS: f32 = 140.0;
+/// How long the pointer rests on More before the page turns.
+const MORE_DWELL_MS: u128 = 380;
+/// How long to wait for a drag to reach the wheel before deciding it carries no files.
+const PROBE_MS: u32 = 380;
 
 const MENU_OPEN: usize = 1;
 const MENU_PAUSE: usize = 2;
 const MENU_QUIT: usize = 3;
 
-const WEBSITE: &str = "https://tapwheel.muxover.com";
-const PRIVACY: &str = "https://tapwheel.muxover.com/privacy";
-const SOURCE: &str = "https://github.com/muxover/tapwheel";
-const HEIC_SAMPLE: &[u8] = include_bytes!("../../../core/tests/fixtures/photo.heic");
+pub const HEIC_SAMPLE: &[u8] = include_bytes!("../../../core/tests/fixtures/photo.heic");
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Mode {
+pub enum Mode {
 	Drag,
 	Pick,
 }
 
-struct WheelState {
-	visible: bool,
-	mode: Mode,
-	wheel: Wheel,
-	files: Option<Vec<PathBuf>>,
-	/// The drag reached the wheel, so `files == None` means it carries no files.
-	data_seen: bool,
-	ops: Vec<Op>,
-	hover: Hover,
-	again: bool,
-	scale: f32,
-	x: i32,
-	y: i32,
-	appear: f32,
-	last_tap: Option<(usize, Instant)>,
-	/// Last frame drawn, faded out when the wheel closes.
-	frame: Option<Pixmap>,
-	closing: Option<Instant>,
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Phase {
+	Hidden,
+	/// Invisible, finding out whether the drag carries files.
+	Probe,
+	Open,
+	Closing,
 }
 
-struct HudState {
+pub struct WheelState {
+	pub phase: Phase,
+	pub mode: Mode,
+	pub wheel: Wheel,
+	pub files: Option<Vec<PathBuf>>,
+	pub kind: Option<Kind>,
+	pub ops: Vec<Op>,
+	/// Ring choices per op: (id, label).
+	pub rings: Vec<Vec<(String, String)>>,
+	pub page: usize,
+	pub hover: Hover,
+	hover_since: Instant,
+	more_turned: bool,
+	pub again: bool,
+	pub scale: f32,
+	pub x: i32,
+	pub y: i32,
+	backdrop: Option<Pixmap>,
+	pub last_tap: Option<(usize, Instant)>,
+	opened: Instant,
+	closing: Option<Instant>,
+	picked: Option<usize>,
+	hover_amt: Vec<f32>,
+	ring_amt: f32,
+	page_turned: Option<Instant>,
+	tick: Instant,
+}
+
+impl WheelState {
+	fn new() -> Self {
+		let now = Instant::now();
+		WheelState {
+			phase: Phase::Hidden,
+			mode: Mode::Drag,
+			wheel: Wheel::Convert,
+			files: None,
+			kind: None,
+			ops: Vec::new(),
+			rings: Vec::new(),
+			page: 0,
+			hover: Hover::None,
+			hover_since: now,
+			more_turned: false,
+			again: false,
+			scale: 1.0,
+			x: 0,
+			y: 0,
+			backdrop: None,
+			last_tap: None,
+			opened: now,
+			closing: None,
+			picked: None,
+			hover_amt: Vec::new(),
+			ring_amt: 0.0,
+			page_turned: None,
+			tick: now,
+		}
+	}
+
+	pub fn visible(&self) -> bool {
+		matches!(self.phase, Phase::Open | Phase::Probe)
+	}
+}
+
+pub struct HudState {
 	visible: bool,
-	hover: Option<(usize, Button)>,
+	hover: Option<(usize, Option<Button>)>,
 	ids: Vec<u64>,
 	scale: f32,
-	anchor: POINT,
+	pub anchor: POINT,
 	start: Instant,
 	tracking: bool,
 	/// When each card arrived and, once it's going, when it started to fold away.
 	anim: HashMap<u64, (Instant, Option<Instant>)>,
+	expand: HashMap<u64, f32>,
 	cards: Vec<Card>,
+	tick: Instant,
 }
 
-struct HomeState {
-	hwnd: HWND,
-	hover: Option<Action>,
-	focus: Option<Action>,
-	scale: f32,
-	frame: Option<Pixmap>,
-	tracking: bool,
-}
-
-struct App {
-	inst: HINSTANCE,
-	main: HWND,
-	wheel_hwnd: HWND,
-	hud_hwnd: HWND,
-	icon: HICON,
+pub struct App {
+	pub inst: HINSTANCE,
+	pub main: HWND,
+	pub wheel_hwnd: HWND,
+	pub hud_hwnd: HWND,
+	pub icon: HICON,
 	_hooks: Option<Hooks>,
-	settings: Settings,
-	settings_path: PathBuf,
-	theme: Theme,
-	fonts: Fonts,
-	logo: Pixmap,
-	packaged: bool,
-	jobs: Jobs,
-	wheel: WheelState,
-	hud: HudState,
-	home: HomeState,
-	last_op: Option<Op>,
+	pub settings: Settings,
+	pub settings_path: PathBuf,
+	pub theme: Theme,
+	pub fonts: Fonts,
+	pub packaged: bool,
+	pub jobs: Jobs,
+	pub wheel: WheelState,
+	pub hud: HudState,
+	pub web: Web,
+	pub last: Option<(Op, Option<String>)>,
 	pending_pick: Vec<PathBuf>,
 	taskbar_created: u32,
 }
@@ -133,7 +185,7 @@ thread_local! {
 
 /// Runs `f` on the app unless it's already borrowed further up this stack (a window
 /// message sent from inside another handler); those messages fall back to the default.
-fn with<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
+pub fn with<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
 	APP.with(|a| a.try_borrow_mut().ok().and_then(|mut g| g.as_mut().map(f)))
 }
 
@@ -155,44 +207,97 @@ fn key_from(i: usize) -> Key {
 	}
 }
 
-fn wheel_index(w: Wheel) -> usize {
-	match w {
-		Wheel::Convert => 0,
-		Wheel::Tools => 1,
-		Wheel::Actions => 2,
-	}
+pub fn file_name(p: &std::path::Path) -> String {
+	p.file_name()
+		.map(|n| n.to_string_lossy().into_owned())
+		.unwrap_or_default()
 }
 
 fn summary(files: &[PathBuf]) -> String {
 	match files {
 		[] => String::new(),
-		[one] => one
-			.file_name()
-			.map(|n| n.to_string_lossy().into_owned())
-			.unwrap_or_default(),
+		[one] => file_name(one),
 		many => {
-			let noun = match selection_kind(many) {
-				Some(Kind::Image) => "images",
-				Some(Kind::Audio) => "sounds",
-				Some(Kind::Video) => "videos",
-				Some(Kind::Subtitle) => "subtitles",
-				Some(Kind::Archive) => "archives",
-				Some(Kind::Folder) => "folders",
-				_ => "items",
-			};
-			format!("{} {noun}", many.len())
+			let noun = selection_kind(many).map(Kind::plural).unwrap_or("items");
+			let badge = selection_badge(many);
+			if badge.is_empty() || selection_kind(many) == Some(Kind::Folder) {
+				format!("{} {noun}", many.len())
+			} else {
+				format!("{} {badge} {noun}", many.len())
+			}
 		}
 	}
 }
 
-fn reduced_motion() -> bool {
+pub fn reduced_motion() -> bool {
 	let mut on: windows_sys::core::BOOL = 1;
 	unsafe { SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &mut on as *mut _ as *mut _, 0) };
 	on == 0
 }
 
+fn approach(cur: f32, target: f32, dt_ms: f32, span_ms: f32) -> f32 {
+	let step = dt_ms / span_ms;
+	if cur < target {
+		(cur + step).min(target)
+	} else {
+		(cur - step).max(target)
+	}
+}
+
+/// A blurred copy of the screen behind a rectangle, for the Windows 11 glass.
+fn capture_backdrop(x: i32, y: i32, w: u32, h: u32) -> Option<Pixmap> {
+	let (sw, sh) = ((w / 4).max(1), (h / 4).max(1));
+	let mut small = Pixmap::new(sw, sh)?;
+	unsafe {
+		let screen = GetDC(std::ptr::null_mut());
+		let mem = CreateCompatibleDC(screen);
+		let mut bi: BITMAPINFO = std::mem::zeroed();
+		bi.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
+		bi.bmiHeader.biWidth = sw as i32;
+		bi.bmiHeader.biHeight = -(sh as i32);
+		bi.bmiHeader.biPlanes = 1;
+		bi.bmiHeader.biBitCount = 32;
+		bi.bmiHeader.biCompression = BI_RGB;
+		let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
+		let bmp = CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &mut bits, std::ptr::null_mut(), 0);
+		if bmp.is_null() || bits.is_null() {
+			DeleteDC(mem);
+			ReleaseDC(std::ptr::null_mut(), screen);
+			return None;
+		}
+		let old = SelectObject(mem, bmp as HGDIOBJ);
+		SetStretchBltMode(mem, HALFTONE);
+		StretchBlt(
+			mem, 0, 0, sw as i32, sh as i32, screen, x, y, w as i32, h as i32, SRCCOPY,
+		);
+		let src = std::slice::from_raw_parts(bits as *const u8, (sw * sh * 4) as usize);
+		for (dst, s) in small.data_mut().chunks_exact_mut(4).zip(src.chunks_exact(4)) {
+			dst.copy_from_slice(&[s[2], s[1], s[0], 255]);
+		}
+		SelectObject(mem, old);
+		DeleteObject(bmp as HGDIOBJ);
+		DeleteDC(mem);
+		ReleaseDC(std::ptr::null_mut(), screen);
+	}
+	tapwheel_ui::draw::blur(&mut small, 5);
+	let mut full = Pixmap::new(w, h)?;
+	let paint = tiny_skia::PixmapPaint {
+		quality: tiny_skia::FilterQuality::Bilinear,
+		..Default::default()
+	};
+	full.draw_pixmap(
+		0,
+		0,
+		small.as_ref(),
+		&paint,
+		tiny_skia::Transform::from_scale(w as f32 / sw as f32, h as f32 / sh as f32),
+		None,
+	);
+	Some(full)
+}
+
 impl App {
-	fn save(&self) {
+	pub fn save(&self) {
 		let _ = self.settings.save(&self.settings_path);
 	}
 
@@ -204,24 +309,58 @@ impl App {
 		]
 	}
 
+	fn key_hints(&self) -> Vec<KeyHint> {
+		Wheel::ALL
+			.iter()
+			.map(|w| KeyHint {
+				key: self.settings.keys.key_for(*w).label().into(),
+				name: w.title().into(),
+				active: *w == self.wheel.wheel && !self.wheel.again,
+			})
+			.filter(|k| k.key != "Off")
+			.collect()
+	}
+
 	// wheel
 
+	/// Ring choices for a slice. Move to lists the recent folders, so it's built here.
+	fn ring_for(&self, op: Op) -> Vec<(String, String)> {
+		if op == Op::MoveTo {
+			let mut r: Vec<(String, String)> = self
+				.settings
+				.recent_folders
+				.iter()
+				.enumerate()
+				.filter(|(_, d)| d.is_dir())
+				.map(|(i, d)| (format!("recent{i}"), file_name(d)))
+				.collect();
+			r.push(("choose".into(), "Choose".into()));
+			return r;
+		}
+		op.presets(self.wheel.kind)
+			.iter()
+			.map(|p| (p.id.to_string(), p.label.to_string()))
+			.collect()
+	}
+
 	fn refresh_ops(&mut self) {
-		let w = &mut self.wheel;
-		w.ops = match &w.files {
+		let ops = match &self.wheel.files {
 			None => Vec::new(),
-			Some(files) if w.again => match self.last_op {
-				Some(op) if Wheel::ALL.iter().any(|wh| choices(*wh, files).contains(&op)) => {
-					vec![op]
-				}
+			Some(files) if self.wheel.again => match self.last.as_ref().map(|l| l.0) {
+				Some(op) if Wheel::ALL.iter().any(|wh| choices(*wh, files).contains(&op)) => vec![op],
 				_ => Vec::new(),
 			},
 			Some(files) => {
-				let mut ops = choices(w.wheel, files);
+				let mut ops = choices(self.wheel.wheel, files);
 				self.settings.order(&mut ops);
 				ops
 			}
 		};
+		self.wheel.rings = ops.iter().map(|op| self.ring_for(*op)).collect();
+		self.wheel.ops = ops;
+		self.wheel.page = 0;
+		self.wheel.hover_amt = vec![0.0; wheel::PER_PAGE];
+		self.wheel.ring_amt = 0.0;
 	}
 
 	fn wheel_view(&self) -> WheelView {
@@ -229,23 +368,43 @@ impl App {
 		let slices = w
 			.ops
 			.iter()
-			.map(|op| Slice {
+			.zip(&w.rings)
+			.map(|(op, ring)| Slice {
 				label: if w.again {
 					format!("Again: {}", op.label())
 				} else {
 					op.label().to_string()
 				},
-				desc: op.describe(),
+				icon: op.icon(w.kind).to_string(),
+				desc: op.describe(w.kind),
+				ring: ring.iter().map(|(_, l)| l.clone()).collect(),
 			})
 			.collect();
-		let message = match (&w.files, w.data_seen) {
-			(None, true) => Some("Only files and folders work here".to_string()),
-			(Some(_), _) if w.ops.is_empty() && w.again => Some("Your last choice doesn't fit these files".to_string()),
-			(Some(_), _) if w.ops.is_empty() => Some("Nothing here fits these files".to_string()),
+		let message = match (&w.files, w.ops.is_empty()) {
+			(Some(_), true) if w.again => Some("Your last choice doesn't fit these files".to_string()),
+			(Some(_), true) => Some("Nothing here fits these files".to_string()),
 			_ => None,
+		};
+		let now = Instant::now();
+		let ms = |t: Instant| now.duration_since(t).as_secs_f32() * 1000.0;
+		let motion = Motion {
+			open: if reduced_motion() {
+				1.0
+			} else {
+				(ms(w.opened) / OPEN_MS).min(1.0)
+			},
+			close: w
+				.closing
+				.map(|t| (ms(t) / if w.picked.is_some() { PICK_MS } else { CLOSE_MS }).min(1.0))
+				.unwrap_or(0.0),
+			picked: w.picked,
+			hover: w.hover_amt.clone(),
+			ring: w.ring_amt,
+			page: w.page_turned.map(|t| (ms(t) / PAGE_MS).min(1.0)).unwrap_or(1.0),
 		};
 		WheelView {
 			slices,
+			page: w.page,
 			hover: w.hover,
 			keyboard: w.mode == Mode::Pick,
 			title: if w.again {
@@ -254,22 +413,40 @@ impl App {
 				w.wheel.title().into()
 			},
 			subtitle: w.files.as_deref().map(summary).unwrap_or_default(),
-			keys: home::key_hints(self.keys(), wheel_index(w.wheel)),
+			keys: self.key_hints(),
 			message,
-			appear: w.appear,
+			hint: None,
+			motion,
 		}
 	}
 
 	fn draw_wheel(&mut self) {
-		if !self.wheel.visible {
-			return;
+		match self.wheel.phase {
+			Phase::Open | Phase::Closing => {
+				let pm = wheel::render(
+					&self.wheel_view(),
+					&self.theme,
+					&self.fonts,
+					self.wheel.scale,
+					self.wheel.backdrop.as_ref(),
+				);
+				push_layered(self.wheel_hwnd, &pm, self.wheel.x, self.wheel.y);
+			}
+			Phase::Probe => push_layered(
+				self.wheel_hwnd,
+				&wheel::probe(self.wheel.scale),
+				self.wheel.x,
+				self.wheel.y,
+			),
+			Phase::Hidden => {}
 		}
-		let pm = wheel::render(&self.wheel_view(), &self.theme, &self.fonts, self.wheel.scale);
-		push_layered(self.wheel_hwnd, &pm, self.wheel.x, self.wheel.y);
-		self.wheel.frame = Some(pm);
 	}
 
-	/// Lets clicks and drops fall through the wheel while it fades out.
+	fn animate(&mut self) {
+		unsafe { SetTimer(self.wheel_hwnd, T_ANIM, 8, None) };
+	}
+
+	/// Lets clicks and drops fall through the wheel while it closes.
 	fn wheel_click_through(&self, on: bool) {
 		unsafe {
 			let ex = GetWindowLongPtrW(self.wheel_hwnd, GWL_EXSTYLE) as u32;
@@ -282,95 +459,189 @@ impl App {
 		}
 	}
 
-	fn show_wheel(&mut self, mode: Mode, wh: Wheel, files: Option<Vec<PathBuf>>) {
+	fn place_wheel(&mut self) {
 		let pt = cursor();
 		let (work, scale) = monitor_at(pt);
 		let (w, h) = wheel::size(scale);
-		let x = (pt.x - (wheel::CX * scale) as i32).clamp(work.left, (work.right - w as i32).max(work.left));
-		let y = (pt.y - (wheel::CY * scale) as i32).clamp(work.top, (work.bottom - h as i32).max(work.top));
-		let animate = !reduced_motion();
+		self.wheel.scale = scale;
+		self.wheel.x = (pt.x - (wheel::CX * scale) as i32).clamp(work.left, (work.right - w as i32).max(work.left));
+		self.wheel.y = (pt.y - (wheel::CY * scale) as i32).clamp(work.top, (work.bottom - h as i32).max(work.top));
+		unsafe {
+			SetWindowPos(
+				self.wheel_hwnd,
+				HWND_TOPMOST,
+				self.wheel.x,
+				self.wheel.y,
+				w as i32,
+				h as i32,
+				SWP_NOACTIVATE,
+			);
+		}
+	}
+
+	/// During a drag: an invisible wheel catches the drag to see what it carries. It only becomes
+	/// visible when files arrive, so dragging a window, text or nothing opens no wheel.
+	fn probe(&mut self, wh: Wheel) {
 		if self.wheel.closing.take().is_some() {
-			unsafe { KillTimer(self.wheel_hwnd, T_FADE) };
 			self.wheel_click_through(false);
 		}
-		self.wheel = WheelState {
-			visible: true,
-			mode,
-			wheel: wh,
-			data_seen: files.is_some(),
-			files,
-			ops: Vec::new(),
-			hover: Hover::None,
-			again: false,
-			scale,
-			x,
-			y,
-			appear: if animate { 0.0 } else { 1.0 },
-			last_tap: self.wheel.last_tap,
-			frame: None,
-			closing: None,
-		};
+		let last_tap = self.wheel.last_tap;
+		self.wheel = WheelState::new();
+		self.wheel.last_tap = last_tap;
+		self.wheel.wheel = wh;
+		self.wheel.phase = Phase::Probe;
+		self.place_wheel();
+		hooks::WHEEL_OPEN.store(true, std::sync::atomic::Ordering::Relaxed);
+		self.draw_wheel();
+		unsafe {
+			ShowWindow(self.wheel_hwnd, SW_SHOWNOACTIVATE);
+			SetTimer(self.wheel_hwnd, T_NUDGE, 16, None);
+			SetTimer(self.wheel_hwnd, T_PROBE, PROBE_MS, None);
+		}
+	}
+
+	/// Shows the wheel for files we know about.
+	fn open(&mut self, mode: Mode, wh: Wheel, files: Vec<PathBuf>) {
+		if self.wheel.phase != Phase::Probe {
+			if self.wheel.closing.take().is_some() {
+				self.wheel_click_through(false);
+			}
+			let last_tap = self.wheel.last_tap;
+			self.wheel = WheelState::new();
+			self.wheel.last_tap = last_tap;
+			self.place_wheel();
+		}
+		unsafe { KillTimer(self.wheel_hwnd, T_PROBE) };
+		self.wheel.phase = Phase::Open;
+		self.wheel.mode = mode;
+		self.wheel.wheel = wh;
+		self.wheel.kind = selection_kind(&files);
+		self.wheel.files = Some(files);
 		self.refresh_ops();
+		self.wheel.opened = Instant::now();
+		if self.theme.win11 && !self.theme.high_contrast {
+			let (w, h) = wheel::size(self.wheel.scale);
+			self.wheel.backdrop = capture_backdrop(self.wheel.x, self.wheel.y, w, h);
+		}
 		if mode == Mode::Pick && !self.wheel.ops.is_empty() {
 			self.wheel.hover = Hover::Slice(0);
 		}
 		hooks::WHEEL_OPEN.store(true, std::sync::atomic::Ordering::Relaxed);
 		self.draw_wheel();
 		unsafe {
-			SetWindowPos(self.wheel_hwnd, HWND_TOPMOST, x, y, w as i32, h as i32, SWP_NOACTIVATE);
 			if mode == Mode::Pick {
 				ShowWindow(self.wheel_hwnd, SW_SHOW);
 				SetForegroundWindow(self.wheel_hwnd);
 			} else {
 				ShowWindow(self.wheel_hwnd, SW_SHOWNOACTIVATE);
-				SetTimer(self.wheel_hwnd, T_NUDGE, 16, None);
-			}
-			if animate {
-				SetTimer(self.wheel_hwnd, T_APPEAR, 15, None);
 			}
 		}
+		self.animate();
 	}
 
-	fn hide_wheel(&mut self) {
-		if !self.wheel.visible {
+	/// Closes with the fade, or with the picked slice's pulse.
+	fn close(&mut self, picked: Option<usize>) {
+		if !self.wheel.visible() {
 			return;
 		}
-		self.wheel.visible = false;
+		let was_probe = self.wheel.phase == Phase::Probe;
+		self.wheel.phase = Phase::Closing;
+		self.wheel.picked = picked;
 		self.wheel.files = None;
-		self.wheel.ops.clear();
 		hooks::WHEEL_OPEN.store(false, std::sync::atomic::Ordering::Relaxed);
 		unsafe {
 			KillTimer(self.wheel_hwnd, T_HIDE);
-			KillTimer(self.wheel_hwnd, T_APPEAR);
-			if reduced_motion() || self.wheel.frame.is_none() {
-				ShowWindow(self.wheel_hwnd, SW_HIDE);
-			} else {
-				self.wheel.closing = Some(Instant::now());
-				self.wheel_click_through(true);
-				SetTimer(self.wheel_hwnd, T_FADE, 10, None);
+			KillTimer(self.wheel_hwnd, T_PROBE);
+		}
+		if was_probe || reduced_motion() {
+			self.finish_close();
+			return;
+		}
+		self.wheel.closing = Some(Instant::now());
+		self.wheel_click_through(true);
+		self.animate();
+	}
+
+	fn finish_close(&mut self) {
+		self.wheel.phase = Phase::Hidden;
+		self.wheel.closing = None;
+		self.wheel.backdrop = None;
+		self.wheel.ops.clear();
+		unsafe {
+			KillTimer(self.wheel_hwnd, T_ANIM);
+			ShowWindow(self.wheel_hwnd, SW_HIDE);
+		}
+		self.wheel_click_through(false);
+	}
+
+	fn tick(&mut self) {
+		let now = Instant::now();
+		let dt = now.duration_since(self.wheel.tick).as_secs_f32() * 1000.0;
+		self.wheel.tick = now;
+		let w = &mut self.wheel;
+		if w.phase == Phase::Closing {
+			let span = if w.picked.is_some() { PICK_MS } else { CLOSE_MS };
+			if w.closing
+				.is_none_or(|t| now.duration_since(t).as_secs_f32() * 1000.0 >= span)
+			{
+				self.finish_close();
+				return;
 			}
+			self.draw_wheel();
+			return;
+		}
+		if w.phase != Phase::Open {
+			unsafe { KillTimer(self.wheel_hwnd, T_ANIM) };
+			return;
+		}
+		let hovered = match w.hover {
+			Hover::Slice(i) | Hover::Ring(i, _) => Some(i),
+			Hover::More => Some(wheel::PER_PAGE - 1),
+			_ => None,
+		};
+		let mut moving = false;
+		for (i, a) in w.hover_amt.iter_mut().enumerate() {
+			let target = if hovered == Some(i) { 1.0 } else { 0.0 };
+			let next = approach(*a, target, dt, HOVER_MS);
+			moving |= (next - target).abs() > f32::EPSILON;
+			*a = next;
+		}
+		let ring_target = match w.hover {
+			Hover::Slice(_) | Hover::Ring(..) => 1.0,
+			_ => 0.0,
+		};
+		w.ring_amt = approach(w.ring_amt, ring_target, dt, RING_MS);
+		moving |= (w.ring_amt - ring_target).abs() > f32::EPSILON;
+		let opening = now.duration_since(w.opened).as_secs_f32() * 1000.0 < OPEN_MS;
+		let turning = w
+			.page_turned
+			.is_some_and(|t| now.duration_since(t).as_secs_f32() * 1000.0 < PAGE_MS);
+		// resting on More turns the page
+		if w.hover == Hover::More && !w.more_turned && now.duration_since(w.hover_since).as_millis() >= MORE_DWELL_MS {
+			w.more_turned = true;
+			self.turn_page(1);
+			return;
+		}
+		let dwelling = self.wheel.hover == Hover::More && !self.wheel.more_turned;
+		self.draw_wheel();
+		if !(moving || opening || turning || dwelling) {
+			unsafe { KillTimer(self.wheel_hwnd, T_ANIM) };
 		}
 	}
 
-	fn fade_step(&mut self) {
-		let Some(start) = self.wheel.closing else {
-			unsafe { KillTimer(self.wheel_hwnd, T_FADE) };
-			return;
-		};
-		let t = start.elapsed().as_secs_f32() * 1000.0 / FADE_OUT_MS;
-		if t >= 1.0 || self.wheel.frame.is_none() {
-			self.wheel.closing = None;
-			unsafe {
-				KillTimer(self.wheel_hwnd, T_FADE);
-				ShowWindow(self.wheel_hwnd, SW_HIDE);
-			}
-			self.wheel_click_through(false);
+	fn turn_page(&mut self, by: isize) {
+		let pages = wheel::pages(self.wheel.ops.len());
+		if pages <= 1 {
 			return;
 		}
-		let alpha = ((1.0 - t) * (1.0 - t) * 255.0) as u8;
-		if let Some(f) = &self.wheel.frame {
-			push_layered_alpha(self.wheel_hwnd, f, self.wheel.x, self.wheel.y, alpha);
-		}
+		self.wheel.page = (self.wheel.page as isize + by).rem_euclid(pages as isize) as usize;
+		self.wheel.page_turned = Some(Instant::now());
+		self.wheel.ring_amt = 0.0;
+		self.wheel.hover_amt = vec![0.0; wheel::PER_PAGE];
+		self.wheel.hover = self.hover_at(cursor());
+		self.wheel.hover_since = Instant::now();
+		self.draw_wheel();
+		self.animate();
 	}
 
 	fn tap(&mut self, key: usize) {
@@ -380,102 +651,123 @@ impl App {
 		let now = Instant::now();
 		let double = matches!(self.wheel.last_tap, Some((k, t)) if k == key && now.duration_since(t).as_millis() < 450);
 		self.wheel.last_tap = Some((key, now));
-		if !self.wheel.visible {
-			if hooks::dragging() {
-				self.show_wheel(Mode::Drag, wh, None);
+		match self.wheel.phase {
+			Phase::Hidden | Phase::Closing => {
+				if hooks::dragging() {
+					self.probe(wh);
+				}
 			}
-			return;
+			Phase::Probe => self.wheel.wheel = wh,
+			Phase::Open => {
+				if double && self.last.is_some() && self.wheel.wheel == wh {
+					self.wheel.again = !self.wheel.again;
+				} else {
+					self.wheel.again = false;
+					self.wheel.wheel = wh;
+				}
+				self.refresh_ops();
+				self.wheel.hover = if self.wheel.mode == Mode::Pick && !self.wheel.ops.is_empty() {
+					Hover::Slice(0)
+				} else {
+					self.hover_at(cursor())
+				};
+				self.wheel.opened = Instant::now() - std::time::Duration::from_millis((OPEN_MS * 0.55) as u64);
+				self.draw_wheel();
+				self.animate();
+			}
 		}
-		if double && self.last_op.is_some() && self.wheel.wheel == wh {
-			self.wheel.again = !self.wheel.again;
-		} else {
-			self.wheel.again = false;
-			self.wheel.wheel = wh;
-		}
-		self.refresh_ops();
-		self.wheel.hover = if self.wheel.mode == Mode::Pick && !self.wheel.ops.is_empty() {
-			Hover::Slice(0)
-		} else {
-			self.hover_at(cursor())
-		};
-		self.draw_wheel();
 	}
 
 	fn hover_at(&self, pt: POINT) -> Hover {
 		let s = self.wheel.scale;
 		let x = (pt.x - self.wheel.x) as f32 / s;
 		let y = (pt.y - self.wheel.y) as f32 / s;
-		wheel::hit(self.wheel.ops.len(), x, y)
+		wheel::hit(&self.wheel_view(), &self.fonts, x, y)
 	}
 
 	fn set_hover(&mut self, h: Hover) {
 		if self.wheel.hover != h {
+			let same_slice = matches!((self.wheel.hover, h), (Hover::Slice(a) | Hover::Ring(a, _), Hover::Slice(b) | Hover::Ring(b, _)) if a == b);
+			if !same_slice {
+				self.wheel.ring_amt = 0.0;
+			}
+			if h == Hover::More && self.wheel.hover != Hover::More {
+				self.wheel.more_turned = false;
+			}
 			self.wheel.hover = h;
-			self.draw_wheel();
+			self.wheel.hover_since = Instant::now();
+			self.animate();
 		}
 	}
 
-	fn pick(&mut self, i: usize) {
-		let (Some(op), Some(files)) = (self.wheel.ops.get(i).copied(), self.wheel.files.clone()) else {
-			return;
-		};
-		self.hide_wheel();
-		self.apply(op, files);
+	/// The op and ring choice under a hover, if it picks anything.
+	fn choice(&self, h: Hover) -> Option<(usize, Op, Option<String>)> {
+		let (items, _) = wheel::page_items(self.wheel.ops.len(), self.wheel.page);
+		match h {
+			Hover::Slice(i) => {
+				let k = *items.get(i)?;
+				Some((i, self.wheel.ops[k], None))
+			}
+			Hover::Ring(i, j) => {
+				let k = *items.get(i)?;
+				let id = self.wheel.rings.get(k)?.get(j)?.0.clone();
+				Some((i, self.wheel.ops[k], Some(id)))
+			}
+			_ => None,
+		}
+	}
+
+	fn pick(&mut self, h: Hover) {
+		let files = self.wheel.files.clone();
+		match (self.choice(h), files) {
+			(Some((slot, op, preset)), Some(files)) => {
+				self.close(Some(slot));
+				self.apply(op, preset, files);
+			}
+			_ => self.close(None),
+		}
 	}
 
 	// work
 
-	fn apply(&mut self, op: Op, files: Vec<PathBuf>) {
+	pub fn apply(&mut self, op: Op, preset: Option<String>, files: Vec<PathBuf>) {
 		self.settings.record(op);
 		self.save();
-		self.last_op = Some(op);
+		self.last = Some((op, preset.clone()));
 		self.hud.anchor = cursor();
-		if op.is_action() {
-			self.action(op, &files);
+		let kind = selection_kind(&files);
+		if op.mode() == OpMode::Action {
+			self.action(op, preset.as_deref(), &files);
 		} else {
-			let jobs = plan(op, &files);
-			if jobs.is_empty() {
-				self.jobs.note(op, &files, "Nothing to do for these files".into());
-			} else {
-				let main = self.main as usize;
-				self.jobs.start(op, files, jobs, move || unsafe {
-					PostMessageW(main as HWND, WM_APP_JOBS, 0, 0);
-				});
+			match recipe_for(op, preset.as_deref(), kind, &self.settings.defaults) {
+				Some(r) => self.run_recipe(op, r, files),
+				None => self.open_editor(op, files),
 			}
 		}
 		self.refresh_hud();
 	}
 
-	fn action(&mut self, op: Op, files: &[PathBuf]) {
-		let plural = |n: usize, one: &str, many: &str| {
-			if n == 1 { one.to_string() } else { format!("{n} {many}") }
-		};
-		let note = match op {
-			Op::CopyPath => {
-				let text = files
-					.iter()
-					.map(|p| p.display().to_string())
-					.collect::<Vec<_>>()
-					.join("\r\n");
-				shell::copy_text(self.main, &text)
-					.then(|| format!("Copied {}", plural(files.len(), "the path", "paths")))
-			}
-			Op::CopyFile => shell::copy_files(self.main, files)
-				.then(|| format!("Copied {}, ready to paste", plural(files.len(), "1 item", "items"))),
-			Op::Terminal => {
-				let dir = files
-					.iter()
-					.find(|p| kind_of(p) == Kind::Folder)
-					.cloned()
-					.or_else(|| files[0].parent().map(PathBuf::from))
-					.unwrap_or_default();
-				shell::terminal(&dir).then(|| "Opened a terminal".to_string())
-			}
-			Op::Reveal => shell::reveal(files).then(|| "Shown in File Explorer".to_string()),
-			_ => None,
-		};
-		let text = note.unwrap_or_else(|| "Windows didn't allow that just now".into());
-		self.jobs.note(op, files, text);
+	pub fn run_recipe(&mut self, op: Op, recipe: Recipe, files: Vec<PathBuf>) {
+		let kind = selection_kind(&files);
+		let jobs = plan(op, &recipe, &files);
+		if jobs.is_empty() {
+			self.jobs
+				.problem(op, kind, &files, "Nothing to do for these files".into());
+		} else {
+			let main = self.main as usize;
+			self.jobs
+				.start(op, kind, files, jobs, self.settings.defaults.clone(), move || unsafe {
+					PostMessageW(main as HWND, WM_APP_JOBS, 0, 0);
+				});
+		}
+		self.refresh_hud();
+	}
+
+	pub fn wake(&self) -> impl Fn() + Send + 'static {
+		let main = self.main as usize;
+		move || unsafe {
+			PostMessageW(main as HWND, WM_APP_JOBS, 0, 0);
+		}
 	}
 
 	// progress cards
@@ -483,9 +775,21 @@ impl App {
 	fn hud_view(&self) -> HudView {
 		HudView {
 			cards: self.hud.cards.clone(),
-			hover: self.hud.hover,
+			hover: self
+				.hud
+				.hover
+				.and_then(|(i, b)| b.map(|b| (i, b)))
+				.or(self.hud.hover.map(|(i, _)| (i, Button::Close))),
 			time: self.hud.start.elapsed().as_secs_f32(),
 		}
+	}
+
+	fn expand_list(&self) -> Vec<f32> {
+		self.hud
+			.ids
+			.iter()
+			.map(|id| self.hud.expand.get(id).copied().unwrap_or(0.0))
+			.collect()
 	}
 
 	/// Starts folding a card away; it's dropped once the animation ends.
@@ -496,12 +800,15 @@ impl App {
 		}
 	}
 
-	fn refresh_hud(&mut self) {
-		for id in self.jobs.expired(self.hud.hover.is_some()) {
+	pub fn refresh_hud(&mut self) {
+		let hovered_id = self.hud.hover.and_then(|(i, _)| self.hud.ids.get(i).copied());
+		for id in self.jobs.expired(hovered_id) {
 			self.leave(id);
 		}
 		let still = reduced_motion();
 		let now = Instant::now();
+		let dt = now.duration_since(self.hud.tick).as_secs_f32() * 1000.0;
+		self.hud.tick = now;
 		let mut cards = Vec::new();
 		let mut ids = Vec::new();
 		let mut moving = false;
@@ -521,12 +828,21 @@ impl App {
 				continue;
 			}
 			moving |= card.shown < 1.0;
+			let target = if hovered_id == Some(id) { 1.0 } else { 0.0 };
+			let e = self.hud.expand.entry(id).or_insert(0.0);
+			*e = if still {
+				target
+			} else {
+				approach(*e, target, dt, EXPAND_MS)
+			};
+			moving |= (*e - target).abs() > f32::EPSILON;
 			ids.push(id);
 			cards.push(card);
 		}
 		for id in gone {
 			self.jobs.remove(id);
 			self.hud.anim.remove(&id);
+			self.hud.expand.remove(&id);
 		}
 		self.hud.anim.retain(|id, _| ids.contains(id));
 		if self.hud.hover.is_some_and(|(i, _)| i >= cards.len()) {
@@ -547,10 +863,11 @@ impl App {
 		}
 		let (work, scale) = monitor_at(self.hud.anchor);
 		self.hud.scale = scale;
-		let (w, h) = hud::size(&self.hud.cards, scale);
+		let expand = self.expand_list();
+		let (w, h) = hud::size(&self.hud.cards, &expand, scale);
 		let x = work.right - w as i32;
 		let y = work.bottom - h as i32;
-		let pm = hud::render(&self.hud_view(), &self.theme, &self.fonts, scale);
+		let pm = hud::render(&self.hud_view(), &expand, &self.theme, &self.fonts, scale);
 		push_layered(self.hud_hwnd, &pm, x, y);
 		unsafe {
 			SetWindowPos(self.hud_hwnd, HWND_TOPMOST, x, y, w as i32, h as i32, SWP_NOACTIVATE);
@@ -559,11 +876,11 @@ impl App {
 				self.hud.visible = true;
 			}
 			let every = if moving {
-				12
+				8
 			} else if self.jobs.any_running() {
 				50
 			} else {
-				500
+				400
 			};
 			SetTimer(self.hud_hwnd, T_HUD, every, None);
 		}
@@ -588,6 +905,11 @@ impl App {
 			Button::Undo => {
 				shell::recycle(&batch.outputs);
 			}
+			Button::Copy => {
+				if let Some(c) = &batch.copy {
+					shell::copy_text(self.main, c);
+				}
+			}
 			Button::Cancel | Button::Close => {
 				if batch.state == State::Running {
 					self.jobs.cancel(id);
@@ -599,181 +921,21 @@ impl App {
 		self.refresh_hud();
 	}
 
-	// home window
+	// settings window and tray
 
-	fn home_view(&self) -> HomeView {
-		HomeView {
-			version: env!("CARGO_PKG_VERSION").into(),
-			keys: self.keys(),
-			start_with_windows: self.settings.start_with_windows,
-			learn_order: self.settings.learn_order,
-			paused: hooks::PAUSED.load(std::sync::atomic::Ordering::Relaxed),
-			hover: self.home.hover,
-			focus: self.home.focus,
-		}
+	pub fn show_settings(&mut self) {
+		let init = self.settings_payload();
+		super::web::open(self, super::web::Page::Settings, init);
 	}
 
-	fn redraw_home(&mut self) {
-		if self.home.hwnd.is_null() {
-			return;
-		}
-		self.home.frame = Some(home::render(
-			&self.home_view(),
-			&self.theme,
-			&self.fonts,
-			self.home.scale,
-			&self.logo,
-		));
-		unsafe { InvalidateRect(self.home.hwnd, std::ptr::null(), 0) };
+	pub fn set_key(&mut self, wheel: Wheel, key: usize) {
+		self.settings.keys.assign(wheel, key_from(key));
+		self.save();
 	}
 
-	fn style_caption(&self, hwnd: HWND) {
-		let dark: u32 = self.theme.dark as u32;
-		// DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_CAPTION_COLOR (Windows 11 only, ignored before)
-		let caption: u32 = if self.theme.dark { 0x0020_2020 } else { 0x00f3_f3f3 };
-		unsafe {
-			DwmSetWindowAttribute(hwnd, 20, &dark as *const u32 as *const _, 4);
-			if self.theme.win11 && !self.theme.high_contrast {
-				DwmSetWindowAttribute(hwnd, 35, &caption as *const u32 as *const _, 4);
-			}
-		}
+	pub fn keys_now(&self) -> [usize; 3] {
+		self.keys()
 	}
-
-	fn show_home(&mut self) {
-		unsafe {
-			if !self.home.hwnd.is_null() {
-				ShowWindow(self.home.hwnd, SW_SHOWNORMAL);
-				SetForegroundWindow(self.home.hwnd);
-				return;
-			}
-			let pt = cursor();
-			let (work, scale) = monitor_at(pt);
-			let style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
-			let mut r = RECT {
-				left: 0,
-				top: 0,
-				right: (home::WIDTH * scale) as i32,
-				bottom: (home::HEIGHT * scale) as i32,
-			};
-			AdjustWindowRectExForDpi(&mut r, style, 0, 0, (scale * 96.0) as u32);
-			let (w, h) = (r.right - r.left, r.bottom - r.top);
-			let x = work.left + ((work.right - work.left) - w) / 2;
-			let y = work.top + ((work.bottom - work.top) - h) / 2;
-			let hwnd = CreateWindowExW(
-				0,
-				wide(HOME_CLASS).as_ptr(),
-				wide("TapWheel").as_ptr(),
-				style,
-				x,
-				y.max(work.top),
-				w,
-				h,
-				std::ptr::null_mut(),
-				std::ptr::null_mut(),
-				self.inst,
-				std::ptr::null(),
-			);
-			self.home.hwnd = hwnd;
-			self.home.scale = GetDpiForWindow(hwnd) as f32 / 96.0;
-			self.style_caption(hwnd);
-			self.redraw_home();
-			ShowWindow(hwnd, SW_SHOWNORMAL);
-			SetForegroundWindow(hwnd);
-		}
-	}
-
-	fn home_action(&mut self, a: Action) {
-		match a {
-			Action::Key(w, c) => {
-				let wheel = Wheel::ALL[w];
-				self.settings.keys.assign(wheel, key_from(c));
-				self.save();
-			}
-			Action::StartWithWindows => {
-				self.settings.start_with_windows = !self.settings.start_with_windows;
-				shell::set_autostart(self.settings.start_with_windows, self.packaged);
-				self.save();
-			}
-			Action::LearnOrder => {
-				self.settings.learn_order = !self.settings.learn_order;
-				self.save();
-			}
-			Action::Paused => {
-				let p = !hooks::PAUSED.load(std::sync::atomic::Ordering::Relaxed);
-				hooks::PAUSED.store(p, std::sync::atomic::Ordering::Relaxed);
-			}
-			Action::Samples => {
-				let png = icon::logo(512).encode_png().unwrap_or_default();
-				match shell::samples(&png, HEIC_SAMPLE) {
-					Ok(dir) => {
-						shell::open(&dir);
-					}
-					Err(e) => {
-						self.jobs
-							.note(Op::Reveal, &[], format!("Couldn't make the sample files: {e}"));
-						self.refresh_hud();
-					}
-				}
-			}
-			Action::Website => {
-				shell::open_url(WEBSITE);
-			}
-			Action::Privacy => {
-				shell::open_url(PRIVACY);
-			}
-			Action::Source => {
-				shell::open_url(SOURCE);
-			}
-		}
-		self.redraw_home();
-	}
-
-	fn home_key(&mut self, vk: u16) {
-		let order = home::tab_order(&self.fonts);
-		let shift = unsafe { GetKeyState(VK_SHIFT as i32) } < 0;
-		let pos = self.home.focus.and_then(|f| {
-			order.iter().position(|o| match (o, f) {
-				(Action::Key(a, _), Action::Key(b, _)) => *a == b,
-				(o, f) => *o == f,
-			})
-		});
-		match vk {
-			VK_TAB => {
-				let n = order.len();
-				let next = match pos {
-					None => 0,
-					Some(i) if shift => (i + n - 1) % n,
-					Some(i) => (i + 1) % n,
-				};
-				self.home.focus = Some(match order[next] {
-					Action::Key(w, _) => Action::Key(w, self.keys()[w]),
-					a => a,
-				});
-			}
-			VK_LEFT | VK_RIGHT => {
-				if let Some(Action::Key(w, _)) = self.home.focus {
-					let cur = self.keys()[w];
-					let next = if vk == VK_LEFT { (cur + 3) % 4 } else { (cur + 1) % 4 };
-					self.home_action(Action::Key(w, next));
-					self.home.focus = Some(Action::Key(w, next));
-				}
-			}
-			VK_SPACE | VK_RETURN => {
-				if let Some(f) = self.home.focus
-					&& !matches!(f, Action::Key(..))
-				{
-					self.home_action(f);
-				}
-			}
-			VK_ESCAPE => unsafe {
-				ShowWindow(self.home.hwnd, SW_HIDE);
-			},
-			_ => return,
-		}
-		self.redraw_home();
-	}
-
-	// tray
 
 	fn add_tray(&self) {
 		let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
@@ -822,14 +984,11 @@ impl App {
 			);
 			DestroyMenu(menu);
 			match cmd as usize {
-				MENU_OPEN => self.show_home(),
-				MENU_PAUSE => {
-					hooks::PAUSED.store(!paused, std::sync::atomic::Ordering::Relaxed);
-					self.redraw_home();
-				}
+				MENU_OPEN => self.show_settings(),
+				MENU_PAUSE => hooks::PAUSED.store(!paused, std::sync::atomic::Ordering::Relaxed),
 				MENU_QUIT => {
 					self.remove_tray();
-					self.hide_wheel();
+					self.close(None);
 					PostQuitMessage(0);
 				}
 				_ => {}
@@ -839,20 +998,19 @@ impl App {
 
 	fn theme_changed(&mut self) {
 		self.theme = system::theme();
-		self.draw_wheel();
+		if self.wheel.visible() {
+			self.draw_wheel();
+		}
 		if self.hud.visible {
 			self.refresh_hud();
 		}
-		if !self.home.hwnd.is_null() {
-			self.style_caption(self.home.hwnd);
-			self.redraw_home();
-		}
+		super::web::theme_changed(self);
 	}
 
 	fn message(&mut self, text: &str) {
 		let mut lines = text.lines();
 		match lines.next() {
-			Some("show") => self.show_home(),
+			Some("show") => self.show_settings(),
 			Some("pick") => {
 				self.pending_pick
 					.extend(lines.filter(|l| !l.is_empty()).map(PathBuf::from));
@@ -869,49 +1027,65 @@ struct WheelTarget;
 impl Target for WheelTarget {
 	fn enter(&self, files: Option<Vec<PathBuf>>, x: i32, y: i32) -> bool {
 		with(|a| {
-			if !a.wheel.visible || a.wheel.mode != Mode::Drag {
-				return false;
+			match a.wheel.phase {
+				Phase::Probe => match files.filter(|f| !f.is_empty()) {
+					Some(files) => {
+						let wh = a.wheel.wheel;
+						a.open(Mode::Drag, wh, files);
+					}
+					// not files: no wheel at all
+					None => {
+						a.close(None);
+						return false;
+					}
+				},
+				Phase::Open if a.wheel.mode == Mode::Drag => {
+					if let Some(f) = files.filter(|f| !f.is_empty()) {
+						a.wheel.files = Some(f);
+					}
+				}
+				_ => return false,
 			}
-			a.wheel.data_seen = true;
-			a.wheel.files = files;
-			a.refresh_ops();
 			let h = a.hover_at(POINT { x, y });
-			a.wheel.hover = h;
+			a.set_hover(h);
 			a.draw_wheel();
-			matches!(h, Hover::Slice(_))
+			matches!(h, Hover::Slice(_) | Hover::Ring(..))
 		})
 		.unwrap_or(false)
 	}
 
 	fn over(&self, x: i32, y: i32) -> bool {
 		with(|a| {
+			if a.wheel.phase != Phase::Open {
+				return false;
+			}
 			let h = a.hover_at(POINT { x, y });
 			a.set_hover(h);
-			matches!(h, Hover::Slice(_)) && a.wheel.files.is_some()
+			matches!(h, Hover::Slice(_) | Hover::Ring(..)) && !a.wheel.ops.is_empty()
 		})
 		.unwrap_or(false)
 	}
 
 	fn leave(&self) {
-		with(|a| a.set_hover(Hover::None));
+		with(|a| {
+			if a.wheel.phase == Phase::Open {
+				a.set_hover(Hover::None);
+			}
+		});
 	}
 
 	fn dropped(&self, files: Option<Vec<PathBuf>>, x: i32, y: i32) -> bool {
 		with(|a| {
-			let h = a.hover_at(POINT { x, y });
-			let files = files.or_else(|| a.wheel.files.clone());
-			let op = match h {
-				Hover::Slice(i) => a.wheel.ops.get(i).copied(),
-				_ => None,
-			};
-			a.hide_wheel();
-			match (op, files) {
-				(Some(op), Some(files)) => {
-					a.apply(op, files);
-					true
-				}
-				_ => false,
+			if a.wheel.phase != Phase::Open {
+				return false;
 			}
+			let h = a.hover_at(POINT { x, y });
+			if let Some(f) = files.filter(|f| !f.is_empty()) {
+				a.wheel.files = Some(f);
+			}
+			let acts = a.choice(h).is_some();
+			a.pick(h);
+			acts
 		})
 		.unwrap_or(false)
 	}
@@ -920,16 +1094,22 @@ impl Target for WheelTarget {
 unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
 	let handled = match msg {
 		WM_APP_TAP => with(|a| a.tap(w)),
-		WM_APP_ESCAPE => with(|a| a.hide_wheel()),
+		WM_APP_ESCAPE => with(|a| a.close(None)),
+		WM_APP_PAGE => with(|a| {
+			if a.wheel.phase == Phase::Open {
+				a.turn_page(if w == 0 { 1 } else { -1 });
+			}
+		}),
 		WM_APP_DRAG_END => with(|a| {
-			if a.wheel.visible && a.wheel.mode == Mode::Drag {
+			if a.wheel.visible() && a.wheel.mode == Mode::Drag {
 				// the drop arrives just after the button goes up; give it time to land
 				unsafe { SetTimer(a.wheel_hwnd, T_HIDE, 400, None) };
 			}
 		}),
 		WM_APP_JOBS => with(|a| a.refresh_hud()),
+		WM_APP_WEB => with(super::web::pump),
 		WM_APP_TRAY => with(|a| match l as u32 {
-			WM_LBUTTONUP => a.show_home(),
+			WM_LBUTTONUP => a.show_settings(),
 			WM_RBUTTONUP | WM_CONTEXTMENU => a.tray_menu(),
 			_ => {}
 		}),
@@ -937,7 +1117,7 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 			KillTimer(hwnd, T_PICK);
 			let files = std::mem::take(&mut a.pending_pick);
 			if !files.is_empty() {
-				a.show_wheel(Mode::Pick, Wheel::Convert, Some(files));
+				a.open(Mode::Pick, Wheel::Convert, files);
 			}
 		}),
 		WM_COPYDATA => {
@@ -953,7 +1133,7 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 		WM_DESTROY => {
 			with(|a| {
 				a.remove_tray();
-				a.hide_wheel();
+				a.close(None);
 			});
 			unsafe { PostQuitMessage(0) };
 			Some(())
@@ -979,27 +1159,27 @@ unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM)
 		}
 		WM_TIMER => with(|a| unsafe {
 			match w {
-				T_APPEAR => {
-					a.wheel.appear = (a.wheel.appear + 0.22).min(1.0);
-					if a.wheel.appear >= 1.0 {
-						KillTimer(hwnd, T_APPEAR);
-					}
-					a.draw_wheel();
-				}
+				T_ANIM => a.tick(),
 				T_NUDGE => {
 					KillTimer(hwnd, T_NUDGE);
 					hooks::nudge();
 				}
-				T_FADE => a.fade_step(),
+				T_PROBE => {
+					// the drag never reached the wheel with files
+					KillTimer(hwnd, T_PROBE);
+					if a.wheel.phase == Phase::Probe {
+						a.close(None);
+					}
+				}
 				T_HIDE => {
 					KillTimer(hwnd, T_HIDE);
-					a.hide_wheel();
+					a.close(None);
 				}
 				_ => {}
 			}
 		}),
 		WM_MOUSEMOVE => with(|a| {
-			if a.wheel.mode == Mode::Pick {
+			if a.wheel.mode == Mode::Pick && a.wheel.phase == Phase::Open {
 				let h = a.hover_at(cursor());
 				if h != Hover::None {
 					a.set_hover(h);
@@ -1007,38 +1187,47 @@ unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM)
 			}
 		}),
 		WM_LBUTTONUP => with(|a| {
-			if a.wheel.mode == Mode::Pick {
-				match a.hover_at(cursor()) {
-					Hover::Slice(i) => a.pick(i),
-					_ => a.hide_wheel(),
-				}
+			if a.wheel.mode == Mode::Pick && a.wheel.phase == Phase::Open {
+				let h = a.hover_at(cursor());
+				a.pick(h);
 			}
 		}),
 		WM_ACTIVATE if (w & 0xffff) as u32 == WA_INACTIVE => with(|a| {
 			if a.wheel.mode == Mode::Pick {
-				a.hide_wheel();
+				a.close(None);
 			}
 		}),
 		WM_KEYDOWN | WM_SYSKEYDOWN => with(|a| {
-			let n = a.wheel.ops.len();
+			let (items, more) = wheel::page_items(a.wheel.ops.len(), a.wheel.page);
+			let n = items.len();
 			let cur = match a.wheel.hover {
-				Hover::Slice(i) => i,
+				Hover::Slice(i) | Hover::Ring(i, _) => i,
 				_ => 0,
 			};
 			let vk = w as u16;
 			match vk {
-				VK_ESCAPE => a.hide_wheel(),
+				VK_ESCAPE => a.close(None),
+				VK_NEXT if more => a.turn_page(1),
+				VK_PRIOR if more => a.turn_page(-1),
 				VK_RIGHT | VK_DOWN | VK_TAB if n > 0 => {
 					let back = vk == VK_TAB && unsafe { GetKeyState(VK_SHIFT as i32) } < 0;
-					let next = if back { (cur + n - 1) % n } else { (cur + 1) % n };
-					a.set_hover(Hover::Slice(next));
+					if !back && cur + 1 == n && more {
+						a.turn_page(1);
+						a.set_hover(Hover::Slice(0));
+					} else {
+						let next = if back { (cur + n - 1) % n } else { (cur + 1) % n };
+						a.set_hover(Hover::Slice(next));
+					}
 				}
 				VK_LEFT | VK_UP if n > 0 => a.set_hover(Hover::Slice((cur + n - 1) % n)),
-				VK_RETURN | VK_SPACE if n > 0 => a.pick(cur),
+				VK_RETURN | VK_SPACE if n > 0 => {
+					let h = a.wheel.hover;
+					a.pick(h);
+				}
 				0x31..=0x39 => {
 					let i = (vk - 0x31) as usize;
 					if i < n {
-						a.pick(i);
+						a.pick(Hover::Slice(i));
 					}
 				}
 				_ => {}
@@ -1069,12 +1258,23 @@ unsafe extern "system" fn hud_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -
 			}
 			let s = a.hud.scale;
 			let view = a.hud_view();
-			let h = hud::hit(&view, &a.fonts, get_x(l) as f32 / s, get_y(l) as f32 / s);
+			let expand = a.expand_list();
+			let h = hud::hit(&view, &expand, &a.fonts, get_x(l) as f32 / s, get_y(l) as f32 / s);
 			if h != a.hud.hover {
 				a.hud.hover = h;
 				a.refresh_hud();
 			}
 		}),
+		WM_SETCURSOR if (l & 0xffff) as u32 == HTCLIENT => {
+			let hand = with(|a| a.hud.hover.is_some_and(|(_, b)| b.is_some())).unwrap_or(false);
+			unsafe {
+				SetCursor(LoadCursorW(
+					std::ptr::null_mut(),
+					if hand { IDC_HAND } else { IDC_ARROW },
+				))
+			};
+			return 1;
+		}
 		WM_MOUSELEAVE => with(|a| {
 			a.hud.tracking = false;
 			a.hud.hover = None;
@@ -1083,7 +1283,8 @@ unsafe extern "system" fn hud_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -
 		WM_LBUTTONUP => with(|a| {
 			let s = a.hud.scale;
 			let view = a.hud_view();
-			if let Some((i, b)) = hud::hit(&view, &a.fonts, get_x(l) as f32 / s, get_y(l) as f32 / s) {
+			let expand = a.expand_list();
+			if let Some((i, Some(b))) = hud::hit(&view, &expand, &a.fonts, get_x(l) as f32 / s, get_y(l) as f32 / s) {
 				a.hud_click(i, b);
 			}
 		}),
@@ -1095,93 +1296,7 @@ unsafe extern "system" fn hud_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -
 	}
 }
 
-unsafe extern "system" fn home_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
-	let handled = match msg {
-		WM_PAINT => {
-			let mut ps: PAINTSTRUCT = unsafe { std::mem::zeroed() };
-			let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
-			with(|a| {
-				if a.home.frame.is_none() {
-					a.home.frame = Some(home::render(&a.home_view(), &a.theme, &a.fonts, a.home.scale, &a.logo));
-				}
-				if let Some(f) = &a.home.frame {
-					paint_pixmap(hdc, f);
-				}
-			});
-			unsafe { EndPaint(hwnd, &ps) };
-			Some(())
-		}
-		WM_ERASEBKGND => return 1,
-		WM_MOUSEMOVE => with(|a| unsafe {
-			if !a.home.tracking {
-				let mut tme = TRACKMOUSEEVENT {
-					cbSize: std::mem::size_of::<TRACKMOUSEEVENT>() as u32,
-					dwFlags: TME_LEAVE,
-					hwndTrack: hwnd,
-					dwHoverTime: 0,
-				};
-				TrackMouseEvent(&mut tme);
-				a.home.tracking = true;
-			}
-			let s = a.home.scale;
-			let h = home::hit(&a.fonts, get_x(l) as f32 / s, get_y(l) as f32 / s);
-			if h != a.home.hover {
-				a.home.hover = h;
-				a.redraw_home();
-				let cursor = if h.is_some() { IDC_HAND } else { IDC_ARROW };
-				SetCursor(LoadCursorW(std::ptr::null_mut(), cursor));
-			}
-		}),
-		WM_SETCURSOR if (l & 0xffff) as u32 == HTCLIENT => {
-			let hand = with(|a| a.home.hover.is_some()).unwrap_or(false);
-			unsafe {
-				SetCursor(LoadCursorW(
-					std::ptr::null_mut(),
-					if hand { IDC_HAND } else { IDC_ARROW },
-				))
-			};
-			return 1;
-		}
-		WM_MOUSELEAVE => with(|a| {
-			a.home.tracking = false;
-			a.home.hover = None;
-			a.redraw_home();
-		}),
-		WM_LBUTTONUP => with(|a| {
-			let s = a.home.scale;
-			if let Some(act) = home::hit(&a.fonts, get_x(l) as f32 / s, get_y(l) as f32 / s) {
-				a.home.focus = None;
-				a.home_action(act);
-			}
-		}),
-		WM_KEYDOWN => with(|a| a.home_key(w as u16)),
-		WM_DPICHANGED => with(|a| unsafe {
-			a.home.scale = (w & 0xffff) as f32 / 96.0;
-			let r = &*(l as *const RECT);
-			SetWindowPos(
-				hwnd,
-				std::ptr::null_mut(),
-				r.left,
-				r.top,
-				r.right - r.left,
-				r.bottom - r.top,
-				SWP_NOZORDER | SWP_NOACTIVATE,
-			);
-			a.redraw_home();
-		}),
-		WM_CLOSE => with(|a| unsafe {
-			ShowWindow(hwnd, SW_HIDE);
-			a.home.frame = None;
-		}),
-		_ => None,
-	};
-	match handled {
-		Some(()) => 0,
-		None => unsafe { DefWindowProcW(hwnd, msg, w, l) },
-	}
-}
-
-fn register(inst: HINSTANCE, name: &str, proc: WNDPROC, icon: HICON, cursor: bool) {
+pub fn register(inst: HINSTANCE, name: &str, proc: WNDPROC, icon: HICON, cursor: bool) {
 	let class = wide(name);
 	let wc = WNDCLASSEXW {
 		cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -1258,7 +1373,8 @@ pub fn run() -> i32 {
 	register(inst, MAIN_CLASS, Some(main_proc), big, false);
 	register(inst, WHEEL_CLASS, Some(wheel_proc), big, true);
 	register(inst, HUD_CLASS, Some(hud_proc), big, true);
-	register(inst, HOME_CLASS, Some(home_proc), big, true);
+	super::web::register_class(inst, big);
+	super::float::register_class(inst, big);
 
 	let create = |class: &str, ex: u32, style: u32| unsafe {
 		CreateWindowExW(
@@ -1287,12 +1403,14 @@ pub fn run() -> i32 {
 
 	let settings_path = shell::appdata("APPDATA").join("settings.toml");
 	let settings = Settings::load(&settings_path);
-	let scratch = std::env::temp_dir().join("TapWheel");
-	let ffmpeg = exe_dir().join("engines").join("ffmpeg.exe");
+	let local = shell::appdata("LOCALAPPDATA");
+	let mut engines = Engines::in_dir(&exe_dir().join("engines"), std::env::temp_dir().join("TapWheel"));
+	engines.cache = local.join("Cache");
 	let packaged = system::packaged();
 	let hooks = if smoke { None } else { Some(Hooks::install(main)) };
 	let hooks_ok = hooks.as_ref().is_none_or(Hooks::ok);
 
+	let now = Instant::now();
 	let app = App {
 		inst,
 		main,
@@ -1304,46 +1422,24 @@ pub fn run() -> i32 {
 		settings_path,
 		theme: system::theme(),
 		fonts: system::fonts(),
-		logo: icon::logo(128),
 		packaged,
-		jobs: Jobs::new(ffmpeg, scratch),
-		wheel: WheelState {
-			visible: false,
-			mode: Mode::Drag,
-			wheel: Wheel::Convert,
-			files: None,
-			data_seen: false,
-			ops: Vec::new(),
-			hover: Hover::None,
-			again: false,
-			scale: 1.0,
-			x: 0,
-			y: 0,
-			appear: 1.0,
-			last_tap: None,
-			frame: None,
-			closing: None,
-		},
+		jobs: Jobs::new(engines),
+		wheel: WheelState::new(),
 		hud: HudState {
 			visible: false,
 			hover: None,
 			ids: Vec::new(),
 			scale: 1.0,
 			anchor: cursor(),
-			start: Instant::now(),
+			start: now,
 			tracking: false,
 			anim: HashMap::new(),
+			expand: HashMap::new(),
 			cards: Vec::new(),
+			tick: now,
 		},
-		home: HomeState {
-			hwnd: std::ptr::null_mut(),
-			hover: None,
-			focus: None,
-			scale: 1.0,
-			frame: None,
-			tracking: false,
-		},
-		last_op: None,
+		web: Web::new(local.join("WebView")),
+		last: None,
 		pending_pick: Vec::new(),
 		taskbar_created: unsafe { RegisterWindowMessageW(wide("TaskbarCreated").as_ptr()) },
 	};
@@ -1364,8 +1460,9 @@ pub fn run() -> i32 {
 			}
 		}
 		if !hooks_ok {
-			a.jobs.note(
-				Op::Reveal,
+			a.jobs.problem(
+				Op::Copy,
+				None,
 				&[],
 				"Windows blocked the key watcher; restart TapWheel".into(),
 			);
@@ -1374,7 +1471,7 @@ pub fn run() -> i32 {
 		if !picked.is_empty() {
 			a.message(&request);
 		} else if !background {
-			a.show_home();
+			a.show_settings();
 		}
 	});
 
@@ -1391,22 +1488,27 @@ pub fn run() -> i32 {
 /// Opens every surface once without hooks or a tray icon, for CI on a real Windows runner.
 fn smoke_test() -> i32 {
 	let ok = with(|a| {
-		let files = vec![exe_dir().join("photo.heic")];
-		a.show_wheel(Mode::Pick, Wheel::Convert, Some(files.clone()));
+		let photo = exe_dir().join("photo.heic");
+		let _ = std::fs::write(&photo, HEIC_SAMPLE);
+		let files = vec![photo];
+		a.open(Mode::Pick, Wheel::Convert, files.clone());
 		let drew = a.wheel.ops.len() >= 6;
 		a.tap(1);
-		let tools = a.wheel.wheel == Wheel::Tools;
-		a.hide_wheel();
-		a.jobs.note(Op::CopyPath, &files, "Copied the path".into());
+		let tools = a.wheel.wheel == Wheel::Tools && a.wheel.ops.len() > 8;
+		a.turn_page(1);
+		let paged = a.wheel.page == 1;
+		a.close(None);
+		a.finish_close();
+		a.jobs.note(Op::CopyPath, None, &files, "Copied the path".into());
 		a.refresh_hud();
 		let hud = a.hud.visible;
-		a.show_home();
-		a.home_action(Action::LearnOrder);
-		a.home_action(Action::LearnOrder);
-		let home = !a.home.hwnd.is_null() && a.home.frame.is_some();
-		let line = format!("wheel={drew} tools={tools} hud={hud} home={home} theme={:?}\n", a.theme);
+		let web = super::web::smoke(a);
+		let line = format!(
+			"wheel={drew} tools={tools} paged={paged} hud={hud} web={web} theme={:?}\n",
+			a.theme
+		);
 		let _ = std::fs::write(std::env::temp_dir().join("tapwheel-smoke.txt"), line);
-		drew && tools && hud && home
+		drew && tools && paged && hud
 	})
 	.unwrap_or(false);
 	if ok { 0 } else { 1 }
