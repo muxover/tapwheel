@@ -25,11 +25,15 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-18: photo metadata is handled without re-encoding: removing location or all details keeps JPG, PNG and WebP pixels byte for byte, and conversions keep the date and camera unless the user turns that off.
 - 2026-10-18: the UI follows the system: light or dark, accent colour, high contrast, Segoe UI Variable and rounded corners on Windows 11, Segoe UI and square corners on Windows 10. Icons come from Microsoft's Fluent UI System Icons (MIT), drawn by us so they match on both.
 - 2026-10-18: Store identity `Jaxmuxover.TapWheel`, publisher `CN=50CBFD77-B27F-4D02-AB74-844DC5756318`, display name "Jax (muxover)".
+- 2026-10-18: everything TapWheel draws takes its look from Windows itself: the system accent shades, Segoe UI Variable on the Windows type ramp, 8 px corners on panels and 4 px on controls, Acrylic behind the wheel and Mica behind windows on Windows 11, Windows' motion curve and durations, and the two-ring focus outline. Windows 10 gets the same tokens, flat and square.
+- 2026-10-18: wheel and ring labels follow the curve of their slice and never leave it. A test draws every wheel and fails if any letter falls outside its shape; a name that can't fit on two curved lines gets a shorter name.
+- 2026-10-18: the website uses Windows blue as its accent, taken from the app, because its job is to show a Windows app.
+- 2026-10-18: from the roadmap review, v0.1.0 adds Copy name and the other clipboard choices, Properties, Open with, Duplicate, Rename with a batch preview, File info, preflight checks, an Undo that checks the file first, and Retry and batch summaries on cards. Open containing folder is out (Explorer is already open where the drag started), file encryption is out until it has a security review (password ZIP and 7Z cover it), and there is no fourth key.
 - 2026-10-18: the Store package can't write classic shell keys, so its right-click entry waits for the Explorer command handler in v0.2.0; the portable build adds a classic one.
 
 ## Status
 
-v0.1.0 is being rebuilt from a converter into a full tool suite for seven kinds of files (below). The first build was tested on a Windows 11 PC and the site is live at tapwheel.muxover.com; both get replaced before launch.
+v0.1.0 is being rebuilt from a converter into a full tool suite for seven kinds of files (below). The core engines pass about 200 jobs on real files in CI, the app compiles in CI, and the tool windows run on the website with sample files. Nothing of the new build has run on a Windows PC yet. Launch follows the phases in "Plan to launch".
 
 ## How the wheel works (all versions)
 
@@ -142,7 +146,7 @@ Every tool works offline with what ships inside TapWheel (FFmpeg, our own Rust e
 
 ### Actions (Alt wheel, any file or folder)
 
-- Copy (to paste anywhere), Copy path, Move to (the four most recent folders on the ring, or choose one), Share (the Windows share window: Nearby Sharing, mail, apps), Float (a small shelf that holds files so you can drop them later), Checksum (SHA-256, MD5, SHA-1, or compare with a checksum on the clipboard), Terminal (folders and code only).
+- Copy (to paste anywhere), Copy path (ring: full path, name, name without extension, extension, quoted path, file URI; several files give one per line), Rename (one file in place, several in a window with numbering, find and replace, case and date patterns, every new name previewed and conflicts shown before anything changes), Duplicate (a copy beside it with the next free name), File info (size, real type checked from the content, dates, picture size, streams and codecs, archive item count), Properties (the Windows properties window), Open with (the Windows app chooser), Move to (the four most recent folders on the ring, or choose one), Share (the Windows share window: Nearby Sharing, mail, apps), Float (a small shelf that holds files so you can drop them later), Checksum (SHA-256, MD5, SHA-1, or compare with a checksum on the clipboard), Terminal (folders and code only).
 
 ### Settings window (WebView2)
 
@@ -154,8 +158,31 @@ Every tool works offline with what ships inside TapWheel (FFmpeg, our own Rust e
 
 - Every tool has an engine test with real files in CI on Windows, and every tool and editor is run by hand on a Windows 11 PC before launch.
 - No tool blocks the wheel: work runs in the background and can be cancelled; a failed job leaves nothing behind.
+- Before a job starts it checks free disk space, that the source can be read, and that its engine and model are present, and says what's wrong instead of starting. Leftover `.tw-part` files from a crash are cleared on start.
+- Undo only removes a file TapWheel made and only if it hasn't changed since (size and modified time); otherwise the card says why.
+- Cards show waiting, running, done, failed and cancelled; a failed job has Retry; a batch ends in one summary card with done, skipped and failed counts.
 - Windows 10 and Windows 11 looks checked on both themes and high contrast; 100% to 200% scaling; several monitors.
 - Website rebuilt with a live desktop where every wheel and editor works in the browser, a real clip per tool, and the full format list.
+
+### Plan to launch
+
+Each phase ends with CI green on main; nothing is tagged before G.
+
+| Phase | Work | Done when |
+| --- | --- | --- |
+| A. Build | Last Windows lint errors; clean-code pass over the new code | The Windows app job passes in CI |
+| B. Windows look and labels | The look and curved labels from Decisions | The label test passes for every wheel at 100%, 150% and 200%; screenshots on a Windows PC in both looks |
+| C. Safety | Preflight, the checked Undo, crash leftovers, waiting and Retry, batch summaries | A test for each; Cancel and a forced failure leave no partial files |
+| D. Alt actions | The new actions listed above | Tests in core; each tried by hand on a Windows PC |
+| E. On a Windows PC | Every tool and window with real files; Windows 10 and 11; 100% to 200%; two monitors; on-screen keyboard and remote desktop; portable zip and Store package each on their own; network off | A checklist with a note or screenshot per line; every bug fixed with a test |
+| F. Website | The redesign below, with real captures | The browser check passes; looked at on a phone |
+| G. Release | README, CHANGELOG, release notes and these notes through the humanizer; notices checked; one final script signs, rewrites history to one commit per version, tags and releases | The release builds from a fresh clone; the Store package passes the App Certification Kit |
+
+Release blockers: a lost or replaced file, a claim the app can't back, a wheel that opens when it shouldn't or a stuck key, text outside its shape, a crash on a broken file, missing licence notices, a Store certification failure, or a wheel that waits on a job.
+
+### Website for launch
+
+Rebuilt after the app's look is settled. Windows blue accent, dark page. Sections spaced at about 64 px, words and a visual side by side so no screen is a heading alone. A playable hero: a large wheel on a strip of Windows desktop where visitors drag the sample file and tap Shift, Ctrl or Alt (key buttons on phones), with picture tools running in the browser. Order: hero, the three wheels, the tool windows to try, every kind of file, the safety promises, the Windows looks, coming next, questions, download. Short silent clips from a Windows PC per tool once the app runs. The tool list is generated from the app (`site/public/data/wheel.json`, checked in CI).
 
 ## v0.2.0: Copy anything and screen readers
 
@@ -183,7 +210,19 @@ Every tool works offline with what ships inside TapWheel (FFmpeg, our own Rust e
 
 ## Later
 
-Not planned yet.
+From the roadmap review, reordered so each version builds on the last. Plans, not promises.
+
+| Version | Theme | Main work |
+| --- | --- | --- |
+| v0.2.0 | Copy anything | Also: hide, pin and reorder slices; saved tool settings as ring choices |
+| v0.5.0 | Automation | Multi-step recipes with preview, mixed-file batches that skip what doesn't fit, naming templates; recipes stay declarative, never shell commands |
+| v0.6.0 | File intelligence | Compare text, pictures and binaries; duplicate finder with review and no automatic deletes; folder summaries; similar pictures later |
+| v0.7.0 | Desktop layer | Command palette, quick preview, saved Float shelves, job history, per-monitor and per-device input settings |
+| v0.8.0 | Sharing and extensions | Shareable recipe files inspected on import, community presets and themes; extensions only for trusted local tools, with permissions shown |
+| v0.9.0 | Hardening | Compatibility matrix, fuzzing of parsers and archives, speed and memory on a low-end PC, upgrade and uninstall tests; fixes only |
+| v1.0.0 | Stable | Stable recipe format, documented behaviour and limits, no known data-loss, security or accessibility bugs |
+
+Never: cloud accounts, online conversion, an AI chat window, a plugin marketplace.
 
 ## Open questions
 
