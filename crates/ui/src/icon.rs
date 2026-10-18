@@ -7,7 +7,8 @@ use crate::theme::Rgba;
 
 pub const INK: Rgba = Rgba::hex(0x15171b);
 pub const SEGMENT: Rgba = Rgba::hex(0x3d424b);
-pub const LIME: Rgba = Rgba::hex(0xb6f23a);
+/// Windows blue, as the dark theme shows it.
+pub const BLUE: Rgba = Rgba::hex(0x60cdff);
 
 /// The TapWheel mark: a dark disc, a ring of slices with one lit, and the tap in the middle.
 pub fn logo(size: u32) -> Pixmap {
@@ -27,7 +28,7 @@ pub fn logo(size: u32) -> Pixmap {
 		let step = TAU / n as f32;
 		let mid = -PI / 2.0 + step * i as f32 + step / 2.0;
 		let (a0, a1) = (mid - step / 2.0 + gap / 2.0, mid + step / 2.0 - gap / 2.0);
-		let color = if i == 0 { LIME } else { SEGMENT };
+		let color = if i == 0 { BLUE } else { SEGMENT };
 		if let Some(seg) = ring_segment(cx, cy, r_in, r_out, a0, a1) {
 			fill_path(&mut pm, &seg, color);
 		}
