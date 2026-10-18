@@ -9,4 +9,5 @@ publish = false
 
 [dependencies]
 ab_glyph = "0.2.32"
+svgtypes = "0.15"
 tiny-skia = "0.12.0"
