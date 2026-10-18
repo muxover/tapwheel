@@ -24,7 +24,10 @@ fn view(file: &str, w: Wheel, hover: Hover) -> WheelView {
 	if let Hover::Slice(i) | Hover::Ring(i, _) = hover {
 		hover_amounts[i] = 1.0;
 	}
-	let active = [Wheel::Convert, Wheel::Tools, Wheel::Actions].iter().position(|x| *x == w).unwrap_or(0);
+	let active = [Wheel::Convert, Wheel::Tools, Wheel::Actions]
+		.iter()
+		.position(|x| *x == w)
+		.unwrap_or(0);
 	WheelView {
 		slices,
 		page: 0,
@@ -67,7 +70,10 @@ fn main() {
 	let shots = [
 		("tools-ring", view("photo.jpg", Wheel::Tools, Hover::Ring(compress, 0))),
 		("convert", view("photo.heic", Wheel::Convert, Hover::Slice(jpg))),
-		("actions-ring", view("photo.jpg", Wheel::Actions, Hover::Ring(copy_path, 1))),
+		(
+			"actions-ring",
+			view("photo.jpg", Wheel::Actions, Hover::Ring(copy_path, 1)),
+		),
 	];
 	for dark in [true, false] {
 		let theme = Theme {
@@ -79,7 +85,8 @@ fn main() {
 		};
 		for (name, v) in &shots {
 			let pm = wheel::render(v, &theme, &fonts, scale, None);
-			pm.save_png(out.join(format!("{name}-{}.png", if dark { "dark" } else { "light" }))).unwrap();
+			pm.save_png(out.join(format!("{name}-{}.png", if dark { "dark" } else { "light" })))
+				.unwrap();
 		}
 	}
 }
