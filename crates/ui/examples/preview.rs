@@ -74,6 +74,7 @@ fn main() {
 			dark,
 			win11,
 			accent: Rgba::hex(0x0078d4),
+			shade: None,
 			high_contrast: false,
 		};
 		let base = WheelView {

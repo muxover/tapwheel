@@ -19,13 +19,13 @@ const PILL_Y = CY + 254;
 const PILL_H = 40;
 
 // the real animation lengths, in milliseconds
-const OPEN_MS = 190;
-const CLOSE_MS = 140;
-const PICK_MS = 230;
-const HOVER_MS = 90;
-const RING_MS = 150;
-const CARD_IN_MS = 220;
-const CARD_OUT_MS = 160;
+const OPEN_MS = 250;
+const CLOSE_MS = 167;
+const PICK_MS = 250;
+const HOVER_MS = 83;
+const RING_MS = 167;
+const CARD_IN_MS = 250;
+const CARD_OUT_MS = 167;
 
 const WHEELS = [
 	["Shift", "Convert"],
@@ -85,7 +85,11 @@ export const SCENES = [
 ];
 
 const clamp = (t) => Math.max(0, Math.min(1, t));
-const easeOut = (t) => 1 - (1 - clamp(t)) ** 3;
+// Windows' decelerate curve, cubic-bezier(0, 0, 0, 1), in closed form
+const easeOut = (t) => {
+	const s = Math.cbrt(clamp(t));
+	return s * s * (3 - 2 * s);
+};
 const easeBack = (t) => {
 	t = clamp(t);
 	const c = 1.4;
@@ -184,7 +188,7 @@ function wrap(str, size, max, lines) {
 /** The wheel at one moment. `m` follows the real Motion: open, close, hover per slice, ring, picked. */
 function wheel(scene, m, win11) {
 	const n = scene.slices.length + (scene.more ? 1 : 0);
-	const corner = win11 ? 10 : 2;
+	const corner = win11 ? 8 : 2;
 	const tile = alpha(P.text, 0.05);
 	let out = "";
 	out += `<circle cx="${CX}" cy="${CY}" r="${R_OUT}" ${shape(P.surface, P.strong)}/>`;
@@ -225,7 +229,7 @@ function wheel(scene, m, win11) {
 		const r0 = R_OUT + (RING_IN - R_OUT) * grow;
 		const r1 = R_OUT + (RING_OUT - R_OUT) * grow;
 		const shown = easeOut(m.ring * 1.6);
-		const rc = win11 ? 12 : 2;
+		const rc = win11 ? 8 : 2;
 		const r = (RING_IN + RING_OUT) / 2;
 		const gap = 6 / r;
 		const widths = slice.ring.map((l) => Math.max(l.length * 7.2 + 30, 64) / r);

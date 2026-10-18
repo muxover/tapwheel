@@ -297,6 +297,50 @@ pub fn petal(pm: &mut Pixmap, cx: f32, cy: f32, r_in: f32, r_out: f32, a0: f32, 
 }
 
 /// Three box-blur passes, close to a gaussian, on premultiplied pixels.
+/// Windows 11 Acrylic over an already blurred backdrop: a luminosity layer that keeps the
+/// colours behind but takes the tint's brightness, the tint itself, then fine noise. Values are
+/// WinUI's default acrylic for each theme.
+pub fn acrylic(pm: &mut Pixmap, dark: bool) {
+	let (tint, tint_opacity, lum_opacity) = if dark {
+		([0x2c as f32, 0x2c as f32, 0x2c as f32], 0.15, 0.96)
+	} else {
+		([0xfc as f32, 0xfc as f32, 0xfc as f32], 0.0, 0.85)
+	};
+	let lum = |c: [f32; 3]| 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+	// the W3C luminosity blend: c's hue and saturation at luminosity l
+	let set_lum = |c: [f32; 3], l: f32| {
+		let d = l - lum(c);
+		let mut c = [c[0] + d, c[1] + d, c[2] + d];
+		let (n, x, l) = (c[0].min(c[1]).min(c[2]), c[0].max(c[1]).max(c[2]), lum(c));
+		for v in &mut c {
+			if n < 0.0 {
+				*v = l + (*v - l) * l / (l - n).max(1e-3);
+			}
+			if x > 255.0 {
+				*v = l + (*v - l) * (255.0 - l) / (x - l).max(1e-3);
+			}
+		}
+		c
+	};
+	let (w, h) = (pm.width() as usize, pm.height());
+	for (i, px) in pm.data_mut().as_chunks_mut::<4>().0.iter_mut().enumerate() {
+		let b = [px[0] as f32, px[1] as f32, px[2] as f32];
+		let lit = set_lum(b, lum(tint));
+		let b1: [f32; 3] = std::array::from_fn(|k| b[k] + (lit[k] - b[k]) * lum_opacity);
+		let colored = set_lum(tint, lum(b1));
+		// stable noise per pixel, about 2% either way
+		let (x, y) = ((i % w) as u32, (i / w) as u32);
+		let hsh = (x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663) ^ h.wrapping_mul(83_492_791))
+			.wrapping_mul(2_654_435_761);
+		let noise = ((hsh >> 24) as f32 / 255.0 - 0.5) * 0.04 * 255.0;
+		for k in 0..3 {
+			let v = b1[k] + (colored[k] - b1[k]) * tint_opacity + noise;
+			px[k] = v.round().clamp(0.0, 255.0) as u8;
+		}
+		px[3] = 255;
+	}
+}
+
 pub fn blur(pm: &mut Pixmap, radius: usize) {
 	if radius == 0 {
 		return;
@@ -341,8 +385,11 @@ fn box_pass(src: &[u8], dst: &mut [u8], w: usize, h: usize, r: usize, horizontal
 	}
 }
 
+/// Windows' decelerate curve, cubic-bezier(0, 0, 0, 1): with both x handles at 0, x = s³ and
+/// y = 3s² - 2s³, so it solves in closed form.
 pub fn ease_out(t: f32) -> f32 {
-	1.0 - (1.0 - t.clamp(0.0, 1.0)).powi(3)
+	let s = t.clamp(0.0, 1.0).cbrt();
+	s * s * (3.0 - 2.0 * s)
 }
 
 /// Overshoots a little before settling, for things that pop open.

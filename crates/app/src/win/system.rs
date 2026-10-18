@@ -5,7 +5,7 @@ use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE
 use windows_sys::Win32::UI::Accessibility::{HCF_HIGHCONTRASTON, HIGHCONTRASTW};
 use windows_sys::Win32::UI::WindowsAndMessaging::{SPI_GETHIGHCONTRAST, SystemParametersInfoW};
 
-use super::util::{reg_dword, reg_string};
+use super::util::{reg_binary, reg_dword, reg_string};
 
 pub fn build_number() -> u32 {
 	reg_string(
@@ -43,12 +43,33 @@ pub fn theme() -> Theme {
 		.map(|v| Rgba::from_u8((v & 0xff) as u8, ((v >> 8) & 0xff) as u8, ((v >> 16) & 0xff) as u8))
 		.unwrap_or(Rgba::hex(0x0078d4));
 	let hc = high_contrast();
+	let dark = if hc { !high_contrast_is_light() } else { light == 0 };
 	Theme {
-		dark: if hc { !high_contrast_is_light() } else { light == 0 },
+		dark,
 		win11: is_win11(),
 		accent,
+		shade: accent_shade(dark),
 		high_contrast: hc,
 	}
+}
+
+/// Settings keeps the accent's seven shades, lightest first (Light3 .. Dark3), as RGBA bytes.
+fn accent_shade(dark: bool) -> Option<Rgba> {
+	let p = reg_binary(
+		HKEY_CURRENT_USER,
+		r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent",
+		"AccentPalette",
+	)?;
+	if p.len() < 28 {
+		return None;
+	}
+	let at = |i: usize| Rgba::from_u8(p[i * 4], p[i * 4 + 1], p[i * 4 + 2]);
+	// only trust it if it runs light to dark, as documented
+	let lum = |c: Rgba| 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+	if !(0..6).all(|i| lum(at(i)) >= lum(at(i + 1))) {
+		return None;
+	}
+	Some(if dark { at(1) } else { at(4) })
 }
 
 fn high_contrast_is_light() -> bool {
