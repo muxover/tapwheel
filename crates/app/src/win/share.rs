@@ -36,10 +36,10 @@ pub fn share(hwnd: isize, files: &[PathBuf]) -> windows::core::Result<()> {
 	let window = HWND(hwnd as *mut _);
 	let dtm: DataTransferManager = unsafe { interop.GetForWindow(window)? };
 	let handler = TypedEventHandler::<DataTransferManager, DataRequestedEventArgs>::new(move |_, args| {
-		if let Some(args) = args {
+		if let Some(args) = args.as_ref() {
 			let data = args.Request()?.Data()?;
 			data.Properties()?.SetTitle(&HSTRING::from(title.as_str()))?;
-			let list: windows::Foundation::Collections::IIterable<IStorageItem> = items.clone().into();
+			let list: windows_collections::IIterable<IStorageItem> = items.clone().into();
 			data.SetStorageItemsReadOnly(&list)?;
 		}
 		Ok(())
