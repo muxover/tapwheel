@@ -235,14 +235,11 @@ mod tests {
 	use super::*;
 
 	fn fixture() -> (PathBuf, PathBuf) {
-		let root = std::env::temp_dir().join(format!(
-			"tw-arc-{}-{}",
-			std::process::id(),
-			std::time::SystemTime::now()
-				.duration_since(std::time::UNIX_EPOCH)
-				.unwrap()
-				.as_nanos()
-		));
+		// tests run in parallel and Windows clocks are coarse, so a counter keeps folders apart
+		static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+		let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		let root = std::env::temp_dir().join(format!("tw-arc-{}-{n}", std::process::id()));
+		let _ = fs::remove_dir_all(&root);
 		let folder = root.join("photos");
 		fs::create_dir_all(folder.join("trip")).unwrap();
 		fs::write(folder.join("a.txt"), b"alpha").unwrap();
