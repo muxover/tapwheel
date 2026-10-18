@@ -496,6 +496,14 @@ impl App {
 		self.wheel.files = Some(files);
 		self.refresh_ops();
 		self.wheel.opened = Instant::now();
+		// a picture's Tools wheel may lead to Remove BG: load the model while the hand is still moving
+		if self.wheel.kind == Some(Kind::Image) {
+			static WARMED: std::sync::Once = std::sync::Once::new();
+			let engines = self.jobs.engines.clone();
+			WARMED.call_once(|| {
+				std::thread::spawn(move || tapwheel_core::bg::warm(&engines));
+			});
+		}
 		if self.theme.win11 && !self.theme.high_contrast {
 			let (w, h) = wheel::size(self.wheel.scale);
 			self.wheel.backdrop = capture_backdrop(self.wheel.x, self.wheel.y, w, h, self.theme.dark);
@@ -1131,7 +1139,13 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 				unsafe { SetTimer(a.wheel_hwnd, T_HIDE, 400, None) };
 			}
 		}),
-		WM_APP_JOBS => with(|a| a.refresh_hud()),
+		WM_APP_JOBS => with(|a| {
+			if let Some(why) = super::share::take_failure() {
+				a.jobs
+					.problem(Op::Share, None, &[], format!("Sharing didn't open: {why}"));
+			}
+			a.refresh_hud()
+		}),
 		WM_APP_WEB => with(super::web::pump),
 		WM_APP_TRAY => with(|a| match l as u32 {
 			WM_LBUTTONUP => a.show_settings(),
