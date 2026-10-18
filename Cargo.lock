@@ -4708,6 +4708,7 @@ dependencies = [
  "imagequant",
  "jxl-oxide",
  "kamadak-exif",
+ "libc",
  "lightningcss",
  "malva",
  "markup_fmt",
