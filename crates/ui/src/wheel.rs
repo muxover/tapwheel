@@ -1,33 +1,49 @@
+//! The wheel: petals with icons and labels, an outer ring of choices, pages past eight slices,
+//! and the motion for opening, hovering, picking and closing. Pure drawing, so it renders in tests.
+
 use std::f32::consts::{PI, TAU};
 
-use tiny_skia::Pixmap;
+use tiny_skia::{Pixmap, PixmapPaint, Transform};
 
 use crate::draw::*;
 use crate::text::{Fonts, Weight};
-use crate::theme::Theme;
+use crate::theme::{Rgba, Theme};
 use crate::wrap;
 
-pub const WIDTH: f32 = 344.0;
-pub const HEIGHT: f32 = 400.0;
+pub const WIDTH: f32 = 520.0;
+pub const HEIGHT: f32 = 568.0;
 pub const CX: f32 = WIDTH / 2.0;
-pub const CY: f32 = 172.0;
-pub const R_OUT: f32 = 152.0;
-pub const R_IN: f32 = 66.0;
-const R_CENTER: f32 = 58.0;
-const PILL_Y: f32 = 344.0;
+pub const CY: f32 = 258.0;
+pub const R_OUT: f32 = 172.0;
+pub const R_IN: f32 = 70.0;
+const R_CENTER: f32 = 62.0;
+const RING_IN: f32 = R_OUT + 8.0;
+const RING_OUT: f32 = R_OUT + 58.0;
+const PILL_Y: f32 = 512.0;
 const PILL_H: f32 = 40.0;
+/// Slices on one page; with more, the last one turns the page.
+pub const PER_PAGE: usize = 8;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Slice {
 	pub label: String,
+	/// Fluent icon name; empty draws the label alone, larger (format names).
+	pub icon: String,
 	pub desc: String,
+	/// Choices shown on the ring when this slice is hovered.
+	pub ring: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hover {
 	None,
-	Slice(usize),
 	Center,
+	/// A slice on the current page, counted from the page's first.
+	Slice(usize),
+	/// A choice on the ring around a slice.
+	Ring(usize, usize),
+	/// The page-turning slice.
+	More,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -37,9 +53,40 @@ pub struct KeyHint {
 	pub active: bool,
 }
 
+/// Where each moving part is, all 0 to 1. The app advances these on a timer.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Motion {
+	pub open: f32,
+	/// Closing: 0 while open, rising to 1 as it goes.
+	pub close: f32,
+	/// The slice that was picked, which pulses while the rest fade.
+	pub picked: Option<usize>,
+	/// How hovered each slice on the page looks, easing in and out.
+	pub hover: Vec<f32>,
+	/// How far the ring has grown out.
+	pub ring: f32,
+	/// Turning to a new page: 0 at the start, 1 when done.
+	pub page: f32,
+}
+
+impl Default for Motion {
+	fn default() -> Self {
+		Motion {
+			open: 1.0,
+			close: 0.0,
+			picked: None,
+			hover: Vec::new(),
+			ring: 1.0,
+			page: 1.0,
+		}
+	}
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct WheelView {
+	/// Every slice; the wheel shows one page of them.
 	pub slices: Vec<Slice>,
+	pub page: usize,
 	pub hover: Hover,
 	/// Opened from the keyboard or the right-click menu: number the slices and show focus.
 	pub keyboard: bool,
@@ -48,53 +95,164 @@ pub struct WheelView {
 	pub keys: Vec<KeyHint>,
 	/// Shown in the centre when there is nothing to pick.
 	pub message: Option<String>,
-	/// Progress of the open animation, 0 to 1.
-	pub appear: f32,
+	/// Extra line for the hovered slice, like the size a compression will give.
+	pub hint: Option<String>,
+	pub motion: Motion,
 }
 
 pub fn size(scale: f32) -> (u32, u32) {
 	((WIDTH * scale).ceil() as u32, (HEIGHT * scale).ceil() as u32)
 }
 
-fn slice_angles(n: usize, i: usize) -> (f32, f32, f32) {
+pub fn pages(n: usize) -> usize {
+	if n <= PER_PAGE { 1 } else { n.div_ceil(PER_PAGE - 1) }
+}
+
+/// The slices on a page, by index into `slices`, and whether the page ends in More.
+pub fn page_items(n: usize, page: usize) -> (Vec<usize>, bool) {
+	if n <= PER_PAGE {
+		return ((0..n).collect(), false);
+	}
+	let per = PER_PAGE - 1;
+	let start = page * per;
+	((start..(start + per).min(n)).collect(), true)
+}
+
+fn count_on_page(v: &WheelView) -> usize {
+	let (items, more) = page_items(v.slices.len(), v.page);
+	items.len() + more as usize
+}
+
+fn angles(n: usize, i: usize) -> (f32, f32, f32) {
 	let step = TAU / n as f32;
 	let mid = -PI / 2.0 + step * i as f32;
 	(mid - step / 2.0, mid, mid + step / 2.0)
 }
 
+/// Angle spans of the ring choices around slice `i`, centred on it.
+fn ring_layout(v: &WheelView, fonts: &Fonts, i: usize) -> Vec<(f32, f32)> {
+	let (items, _) = page_items(v.slices.len(), v.page);
+	let Some(slice) = items.get(i).and_then(|&k| v.slices.get(k)) else {
+		return Vec::new();
+	};
+	if slice.ring.is_empty() {
+		return Vec::new();
+	}
+	let n = count_on_page(v);
+	let (_, mid, _) = angles(n, i);
+	let r = (RING_IN + RING_OUT) / 2.0;
+	let gap = 6.0 / r;
+	let widths: Vec<f32> = slice
+		.ring
+		.iter()
+		.map(|l| (fonts.width(l, 12.5, Weight::Semibold) + 30.0).max(64.0) / r)
+		.collect();
+	let total: f32 = widths.iter().sum::<f32>() + gap * (widths.len() as f32 - 1.0);
+	let mut a = mid - total / 2.0;
+	widths
+		.into_iter()
+		.map(|w| {
+			let span = (a, a + w);
+			a += w + gap;
+			span
+		})
+		.collect()
+}
+
+fn angle_in(a: f32, a0: f32, a1: f32) -> bool {
+	let a = (a - a0).rem_euclid(TAU);
+	a <= (a1 - a0)
+}
+
 /// What sits under a point given in logical pixels from the window's top-left.
-pub fn hit(n: usize, x: f32, y: f32) -> Hover {
+pub fn hit(v: &WheelView, fonts: &Fonts, x: f32, y: f32) -> Hover {
 	let (dx, dy) = (x - CX, y - CY);
 	let d = (dx * dx + dy * dy).sqrt();
+	let a = dy.atan2(dx);
+	let n = count_on_page(v);
+	// the open ring keeps the pointer while it moves out to a choice
+	if let Hover::Slice(i) | Hover::Ring(i, _) = v.hover
+		&& d > R_OUT - 6.0
+		&& d < RING_OUT + 16.0
+	{
+		let spans = ring_layout(v, fonts, i);
+		if let Some(j) = spans.iter().position(|(a0, a1)| angle_in(a, *a0 - 0.02, *a1 + 0.02))
+			&& d > RING_IN - 4.0
+		{
+			return Hover::Ring(i, j);
+		}
+		if !spans.is_empty() && d >= RING_IN - 4.0 {
+			let (a0, a1) = (spans[0].0, spans[spans.len() - 1].1);
+			if angle_in(a, a0 - 0.15, a1 + 0.15) {
+				return Hover::Slice(i);
+			}
+		}
+	}
 	if d < R_IN {
 		return Hover::Center;
 	}
 	// a little slack past the rim so a quick flick still lands
-	if d > R_OUT + 14.0 || n == 0 {
+	if d > R_OUT + 12.0 || n == 0 {
 		return Hover::None;
 	}
 	let step = TAU / n as f32;
-	let a = (dy.atan2(dx) + PI / 2.0 + step / 2.0).rem_euclid(TAU);
-	Hover::Slice(((a / step) as usize).min(n - 1))
+	let k = ((a + PI / 2.0 + step / 2.0).rem_euclid(TAU) / step) as usize;
+	let k = k.min(n - 1);
+	let (_, more) = page_items(v.slices.len(), v.page);
+	if more && k == n - 1 {
+		Hover::More
+	} else {
+		Hover::Slice(k)
+	}
 }
 
-/// Whether a window pixel should catch the mouse and drops.
-pub fn solid(x: f32, y: f32) -> bool {
-	let (dx, dy) = (x - CX, y - CY);
-	dx * dx + dy * dy <= (R_OUT + 14.0).powi(2)
+/// Index into `slices` for a hovered slice on the current page.
+pub fn slice_index(v: &WheelView, i: usize) -> Option<usize> {
+	page_items(v.slices.len(), v.page).0.get(i).copied()
 }
 
-pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32) -> Pixmap {
+fn glass(theme: &Theme) -> Rgba {
+	let p = theme.palette();
+	if theme.high_contrast {
+		p.surface
+	} else if theme.win11 {
+		p.surface.alpha(if theme.dark { 0.82 } else { 0.78 })
+	} else {
+		p.surface
+	}
+}
+
+/// Draws the wheel. `backdrop` is a blurred copy of the screen behind it, for the Windows 11 glass.
+// `items` is one short when the last slice is More
+#[allow(clippy::needless_range_loop)]
+pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop: Option<&Pixmap>) -> Pixmap {
 	let (w, h) = size(scale);
 	let mut pm = Pixmap::new(w, h).expect("non-zero size");
 	let p = theme.palette();
 	let s = scale;
 	let (cx, cy) = (CX * s, CY * s);
+	let m = &v.motion;
+	let n = count_on_page(v);
+	let (items, more) = page_items(v.slices.len(), v.page);
+	let corner = if theme.win11 { 10.0 * s } else { 2.0 * s };
 
+	// disc, with frosted glass behind on Windows 11
 	if !theme.high_contrast {
-		shadow_circle(&mut pm, cx, cy, R_OUT * s, 12.0 * s, p.shadow);
+		shadow_circle(&mut pm, cx, cy, R_OUT * s, 16.0 * s, p.shadow);
 	}
-	fill_circle(&mut pm, cx, cy, R_OUT * s, p.surface);
+	if let Some(bd) = backdrop.filter(|_| theme.win11 && !theme.high_contrast)
+		&& let Some(mask) = disc_mask(w, h, cx, cy, R_OUT * s)
+	{
+		pm.draw_pixmap(
+			0,
+			0,
+			bd.as_ref(),
+			&PixmapPaint::default(),
+			Transform::identity(),
+			Some(&mask),
+		);
+	}
+	fill_circle(&mut pm, cx, cy, R_OUT * s, glass(theme));
 	stroke_circle(
 		&mut pm,
 		cx,
@@ -104,74 +262,187 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32) -> Pixmap
 		if theme.high_contrast {
 			p.stroke
 		} else {
-			p.stroke.alpha(1.6)
+			p.stroke.alpha(1.8)
 		},
 	);
 
-	let n = v.slices.len();
-	for (i, slice) in v.slices.iter().enumerate() {
-		let (a0, mid, a1) = slice_angles(n, i);
-		let hovered = v.hover == Hover::Slice(i);
-		if hovered {
-			let gap = if n > 1 { 0.012 } else { 0.0 };
-			if let Some(seg) = ring_segment(cx, cy, (R_IN + 4.0) * s, (R_OUT - 4.0) * s, a0 + gap, a1 - gap) {
-				fill_path(&mut pm, &seg, p.accent);
-			}
-		}
-		if n > 1 && !theme.high_contrast {
-			let (c, sn) = (a0.cos(), a0.sin());
-			line(
-				&mut pm,
-				cx + c * (R_IN + 14.0) * s,
-				cy + sn * (R_IN + 14.0) * s,
-				cx + c * (R_OUT - 14.0) * s,
-				cy + sn * (R_OUT - 14.0) * s,
-				s,
-				p.stroke.alpha(1.4),
-			);
-		}
-		let r_mid = (R_IN + R_OUT) / 2.0 + 2.0;
-		let (lx, ly) = if n == 1 {
-			(cx, cy - r_mid * s)
+	// petals; a page turn slides them round
+	let turn = (1.0 - ease_out(m.page)) * 0.5;
+	let tile = if theme.dark {
+		Rgba::hex(0xffffff).alpha(0.045)
+	} else {
+		Rgba::hex(0x000000).alpha(0.035)
+	};
+	for k in 0..n {
+		let (mut a0, mut mid, mut a1) = angles(n, k);
+		a0 += turn;
+		mid += turn;
+		a1 += turn;
+		let hv = m.hover.get(k).copied().unwrap_or(0.0);
+		let hovered = matches!(v.hover, Hover::Slice(i) | Hover::Ring(i, _) if i == k)
+			|| (more && k == n - 1 && v.hover == Hover::More);
+		let picked = m.picked == Some(k);
+		// picked pops out; the rest fade as the wheel closes
+		let fade = if m.picked.is_some() && !picked {
+			1.0 - ease_out(m.close * 2.0)
 		} else {
-			(cx + mid.cos() * r_mid * s, cy + mid.sin() * r_mid * s)
+			1.0
 		};
-		let chord = if n == 1 {
-			140.0
-		} else {
-			2.0 * r_mid * ((TAU / n as f32) / 2.0).sin() * 0.86
-		};
-		let max = chord.min(R_OUT - R_IN) * s;
-		let color = if hovered { p.on_accent } else { p.text };
-		let size = 14.0 * s;
-		let lh = fonts.line_height(size, Weight::Semibold);
-		let mut top = ly - lh / 2.0;
-		if v.keyboard && i < 9 {
-			let nsize = 11.0 * s;
-			let nh = fonts.line_height(nsize, Weight::Regular);
-			top += nh / 2.0;
-			let ncolor = if hovered { p.on_accent.alpha(0.8) } else { p.text2 };
-			fonts.draw_centered(
-				&mut pm,
-				&(i + 1).to_string(),
-				lx,
-				top - nh,
-				nsize,
-				Weight::Regular,
-				ncolor,
-				None,
-			);
-		}
-		fonts.draw_centered(&mut pm, &slice.label, lx, top, size, Weight::Semibold, color, Some(max));
-		if hovered
-			&& v.keyboard
-			&& let Some(seg) = ring_segment(cx, cy, (R_IN + 2.0) * s, (R_OUT - 2.0) * s, a0 + 0.006, a1 - 0.006)
+		let pop = (hv * 5.0 + if picked { 8.0 * (m.close * PI).sin() } else { 0.0 }) * s;
+		let (ox, oy) = (mid.cos() * pop, mid.sin() * pop);
+		let gap = if n > 1 { 3.0 * s } else { 0.0 };
+		let ga = gap / (R_OUT * s);
+		let fill = tile.mix(p.accent, hv).alpha(fade);
+		petal(
+			&mut pm,
+			cx + ox,
+			cy + oy,
+			(R_IN + 6.0) * s,
+			(R_OUT - 6.0) * s,
+			a0 + ga,
+			a1 - ga,
+			corner,
+			fill,
+		);
+		if theme.high_contrast
+			&& hovered
+			&& let Some(seg) = ring_segment(cx, cy, (R_IN + 6.0) * s, (R_OUT - 6.0) * s, a0 + ga, a1 - ga)
 		{
 			let st = tiny_skia::Stroke {
 				width: 2.0 * s,
 				..Default::default()
 			};
-			pm.stroke_path(&seg, &paint(p.text), &st, tiny_skia::Transform::identity(), None);
+			pm.stroke_path(&seg, &paint(p.text), &st, Transform::identity(), None);
+		}
+
+		let r_mid = (R_IN + R_OUT) / 2.0 + 4.0;
+		let (lx, ly) = if n == 1 {
+			(cx, cy - r_mid * s)
+		} else {
+			(cx + mid.cos() * r_mid * s + ox, cy + mid.sin() * r_mid * s + oy)
+		};
+		let chord = if n == 1 {
+			150.0
+		} else {
+			2.0 * r_mid * ((TAU / n as f32) / 2.0).sin() * 0.84
+		};
+		let max = chord.min(R_OUT - R_IN - 4.0) * s;
+		let ink = p.text.mix(p.on_accent, hv).alpha(fade);
+		let (label, icon_name) = if more && k == n - 1 {
+			("More".to_string(), "more_horizontal".to_string())
+		} else {
+			let sl = &v.slices[items[k]];
+			(sl.label.clone(), sl.icon.clone())
+		};
+		let label_size = if icon_name.is_empty() { 16.0 * s } else { 12.5 * s };
+		let lh = fonts.line_height(label_size, Weight::Semibold);
+		let icon_size = 24.0 * s;
+		let block = if icon_name.is_empty() {
+			lh
+		} else {
+			icon_size + 4.0 * s + lh
+		};
+		let mut top = ly - block / 2.0;
+		if v.keyboard && k < 9 && !(more && k == n - 1) {
+			let nsize = 10.5 * s;
+			fonts.draw_centered(
+				&mut pm,
+				&(k + 1).to_string(),
+				lx,
+				top - 14.0 * s,
+				nsize,
+				Weight::Regular,
+				p.text2.mix(p.on_accent, hv).alpha(fade),
+				None,
+			);
+		}
+		if !icon_name.is_empty() {
+			icon(&mut pm, &icon_name, lx - icon_size / 2.0, top, icon_size, ink);
+			top += icon_size + 4.0 * s;
+		}
+		fonts.draw_centered(&mut pm, &label, lx, top, label_size, Weight::Semibold, ink, Some(max));
+		if more && k == n - 1 {
+			let dots = pages(v.slices.len());
+			let dy = top + lh + 5.0 * s;
+			let span = (dots as f32 - 1.0) * 9.0 * s;
+			for d in 0..dots {
+				let c = if d == v.page { ink } else { ink.alpha(0.35) };
+				fill_circle(&mut pm, lx - span / 2.0 + d as f32 * 9.0 * s, dy, 2.6 * s, c);
+			}
+		}
+		if hovered
+			&& v.keyboard
+			&& let Some(seg) = ring_segment(cx + ox, cy + oy, (R_IN + 3.0) * s, (R_OUT - 3.0) * s, a0 + ga, a1 - ga)
+		{
+			let st = tiny_skia::Stroke {
+				width: 2.0 * s,
+				..Default::default()
+			};
+			pm.stroke_path(&seg, &paint(p.text), &st, Transform::identity(), None);
+		}
+	}
+
+	// the ring of choices around the hovered slice
+	if let Hover::Slice(i) | Hover::Ring(i, _) = v.hover
+		&& m.picked.is_none()
+	{
+		let spans = ring_layout(v, fonts, i);
+		if let Some(&k) = items.get(i) {
+			let grow = ease_back(m.ring);
+			let r0 = (R_OUT + (RING_IN - R_OUT) * grow) * s;
+			let r1 = (R_OUT + (RING_OUT - R_OUT) * grow) * s;
+			let alpha = ease_out(m.ring * 1.6);
+			let rc = if theme.win11 { 12.0 * s } else { 2.0 * s };
+			for (j, (a0, a1)) in spans.iter().enumerate() {
+				let on = v.hover == Hover::Ring(i, j);
+				if !theme.high_contrast {
+					petal(
+						&mut pm,
+						cx,
+						cy + 3.0 * s,
+						r0,
+						r1,
+						*a0,
+						*a1,
+						rc,
+						p.shadow.alpha(0.5 * alpha),
+					);
+				}
+				let bg = if on { p.accent } else { p.raised };
+				petal(&mut pm, cx, cy, r0, r1, *a0, *a1, rc, bg.alpha(alpha));
+				if let Some(seg) = ring_segment(cx, cy, r0 + rc / 2.0, r1 - rc / 2.0, *a0 + 0.005, *a1 - 0.005)
+					&& !on
+				{
+					let st = tiny_skia::Stroke {
+						width: s.max(1.0),
+						..Default::default()
+					};
+					pm.stroke_path(
+						&seg,
+						&paint(p.stroke.alpha(alpha * 1.5)),
+						&st,
+						Transform::identity(),
+						None,
+					);
+				}
+				let mid = (a0 + a1) / 2.0;
+				let rr = (r0 + r1) / 2.0;
+				let size = 12.5 * s;
+				let lh = fonts.line_height(size, Weight::Semibold);
+				let label = &v.slices[k].ring[j];
+				let ink = if on { p.on_accent } else { p.text };
+				let width = rr * (a1 - a0) - 12.0 * s;
+				fonts.draw_centered(
+					&mut pm,
+					label,
+					cx + mid.cos() * rr,
+					cy + mid.sin() * rr - lh / 2.0,
+					size,
+					Weight::Semibold,
+					ink.alpha(alpha),
+					Some(width),
+				);
+			}
 		}
 	}
 
@@ -183,29 +454,45 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32) -> Pixmap
 		cy,
 		R_CENTER * s,
 		if center_hover {
-			p.raised.mix(p.text, 0.08)
+			p.raised.mix(p.text, 0.1)
 		} else {
 			p.raised
 		},
 	);
-	stroke_circle(&mut pm, cx, cy, R_CENTER * s, s.max(1.0), p.stroke);
-	let inner = 98.0 * s;
-	let (head, body) = match v.hover {
-		Hover::Slice(i) if i < n => (None, v.slices[i].desc.clone()),
-		Hover::Center => (Some("Cancel".to_string()), "Drop here to leave it".to_string()),
-		_ => match &v.message {
-			Some(m) => (None, m.clone()),
+	stroke_circle(&mut pm, cx, cy, R_CENTER * s, s.max(1.0), p.stroke.alpha(1.6));
+	let inner = 104.0 * s;
+	let (head, body): (Option<String>, String) = match v.hover {
+		Hover::Slice(i) => match slice_index(v, i) {
+			Some(k) => (
+				Some(v.slices[k].label.clone()),
+				v.hint.clone().unwrap_or_else(|| v.slices[k].desc.clone()),
+			),
+			None => (None, String::new()),
+		},
+		Hover::Ring(i, j) => match slice_index(v, i) {
+			Some(k) => (
+				Some(v.slices[k].ring.get(j).cloned().unwrap_or_default()),
+				v.hint.clone().unwrap_or_else(|| v.slices[k].label.clone()),
+			),
+			None => (None, String::new()),
+		},
+		Hover::More => (
+			Some("More".into()),
+			format!("Page {} of {}", v.page + 1, pages(v.slices.len())),
+		),
+		Hover::Center => (Some("Cancel".into()), "Drop here to leave it".into()),
+		Hover::None => match &v.message {
+			Some(msg) => (None, msg.clone()),
 			None => (Some(v.title.clone()), v.subtitle.clone()),
 		},
 	};
 	let head_size = 15.0 * s;
-	let body_size = 12.0 * s;
+	let body_size = if head.is_none() { 13.0 * s } else { 12.0 * s };
 	let body_weight = if head.is_none() {
 		Weight::Semibold
 	} else {
 		Weight::Regular
 	};
-	let body_size = if head.is_none() { 13.0 * s } else { body_size };
 	let lines = wrap(fonts, &body, body_size, body_weight, inner, 3);
 	let head_h = if head.is_some() {
 		fonts.line_height(head_size, Weight::Semibold) + 2.0 * s
@@ -226,7 +513,58 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32) -> Pixmap
 	}
 
 	draw_keys(&mut pm, v, theme, fonts, s);
-	if v.appear < 1.0 { appear(&pm, v.appear) } else { pm }
+	finish(pm, m)
+}
+
+/// Opening scales up with a little overshoot; closing shrinks and fades.
+fn finish(pm: Pixmap, m: &Motion) -> Pixmap {
+	if m.open >= 1.0 && m.close <= 0.0 {
+		return pm;
+	}
+	let (scale, alpha) = if m.close > 0.0 {
+		let t = ease_out(m.close);
+		let s = if m.picked.is_some() {
+			1.0 - 0.06 * t
+		} else {
+			1.0 - 0.1 * t
+		};
+		(s, 1.0 - t)
+	} else {
+		(0.86 + 0.14 * ease_back(m.open), ease_out(m.open * 1.4))
+	};
+	let mut out = Pixmap::new(pm.width(), pm.height()).expect("same size");
+	let (cx, cy) = (pm.width() as f32 / 2.0, CY / HEIGHT * pm.height() as f32);
+	let tf = Transform::from_translate(cx, cy)
+		.pre_scale(scale, scale)
+		.pre_translate(-cx, -cy);
+	let paint = PixmapPaint {
+		opacity: alpha.clamp(0.0, 1.0),
+		quality: tiny_skia::FilterQuality::Bilinear,
+		..Default::default()
+	};
+	out.draw_pixmap(0, 0, pm.as_ref(), &paint, tf, None);
+	out
+}
+
+fn disc_mask(w: u32, h: u32, cx: f32, cy: f32, r: f32) -> Option<tiny_skia::Mask> {
+	let mut mask = tiny_skia::Mask::new(w, h)?;
+	let path = circle(cx, cy, r)?;
+	mask.fill_path(&path, tiny_skia::FillRule::Winding, true, Transform::identity());
+	Some(mask)
+}
+
+/// An all-but-invisible disc that still catches drags, used while checking what's being dragged.
+pub fn probe(scale: f32) -> Pixmap {
+	let (w, h) = size(scale);
+	let mut pm = Pixmap::new(w, h).expect("non-zero size");
+	fill_circle(
+		&mut pm,
+		CX * scale,
+		CY * scale,
+		(R_OUT + 12.0) * scale,
+		Rgba::hex(0x000000).alpha(1.5 / 255.0),
+	);
+	pm
 }
 
 fn draw_keys(pm: &mut Pixmap, v: &WheelView, theme: &Theme, fonts: &Fonts, s: f32) {
@@ -296,26 +634,107 @@ fn draw_keys(pm: &mut Pixmap, v: &WheelView, theme: &Theme, fonts: &Fonts, s: f3
 mod tests {
 	use super::*;
 
-	#[test]
-	fn hit_testing_follows_the_slices() {
-		// slice 0 is straight up, slices go clockwise
-		assert_eq!(hit(4, CX, CY - 100.0), Hover::Slice(0));
-		assert_eq!(hit(4, CX + 100.0, CY), Hover::Slice(1));
-		assert_eq!(hit(4, CX, CY + 100.0), Hover::Slice(2));
-		assert_eq!(hit(4, CX - 100.0, CY), Hover::Slice(3));
-		assert_eq!(hit(4, CX, CY), Hover::Center);
-		assert_eq!(hit(4, 2.0, 2.0), Hover::None);
-		assert_eq!(hit(1, CX + 100.0, CY + 30.0), Hover::Slice(0));
-		assert_eq!(hit(0, CX, CY - 100.0), Hover::None);
+	fn view(n: usize, ring: &[&str]) -> WheelView {
+		WheelView {
+			slices: (0..n)
+				.map(|i| Slice {
+					label: format!("S{i}"),
+					icon: "crop".into(),
+					desc: String::new(),
+					ring: ring.iter().map(|r| r.to_string()).collect(),
+				})
+				.collect(),
+			page: 0,
+			hover: Hover::None,
+			keyboard: false,
+			title: String::new(),
+			subtitle: String::new(),
+			keys: Vec::new(),
+			message: None,
+			hint: None,
+			motion: Motion::default(),
+		}
+	}
+
+	fn fonts() -> Fonts {
+		Fonts::fallback()
 	}
 
 	#[test]
-	fn boundaries_split_evenly() {
-		let n = 8;
-		for i in 0..n {
-			let (_, mid, _) = slice_angles(n, i);
-			let (x, y) = (CX + mid.cos() * 110.0, CY + mid.sin() * 110.0);
-			assert_eq!(hit(n, x, y), Hover::Slice(i));
+	fn hit_testing_follows_the_slices() {
+		let f = fonts();
+		let v = view(4, &[]);
+		// slice 0 is straight up, slices go clockwise
+		assert_eq!(hit(&v, &f, CX, CY - 120.0), Hover::Slice(0));
+		assert_eq!(hit(&v, &f, CX + 120.0, CY), Hover::Slice(1));
+		assert_eq!(hit(&v, &f, CX, CY + 120.0), Hover::Slice(2));
+		assert_eq!(hit(&v, &f, CX - 120.0, CY), Hover::Slice(3));
+		assert_eq!(hit(&v, &f, CX, CY), Hover::Center);
+		assert_eq!(hit(&v, &f, 2.0, 2.0), Hover::None);
+	}
+
+	#[test]
+	fn the_ring_opens_around_its_slice() {
+		let f = fonts();
+		let mut v = view(4, &["Small", "Big"]);
+		v.hover = Hover::Slice(0);
+		let spans = ring_layout(&v, &f, 0);
+		assert_eq!(spans.len(), 2);
+		let r = (RING_IN + RING_OUT) / 2.0;
+		let a = (spans[1].0 + spans[1].1) / 2.0;
+		assert_eq!(hit(&v, &f, CX + a.cos() * r, CY + a.sin() * r), Hover::Ring(0, 1));
+		// without a hovered slice the ring isn't there
+		v.hover = Hover::None;
+		assert_eq!(hit(&v, &f, CX + a.cos() * r, CY + a.sin() * r), Hover::None);
+	}
+
+	#[test]
+	fn long_lists_page_with_more() {
+		assert_eq!(pages(8), 1);
+		assert_eq!(pages(9), 2);
+		assert_eq!(pages(14), 2);
+		assert_eq!(pages(15), 3);
+		let (items, more) = page_items(12, 1);
+		assert_eq!(items, vec![7, 8, 9, 10, 11]);
+		assert!(more);
+		let f = fonts();
+		let v = view(12, &[]);
+		let (_, mid, _) = angles(8, 7);
+		assert_eq!(hit(&v, &f, CX + mid.cos() * 120.0, CY + mid.sin() * 120.0), Hover::More);
+	}
+
+	#[test]
+	fn renders_every_state() {
+		let f = fonts();
+		let theme = Theme {
+			dark: true,
+			win11: true,
+			accent: Rgba::hex(0x0078d4),
+			high_contrast: false,
+		};
+		let mut v = view(10, &["One", "Two", "Three"]);
+		for hover in [
+			Hover::None,
+			Hover::Center,
+			Hover::Slice(2),
+			Hover::Ring(2, 1),
+			Hover::More,
+		] {
+			v.hover = hover;
+			v.motion.hover = vec![0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+			let pm = render(&v, &theme, &f, 1.5, None);
+			assert_eq!(pm.width(), (WIDTH * 1.5).ceil() as u32);
 		}
+		v.motion = Motion {
+			open: 0.3,
+			..Motion::default()
+		};
+		render(&v, &theme, &f, 1.0, None);
+		v.motion = Motion {
+			close: 0.5,
+			picked: Some(1),
+			..Motion::default()
+		};
+		render(&v, &theme, &f, 1.0, None);
 	}
 }

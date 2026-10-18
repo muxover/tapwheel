@@ -197,3 +197,157 @@ pub fn to_bgra(pm: &Pixmap) -> Vec<u8> {
 	}
 	out
 }
+
+/// Draws a Fluent icon by name, `size` pixels square, top-left at (x, y).
+pub fn icon(pm: &mut Pixmap, name: &str, x: f32, y: f32, size: f32, c: Rgba) -> bool {
+	let Some(d) = crate::icons::path(name) else {
+		return false;
+	};
+	let Some(path) = svg_path(d) else {
+		return false;
+	};
+	let s = size / 20.0;
+	pm.fill_path(
+		&path,
+		&paint(c),
+		FillRule::Winding,
+		Transform::from_row(s, 0.0, 0.0, s, x, y),
+		None,
+	);
+	true
+}
+
+/// SVG path data into a tiny-skia path. Arcs are approximated by the parser's cubic output.
+pub fn svg_path(d: &str) -> Option<Path> {
+	use svgtypes::{SimplePathSegment as S, SimplifyingPathParser};
+	let mut pb = PathBuilder::new();
+	for seg in SimplifyingPathParser::from(d) {
+		match seg.ok()? {
+			S::MoveTo { x, y } => pb.move_to(x as f32, y as f32),
+			S::LineTo { x, y } => pb.line_to(x as f32, y as f32),
+			S::CurveTo { x1, y1, x2, y2, x, y } => {
+				pb.cubic_to(x1 as f32, y1 as f32, x2 as f32, y2 as f32, x as f32, y as f32)
+			}
+			S::Quadratic { x1, y1, x, y } => pb.quad_to(x1 as f32, y1 as f32, x as f32, y as f32),
+			S::ClosePath => pb.close(),
+		}
+	}
+	pb.finish()
+}
+
+/// A ring segment with rounded corners: the segment is shrunk by `corner`, then grown back with
+/// round joins. Both shapes go into one mask first, so see-through colours don't double up.
+pub fn petal(pm: &mut Pixmap, cx: f32, cy: f32, r_in: f32, r_out: f32, a0: f32, a1: f32, corner: f32, c: Rgba) {
+	let mid_r = (r_in + r_out) / 2.0;
+	let pad = (corner / mid_r).min((a1 - a0) / 2.0 - 0.001);
+	let Some(core) = ring_segment(cx, cy, r_in + corner, r_out - corner, a0 + pad, a1 - pad) else {
+		return;
+	};
+	if corner <= 0.0 || c.a >= 0.999 {
+		let paint = paint(c);
+		pm.fill_path(&core, &paint, FillRule::Winding, Transform::identity(), None);
+		if corner > 0.0 {
+			let s = Stroke {
+				width: corner * 2.0,
+				line_join: tiny_skia::LineJoin::Round,
+				..Stroke::default()
+			};
+			pm.stroke_path(&core, &paint, &s, Transform::identity(), None);
+		}
+		return;
+	}
+	let b = core.bounds();
+	let (x0, y0) = (
+		(b.left() - corner - 2.0).floor().max(0.0),
+		(b.top() - corner - 2.0).floor().max(0.0),
+	);
+	let (w, h) = (
+		((b.right() + corner + 2.0).ceil() - x0).max(1.0) as u32,
+		((b.bottom() + corner + 2.0).ceil() - y0).max(1.0) as u32,
+	);
+	let Some(mut mask) = tiny_skia::Mask::new(w, h) else {
+		return;
+	};
+	let shift = Transform::from_translate(-x0, -y0);
+	mask.fill_path(&core, FillRule::Winding, true, shift);
+	let s = Stroke {
+		width: corner * 2.0,
+		line_join: tiny_skia::LineJoin::Round,
+		..Stroke::default()
+	};
+	if let Some(outline) = core.stroke(&s, 1.0) {
+		mask.fill_path(&outline, FillRule::Winding, true, shift);
+	}
+	let Some(rect) = Rect::from_xywh(0.0, 0.0, w as f32, h as f32) else {
+		return;
+	};
+	let mut tile = match Pixmap::new(w, h) {
+		Some(t) => t,
+		None => return,
+	};
+	tile.fill_rect(rect, &paint(c), Transform::identity(), Some(&mask));
+	pm.draw_pixmap(
+		x0 as i32,
+		y0 as i32,
+		tile.as_ref(),
+		&tiny_skia::PixmapPaint::default(),
+		Transform::identity(),
+		None,
+	);
+}
+
+/// Three box-blur passes, close to a gaussian, on premultiplied pixels.
+pub fn blur(pm: &mut Pixmap, radius: usize) {
+	if radius == 0 {
+		return;
+	}
+	let (w, h) = (pm.width() as usize, pm.height() as usize);
+	let data = pm.data_mut();
+	let mut tmp = vec![0u8; data.len()];
+	for _ in 0..3 {
+		box_pass(data, &mut tmp, w, h, radius, true);
+		box_pass(&tmp, data, w, h, radius, false);
+	}
+}
+
+fn box_pass(src: &[u8], dst: &mut [u8], w: usize, h: usize, r: usize, horizontal: bool) {
+	let (len, lines) = if horizontal { (w, h) } else { (h, w) };
+	let at = |line: usize, i: usize| {
+		if horizontal {
+			(line * w + i) * 4
+		} else {
+			(i * w + line) * 4
+		}
+	};
+	let div = (2 * r + 1) as u32;
+	for line in 0..lines {
+		let mut sum = [0u32; 4];
+		for k in 0..=2 * r {
+			let i = k.saturating_sub(r).min(len - 1);
+			for c in 0..4 {
+				sum[c] += src[at(line, i) + c] as u32;
+			}
+		}
+		for i in 0..len {
+			for c in 0..4 {
+				dst[at(line, i) + c] = (sum[c] / div) as u8;
+			}
+			let out = i.saturating_sub(r);
+			let inn = (i + r + 1).min(len - 1);
+			for c in 0..4 {
+				sum[c] = sum[c] + src[at(line, inn) + c] as u32 - src[at(line, out) + c] as u32;
+			}
+		}
+	}
+}
+
+pub fn ease_out(t: f32) -> f32 {
+	1.0 - (1.0 - t.clamp(0.0, 1.0)).powi(3)
+}
+
+/// Overshoots a little before settling, for things that pop open.
+pub fn ease_back(t: f32) -> f32 {
+	let t = t.clamp(0.0, 1.0);
+	let c = 1.4;
+	1.0 + (c + 1.0) * (t - 1.0).powi(3) + c * (t - 1.0).powi(2)
+}

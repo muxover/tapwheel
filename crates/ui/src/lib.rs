@@ -1,9 +1,9 @@
 #![allow(clippy::too_many_arguments)]
 
 pub mod draw;
-pub mod home;
 pub mod hud;
 pub mod icon;
+pub mod icons;
 pub mod text;
 pub mod theme;
 pub mod wheel;

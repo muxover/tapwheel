@@ -24,6 +24,13 @@ impl Fonts {
 		Some(Fonts { regular, semibold })
 	}
 
+	/// A bundled font for tests on machines without Segoe UI.
+	#[cfg(test)]
+	pub fn fallback() -> Fonts {
+		let f = include_bytes!("../../core/assets/JetBrainsMono-Regular.ttf").to_vec();
+		Fonts::new(f.clone(), f).expect("bundled font")
+	}
+
 	fn font(&self, w: Weight) -> &FontVec {
 		match w {
 			Weight::Regular => &self.regular,
