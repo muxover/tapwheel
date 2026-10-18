@@ -1,30 +1,65 @@
-use std::collections::VecDeque;
 use std::fs;
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc;
-use std::time::Duration;
+use std::sync::atomic::AtomicBool;
 
 use crate::Error;
-use crate::plan::{Job, Work, part_path, stem_of, unique_path};
-use crate::{archive, pngquant, subs};
+use crate::format::Format;
+use crate::kind::{Kind, ext_of, kind_of};
+use crate::plan::{Job, part_path, stem_of, unique_path};
+use crate::recipe::Recipe;
+use crate::settings::Defaults;
+use crate::{archive, code, codeshot, icons, image, media, pngquant, speech, subs, text};
 
+/// Where the bundled engines live.
+#[derive(Clone, Debug)]
 pub struct Engines {
 	pub ffmpeg: PathBuf,
-	/// Scratch space for archive repacking.
+	pub ffprobe: PathBuf,
+	/// Scratch space for intermediate files, cleaned as jobs finish.
 	pub scratch: PathBuf,
+	/// The background-removal model and the runtime that runs it.
+	pub model: PathBuf,
+	pub onnxruntime: PathBuf,
+	/// Where expanded model weights are kept between runs.
+	pub cache: PathBuf,
+}
+
+impl Engines {
+	/// Engines in a folder laid out like the app's `engines/`.
+	pub fn in_dir(dir: &Path, scratch: PathBuf) -> Engines {
+		let exe = |n: &str| {
+			dir.join(if cfg!(windows) {
+				format!("{n}.exe")
+			} else {
+				n.to_string()
+			})
+		};
+		Engines {
+			ffmpeg: exe("ffmpeg"),
+			ffprobe: exe("ffprobe"),
+			cache: scratch.join("cache"),
+			scratch,
+			model: dir.join("background.onnx"),
+			onnxruntime: dir.join(if cfg!(windows) {
+				"onnxruntime.dll"
+			} else {
+				"libonnxruntime.so"
+			}),
+		}
+	}
 }
 
 #[derive(Debug)]
 pub struct Outcome {
+	/// Empty when the job only reports, like testing an archive.
 	pub output: PathBuf,
 	pub bytes_in: u64,
 	pub bytes_out: u64,
+	/// A short report shown on the card instead of sizes.
+	pub note: Option<String>,
 }
 
-fn size_of(path: &Path) -> u64 {
+pub fn size_of(path: &Path) -> u64 {
 	match fs::symlink_metadata(path) {
 		Ok(m) if m.is_dir() => fs::read_dir(path)
 			.map(|rd| rd.flatten().map(|e| size_of(&e.path())).sum())
@@ -36,10 +71,25 @@ fn size_of(path: &Path) -> u64 {
 
 /// Runs a job into a `.tw-part` file, then gives it its final name.
 /// The final name is re-checked at the end, so a file that appeared meanwhile is never replaced.
-pub fn run(job: &Job, engines: &Engines, progress: &mut dyn FnMut(f32), cancel: &AtomicBool) -> Result<Outcome, Error> {
+pub fn run(
+	job: &Job,
+	engines: &Engines,
+	defaults: &Defaults,
+	progress: &mut dyn FnMut(f32),
+	cancel: &AtomicBool,
+) -> Result<Outcome, Error> {
+	let bytes_in = job.inputs.iter().map(|p| size_of(p)).sum();
+	if job.output.as_os_str().is_empty() {
+		let note = report(job, cancel)?;
+		return Ok(Outcome {
+			output: PathBuf::new(),
+			bytes_in,
+			bytes_out: 0,
+			note: Some(note),
+		});
+	}
 	let part = part_path(&job.output);
-	let result = execute(job, &part, engines, progress, cancel);
-	if let Err(e) = result {
+	if let Err(e) = execute(job, &part, engines, defaults, progress, cancel) {
 		remove(&part);
 		return Err(e);
 	}
@@ -66,17 +116,17 @@ pub fn run(job: &Job, engines: &Engines, progress: &mut dyn FnMut(f32), cancel: 
 		return Err(e.into());
 	}
 	keep_date(job, &output);
-	let bytes_in = job.inputs().iter().map(|p| size_of(p)).sum();
 	Ok(Outcome {
 		bytes_out: size_of(&output),
 		output,
 		bytes_in,
+		note: None,
 	})
 }
 
 /// A converted photo keeps the date it was taken, so it sorts next to the original.
 fn keep_date(job: &Job, output: &Path) {
-	let [input] = job.inputs()[..] else { return };
+	let [input] = &job.inputs[..] else { return };
 	if output.is_dir() {
 		return;
 	}
@@ -95,201 +145,137 @@ fn remove(path: &Path) {
 	};
 }
 
+fn report(job: &Job, cancel: &AtomicBool) -> Result<String, Error> {
+	match &job.recipe {
+		Recipe::Test => {
+			let n = archive::test(&job.inputs[0], cancel)?;
+			Ok(format!("All {n} files are fine"))
+		}
+		_ => Err(Error::Engine("nothing to report".into())),
+	}
+}
+
 fn execute(
 	job: &Job,
 	part: &Path,
-	engines: &Engines,
+	e: &Engines,
+	d: &Defaults,
 	progress: &mut dyn FnMut(f32),
 	cancel: &AtomicBool,
 ) -> Result<(), Error> {
-	match &job.work {
-		Work::Ffmpeg { input, args } => ffmpeg(&engines.ffmpeg, input, args, part, progress, cancel),
-		Work::PngQuant { input } => pngquant::compress(input, part),
-		Work::Subtitle { input, to } => {
-			let text = fs::read(input)?;
-			let text = String::from_utf8_lossy(&text);
-			fs::write(part, subs::convert(&text, *to))?;
-			Ok(())
+	let input = &job.inputs[0];
+	let kind = kind_of(input);
+	let ext = ext_of(input);
+	let write = |s: String| -> Result<(), Error> { Ok(fs::write(part, s)?) };
+	match &job.recipe {
+		// whole-selection recipes
+		Recipe::Pack { format } => archive::pack(&job.inputs, *format, part, cancel),
+		Recipe::Convert { to } if to.is_archive() && kind != Kind::Archive => {
+			archive::pack(&job.inputs, *to, part, cancel)
 		}
-		Work::Pack { inputs, format } => archive::pack(inputs, *format, part, cancel),
-		Work::Extract { input } => archive::extract(input, part, cancel),
-		Work::Repack { input, format } => {
-			let scratch = engines.scratch.join(format!(
-				"repack-{}-{}",
-				std::process::id(),
-				part.file_name().unwrap_or_default().to_string_lossy()
-			));
-			let result = archive::repack(input, *format, part, &scratch, cancel);
+		Recipe::Protect { password, format } => archive::pack_with(&job.inputs, *format, Some(password), part, cancel),
+		Recipe::Join => media::join(e, d, &job.inputs, part, progress, cancel),
+		Recipe::Merge => write(text::merge(&job.inputs)?),
+		Recipe::Combine {
+			layout,
+			gap,
+			background,
+		} => image::combine(e, &job.inputs, *layout, *gap, background, part, cancel),
+
+		// archives
+		Recipe::Convert { to } if kind == Kind::Archive => {
+			let scratch = e
+				.scratch
+				.join(format!("repack-{}-{}", std::process::id(), stem_of(part).len()));
+			let result = archive::repack(input, *to, part, &scratch, cancel);
 			let _ = fs::remove_dir_all(&scratch);
 			result
 		}
-	}
-}
+		Recipe::Extract => archive::extract(input, part, cancel),
+		Recipe::SplitArchive { part_mb } => archive::split(input, *part_mb, part, cancel).map(drop),
 
-/// `HH:MM:SS.ss` to seconds.
-fn parse_clock(s: &str) -> Option<f64> {
-	let mut total = 0.0;
-	for part in s.trim().split(':') {
-		total = total * 60.0 + part.parse::<f64>().ok()?;
-	}
-	Some(total)
-}
+		// icons, from icon files, pictures or programs
+		Recipe::WindowsIcon => icons::windows_icon(e, &job.inputs, part),
+		Recipe::MacIcon => icons::mac_icon(e, &job.inputs, part),
+		Recipe::IconSet { sizes } => icons::icon_set(e, input, sizes, part),
+		Recipe::Favicon => icons::favicon(e, input, part),
+		Recipe::ExtractIcons => icons::extract_icons(e, input, part),
+		Recipe::Convert { to: Format::Ico } => icons::windows_icon(e, &job.inputs, part),
+		Recipe::Convert { to: Format::Icns } => icons::mac_icon(e, &job.inputs, part),
+		Recipe::Convert { .. } if kind == Kind::Icon => image::run(e, d, &job.recipe, input, part, progress, cancel),
 
-fn duration_in(line: &str) -> Option<f64> {
-	let rest = line.trim().strip_prefix("Duration:")?;
-	let clock = rest.split(',').next()?.trim();
-	parse_clock(clock).filter(|d| *d > 0.0)
-}
-
-/// The most useful line of ffmpeg's complaint, without the noise.
-fn reason(lines: &VecDeque<String>) -> String {
-	let skip = [
-		"Conversion failed",
-		"Error while",
-		"Error opening output",
-		"Exiting normally",
-	];
-	lines
-		.iter()
-		.rev()
-		.map(|l| l.trim())
-		.find(|l| !l.is_empty() && !skip.iter().any(|s| l.starts_with(s)))
-		.map(|l| {
-			// "[mjpeg @ 0x1234] message" reads better without the prefix
-			match l.find("] ") {
-				Some(i) if l.starts_with('[') => l[i + 2..].to_string(),
-				_ => l.to_string(),
-			}
-		})
-		.unwrap_or_else(|| "the converter stopped without saying why".into())
-}
-
-enum Line {
-	Out(String),
-	Err(String),
-}
-
-pub fn ffmpeg(
-	exe: &Path,
-	input: &Path,
-	args: &[String],
-	output: &Path,
-	progress: &mut dyn FnMut(f32),
-	cancel: &AtomicBool,
-) -> Result<(), Error> {
-	let mut cmd = Command::new(exe);
-	cmd.args(["-hide_banner", "-nostdin", "-y", "-loglevel", "info", "-i"])
-		.arg(input)
-		.args(args)
-		.args(["-progress", "pipe:1", "-nostats"])
-		.arg(output)
-		.stdin(Stdio::null())
-		.stdout(Stdio::piped())
-		.stderr(Stdio::piped());
-	#[cfg(windows)]
-	{
-		use std::os::windows::process::CommandExt;
-		const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-		const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x0000_4000;
-		cmd.creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS);
-	}
-	let mut child = cmd.spawn().map_err(|e| {
-		if e.kind() == std::io::ErrorKind::NotFound {
-			Error::Engine("the converter is missing; reinstall TapWheel".into())
-		} else {
-			Error::Io(e)
+		// code and text
+		Recipe::Convert { to: Format::Png } if kind == Kind::Code => {
+			let style = codeshot::Style {
+				dark: d.code_theme != "light",
+				background: d.code_background.clone(),
+				title: input
+					.file_name()
+					.map(|n| n.to_string_lossy().into_owned())
+					.unwrap_or_default(),
+				..codeshot::Style::default()
+			};
+			codeshot::render_png(&text::read(input)?, &ext, &style, part)
 		}
-	})?;
-
-	let (tx, rx) = mpsc::channel();
-	let out = child.stdout.take().expect("piped");
-	let err = child.stderr.take().expect("piped");
-	let tx2 = tx.clone();
-	let t1 = std::thread::spawn(move || {
-		for l in BufReader::new(out).lines().map_while(Result::ok) {
-			if tx.send(Line::Out(l)).is_err() {
-				break;
-			}
+		Recipe::Convert { to: Format::Html } if kind == Kind::Code => {
+			let name = input
+				.file_name()
+				.map(|n| n.to_string_lossy().into_owned())
+				.unwrap_or_default();
+			write(code::to_html(&text::read(input)?, &ext, &name)?)
 		}
-	});
-	let t2 = std::thread::spawn(move || {
-		for l in BufReader::new(err).lines().map_while(Result::ok) {
-			if tx2.send(Line::Err(l)).is_err() {
-				break;
-			}
+		Recipe::Convert { to: Format::Md } if kind == Kind::Code => {
+			write(code::markdown_block(&text::read(input)?, &ext))
 		}
-	});
-
-	let mut duration = None;
-	let mut tail: VecDeque<String> = VecDeque::new();
-	let mut cancelled = false;
-	loop {
-		if cancel.load(Ordering::Relaxed) {
-			let _ = child.kill();
-			cancelled = true;
-			break;
+		Recipe::Convert { to: Format::Txt } if kind == Kind::Code => write(text::read(input)?),
+		Recipe::Convert { to } if matches!(kind, Kind::Text | Kind::Code) => write(text::convert(input, *to)?),
+		Recipe::ToUtf8
+		| Recipe::LineEndings { .. }
+		| Recipe::CleanUp
+		| Recipe::SortLines { .. }
+		| Recipe::Dedupe
+		| Recipe::ChangeCase { .. }
+		| Recipe::Indent { .. }
+		| Recipe::Pretty
+		| Recipe::Minify => Ok(fs::write(part, text::tool(input, &job.recipe)?)?),
+		Recipe::SplitText { lines } => text::split(input, *lines, part).map(drop),
+		Recipe::ReadAloud { voice, rate } => {
+			let body = text::read(input)?;
+			let body = match ext.as_str() {
+				"srt" | "vtt" | "ass" | "ssa" => subs::convert(&body, Format::Txt),
+				"md" | "markdown" | "html" | "htm" | "rtf" => text::convert(input, Format::Txt)?,
+				_ => body,
+			};
+			let wav = e.scratch.join(format!("speech-{}.wav", std::process::id()));
+			fs::create_dir_all(&e.scratch)?;
+			speech::speak(&body, voice.as_deref(), *rate, &wav)?;
+			let r = media::wav_to_mp3(e, &wav, part, progress, cancel);
+			let _ = fs::remove_file(&wav);
+			r
 		}
-		match rx.recv_timeout(Duration::from_millis(100)) {
-			Ok(Line::Err(l)) => {
-				if duration.is_none() {
-					duration = duration_in(&l);
-				}
-				tail.push_back(l);
-				if tail.len() > 40 {
-					tail.pop_front();
-				}
-			}
-			Ok(Line::Out(l)) => {
-				if let (Some(total), Some(v)) = (duration, l.strip_prefix("out_time_us="))
-					&& let Ok(us) = v.trim().parse::<f64>()
-				{
-					progress((us / 1e6 / total).clamp(0.0, 1.0) as f32);
-				}
-			}
-			Err(mpsc::RecvTimeoutError::Timeout) => {}
-			Err(mpsc::RecvTimeoutError::Disconnected) => break,
+
+		// pictures
+		Recipe::Convert { .. }
+		| Recipe::CompressImage { .. }
+		| Recipe::ResizeImage { .. }
+		| Recipe::RotateImage { .. }
+		| Recipe::CropImage { .. }
+		| Recipe::StripMetadata { .. }
+		| Recipe::RemoveBackground
+		| Recipe::Trace
+		| Recipe::Rendered { .. }
+			if matches!(kind, Kind::Image | Kind::Icon) =>
+		{
+			image::run(e, d, &job.recipe, input, part, progress, cancel)
 		}
-	}
-	let status = child.wait()?;
-	let _ = t1.join();
-	let _ = t2.join();
-	if cancelled {
-		return Err(Error::Cancelled);
-	}
-	if !status.success() {
-		return Err(Error::Engine(reason(&tail)));
-	}
-	if !output.exists() {
-		return Err(Error::Engine("nothing was written".into()));
-	}
-	Ok(())
-}
+		Recipe::Rendered { file, .. } => {
+			fs::copy(file, part)?;
+			Ok(())
+		}
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn clock_and_duration() {
-		assert_eq!(parse_clock("00:01:02.50"), Some(62.5));
-		assert_eq!(
-			duration_in("  Duration: 00:00:05.00, start: 0.000000, bitrate: 2 kb/s"),
-			Some(5.0)
-		);
-		assert_eq!(duration_in("  Duration: N/A, bitrate: N/A"), None);
-		assert_eq!(duration_in("Stream #0:0"), None);
-	}
-
-	#[test]
-	fn reason_skips_boilerplate() {
-		let lines: VecDeque<String> = [
-			"[mjpeg @ 0x55] Invalid pixel format",
-			"Error while opening encoder",
-			"Conversion failed!",
-		]
-		.iter()
-		.map(|s| s.to_string())
-		.collect();
-		assert_eq!(reason(&lines), "Invalid pixel format");
+		// video and sound
+		Recipe::Convert { to } => media::convert(e, d, input, *to, part, progress, cancel),
+		Recipe::CompressImage { quality, .. } if ext == "png" => pngquant::compress(input, part, *quality),
+		_ => media::run(e, d, &job.recipe, input, part, progress, cancel),
 	}
 }

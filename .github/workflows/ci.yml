@@ -13,7 +13,7 @@ jobs:
   core:
     name: Core and UI (Linux)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -21,13 +21,16 @@ jobs:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - run: .github/scripts/report.sh cargo fmt --all --check
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - run: .github/scripts/report.sh cargo clippy --workspace --all-targets -- -D warnings
       - run: .github/scripts/report.sh cargo test --workspace
+        env:
+          TAPWHEEL_FFMPEG: /usr/bin/ffmpeg
 
   windows:
     name: App (Windows)
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -37,7 +40,7 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: target/engines
-          key: engines-${{ hashFiles('engines/engines.toml') }}
+          key: engines-${{ hashFiles('engines/engines.toml', 'engines/model.py') }}
       - name: Fetch converters
         run: ./engines/fetch.ps1
       - name: Clippy
@@ -48,6 +51,7 @@ jobs:
         run: .github/scripts/report.sh cargo test --workspace
         env:
           TAPWHEEL_FFMPEG: ${{ github.workspace }}\target\engines\ffmpeg.exe
+          TAPWHEEL_MODEL_DIR: ${{ github.workspace }}\target\engines
       - name: Build
         shell: bash
         run: .github/scripts/report.sh cargo build --release

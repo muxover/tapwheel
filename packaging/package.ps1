@@ -12,8 +12,9 @@ Set-Location $root
 $version = ([regex]::Match((Get-Content Cargo.toml -Raw), '(?m)^version = "([^"]+)"')).Groups[1].Value
 if (-not $version) { throw "no version in Cargo.toml" }
 $exe = "target/release/tapwheel.exe"
-$ffmpeg = "target/engines/ffmpeg.exe"
-foreach ($f in @($exe, $ffmpeg)) { if (-not (Test-Path $f)) { throw "$f is missing" } }
+$engines = @("ffmpeg.exe", "ffprobe.exe", "onnxruntime.dll", "background.onnx", "background.f16") |
+	ForEach-Object { "target/engines/$_" }
+foreach ($f in @($exe) + $engines) { if (-not (Test-Path $f)) { throw "$f is missing" } }
 
 Remove-Item -Recurse -Force $Out -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
@@ -24,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { throw "asset generation failed" }
 function Copy-App($dest) {
 	New-Item -ItemType Directory -Force -Path (Join-Path $dest "engines") | Out-Null
 	Copy-Item $exe (Join-Path $dest "tapwheel.exe")
-	Copy-Item $ffmpeg (Join-Path $dest "engines/ffmpeg.exe")
+	foreach ($f in $engines) { Copy-Item $f (Join-Path $dest "engines") }
 	Copy-Item LICENSE (Join-Path $dest "LICENSE.txt")
 	Copy-Item THIRD-PARTY-NOTICES.md (Join-Path $dest "THIRD-PARTY-NOTICES.md")
 }

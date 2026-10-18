@@ -1,24 +1,27 @@
-//! Runs one wheel choice on files, the way the app does. Useful for checking a conversion by hand.
-//! cargo run -p tapwheel-core --example convert -- <ffmpeg> <op id> <file>...
+//! Runs one wheel choice on files, the way the app does. Useful for checking a tool by hand.
+//! cargo run -p tapwheel-core --example convert -- <engines dir> <op id>[:<ring choice>] <file>...
+//! For example `to-jpg`, `compress:smaller`, `rotate:ccw` or `remove_background`.
 
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 
-use tapwheel_core::plan;
+use tapwheel_core::ops::selection_kind;
 use tapwheel_core::run::{Engines, run};
-use tapwheel_core::settings::op_from_id;
+use tapwheel_core::{Defaults, Op, plan, recipe_for};
 
 fn main() {
 	let args: Vec<String> = std::env::args().skip(1).collect();
-	let ffmpeg = PathBuf::from(&args[0]);
-	let op = op_from_id(&args[1]).expect("unknown op id, e.g. to-jpg or compressimage");
-	let files: Vec<PathBuf> = args[2..].iter().map(PathBuf::from).collect();
-	let engines = Engines {
-		ffmpeg,
-		scratch: std::env::temp_dir().join("tapwheel-example"),
+	let engines = Engines::in_dir(&PathBuf::from(&args[0]), std::env::temp_dir().join("tapwheel-example"));
+	let (id, preset) = match args[1].split_once(':') {
+		Some((id, p)) => (id, Some(p)),
+		None => (args[1].as_str(), None),
 	};
-	for job in plan(op, &files) {
-		match run(&job, &engines, &mut |_| {}, &AtomicBool::new(false)) {
+	let op = Op::from_id(id).expect("unknown op id, e.g. to-jpg or compress");
+	let files: Vec<PathBuf> = args[2..].iter().map(PathBuf::from).collect();
+	let d = Defaults::default();
+	let recipe = recipe_for(op, preset, selection_kind(&files), &d).expect("this one opens a window in the app");
+	for job in plan(op, &recipe, &files) {
+		match run(&job, &engines, &d, &mut |_| {}, &AtomicBool::new(false)) {
 			Ok(out) => println!("{}\t{}\t{}", out.output.display(), out.bytes_in, out.bytes_out),
 			Err(e) => eprintln!("failed: {e}"),
 		}

@@ -1,4 +1,4 @@
-use crate::ops::Format;
+use crate::format::Format;
 
 #[derive(Debug, PartialEq)]
 struct Cue {
@@ -13,6 +13,9 @@ fn is_timing(line: &str) -> bool {
 
 /// Reads SRT or WebVTT. Both use the same `start --> end` line, so one parser covers them.
 fn parse(text: &str) -> Vec<Cue> {
+	if text.contains("[Events]") {
+		return parse_ass(text);
+	}
 	let text = text
 		.trim_start_matches('\u{feff}')
 		.replace("\r\n", "\n")
@@ -42,12 +45,58 @@ fn parse(text: &str) -> Vec<Cue> {
 	cues
 }
 
+/// SubStation Alpha (ASS and SSA): one `Dialogue:` line per cue, the text in the last field.
+fn parse_ass(text: &str) -> Vec<Cue> {
+	let mut fields: Vec<String> = Vec::new();
+	let mut cues = Vec::new();
+	let mut in_events = false;
+	for line in text.lines() {
+		let line = line.trim();
+		if line.starts_with('[') {
+			in_events = line.eq_ignore_ascii_case("[events]");
+			continue;
+		}
+		if !in_events {
+			continue;
+		}
+		if let Some(f) = line.strip_prefix("Format:") {
+			fields = f.split(',').map(|s| s.trim().to_lowercase()).collect();
+		} else if let Some(d) = line.strip_prefix("Dialogue:") {
+			let n = fields.len().max(10);
+			let parts: Vec<&str> = d.splitn(n, ',').collect();
+			let at = |name: &str, default: usize| fields.iter().position(|f| f == name).unwrap_or(default);
+			let (Some(start), Some(end), Some(body)) = (
+				parts.get(at("start", 1)),
+				parts.get(at("end", 2)),
+				parts.get(at("text", n - 1)),
+			) else {
+				continue;
+			};
+			let body = strip_tags(body).replace("\\N", "\n").replace("\\n", "\n");
+			cues.push(Cue {
+				start: start.trim().to_string(),
+				end: end.trim().to_string(),
+				lines: body.lines().map(str::to_string).collect(),
+			});
+		}
+	}
+	cues
+}
+
 /// `00:01:02,500`, `00:01:02.500` or VTT's short `01:02.500`, as SRT or VTT wants it.
 fn time(t: &str, sep: char) -> String {
 	let t = t.replace([',', '.'], &sep.to_string());
 	let colons = t.matches(':').count();
 	let t = if colons == 1 { format!("00:{t}") } else { t };
-	if t.contains(sep) { t } else { format!("{t}{sep}000") }
+	// hours always take two digits, fractions three
+	let t = match t.split_once(':') {
+		Some((h, rest)) if h.len() == 1 => format!("0{h}:{rest}"),
+		_ => t,
+	};
+	match t.split_once(sep) {
+		Some((whole, frac)) => format!("{whole}{sep}{:0<3}", &frac[..frac.len().min(3)]),
+		None => format!("{t}{sep}000"),
+	}
 }
 
 fn strip_tags(line: &str) -> String {
@@ -134,6 +183,15 @@ mod tests {
 	#[test]
 	fn plain_text_has_no_timing_or_tags() {
 		assert_eq!(convert(SRT, Format::Txt), "Hello there\nTwo lines\n");
+	}
+
+	#[test]
+	fn ass_dialogue_becomes_cues() {
+		let ass = "[Script Info]\nTitle: x\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.50,0:00:03.00,Default,,0,0,0,,{\\i1}Hi,\\Nthere\n";
+		assert_eq!(
+			convert(ass, Format::Srt),
+			"1\n00:00:01,500 --> 00:00:03,000\nHi,\nthere\n\n"
+		);
 	}
 
 	#[test]

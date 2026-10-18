@@ -1,6 +1,9 @@
 use std::path::Path;
 
-use crate::kind::{Kind, common_kind, ext_of, kind_of};
+use serde::{Deserialize, Serialize};
+
+use crate::format::Format;
+use crate::kind::{Kind, common_ext, common_kind, ext_of, kind_of};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Wheel {
@@ -21,279 +24,631 @@ impl Wheel {
 	pub const ALL: [Wheel; 3] = [Wheel::Convert, Wheel::Tools, Wheel::Actions];
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Format {
-	Jpg,
-	Png,
-	Webp,
-	Avif,
-	Tiff,
-	Bmp,
-	Gif,
-	Ico,
-	Mp3,
-	M4a,
-	Wav,
-	Flac,
-	Ogg,
-	Opus,
-	Mp4,
-	Mov,
-	Mkv,
-	Webm,
-	Avi,
-	Srt,
-	Vtt,
-	Txt,
-	Zip,
-	SevenZ,
-	Tar,
-	Tgz,
-}
-
-impl Format {
-	pub fn ext(self) -> &'static str {
-		match self {
-			Format::Jpg => "jpg",
-			Format::Png => "png",
-			Format::Webp => "webp",
-			Format::Avif => "avif",
-			Format::Tiff => "tiff",
-			Format::Bmp => "bmp",
-			Format::Gif => "gif",
-			Format::Ico => "ico",
-			Format::Mp3 => "mp3",
-			Format::M4a => "m4a",
-			Format::Wav => "wav",
-			Format::Flac => "flac",
-			Format::Ogg => "ogg",
-			Format::Opus => "opus",
-			Format::Mp4 => "mp4",
-			Format::Mov => "mov",
-			Format::Mkv => "mkv",
-			Format::Webm => "webm",
-			Format::Avi => "avi",
-			Format::Srt => "srt",
-			Format::Vtt => "vtt",
-			Format::Txt => "txt",
-			Format::Zip => "zip",
-			Format::SevenZ => "7z",
-			Format::Tar => "tar",
-			Format::Tgz => "tar.gz",
-		}
-	}
-
-	pub fn label(self) -> &'static str {
-		match self {
-			Format::Jpg => "JPG",
-			Format::Png => "PNG",
-			Format::Webp => "WebP",
-			Format::Avif => "AVIF",
-			Format::Tiff => "TIFF",
-			Format::Bmp => "BMP",
-			Format::Gif => "GIF",
-			Format::Ico => "ICO",
-			Format::Mp3 => "MP3",
-			Format::M4a => "M4A",
-			Format::Wav => "WAV",
-			Format::Flac => "FLAC",
-			Format::Ogg => "OGG",
-			Format::Opus => "Opus",
-			Format::Mp4 => "MP4",
-			Format::Mov => "MOV",
-			Format::Mkv => "MKV",
-			Format::Webm => "WebM",
-			Format::Avi => "AVI",
-			Format::Srt => "SRT",
-			Format::Vtt => "VTT",
-			Format::Txt => "TXT",
-			Format::Zip => "ZIP",
-			Format::SevenZ => "7Z",
-			Format::Tar => "TAR",
-			Format::Tgz => "TAR.GZ",
-		}
-	}
-
-	/// Extensions that already are this format, so a file is never offered its own format.
-	fn same_as(self, ext: &str) -> bool {
-		match self {
-			Format::Jpg => matches!(ext, "jpg" | "jpeg" | "jfif"),
-			Format::Tiff => matches!(ext, "tif" | "tiff"),
-			Format::Ogg => matches!(ext, "ogg" | "oga"),
-			Format::Tgz => ext == "tgz",
-			f => f.ext() == ext,
-		}
-	}
-
-	pub fn is_archive(self) -> bool {
-		matches!(self, Format::Zip | Format::SevenZ | Format::Tar | Format::Tgz)
-	}
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// One slice on a wheel. The same tool can mean different work for different kinds of file,
+/// so `Trim` on a video and `Trim` on a song share an entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Op {
 	Convert(Format),
-	CompressImage,
-	HalfSize,
-	FitHd,
+	// pictures
+	Crop,
+	AddBackground,
+	RemoveBackground,
+	Adjust,
+	Annotate,
+	Redact,
+	Resize,
+	Compress,
 	Rotate,
-	StripMetadata,
-	CompressVideo,
-	Video720,
+	Metadata,
+	MakeIcon,
+	Trace,
+	Combine,
+	// video and sound
+	Trim,
+	Speed,
+	MakeGif,
+	Snapshot,
 	Mute,
 	ExtractAudio,
-	CompressAudio,
+	Join,
+	Reverse,
+	Fade,
 	Normalize,
+	Volume,
+	Channels,
+	Ringtone,
+	RemoveSilence,
+	// icons
+	IconSet,
+	Favicon,
+	WindowsIcon,
+	MacIcon,
+	ExtractIcons,
+	// text and code
+	ReadAloud,
+	ToUtf8,
+	LineEndings,
+	CleanUp,
+	SortLines,
+	Dedupe,
+	ChangeCase,
+	Stats,
+	Pretty,
+	Minify,
+	Merge,
+	Split,
+	CodeImage,
+	Indent,
+	CopyMarkdown,
+	// archives and folders
 	Extract,
+	Protect,
+	Test,
+	Contents,
 	Zip,
+	// actions
+	Copy,
 	CopyPath,
-	CopyFile,
+	MoveTo,
+	Share,
+	Float,
+	Hash,
 	Terminal,
-	Reveal,
 }
+
+/// How a slice runs once something is dropped on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+	/// Runs straight away in the background with the saved settings.
+	Run,
+	/// Opens a window to set it up first.
+	Editor,
+	/// Done by the app itself, immediately.
+	Action,
+}
+
+/// A choice on the outer ring around a slice.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Preset {
+	pub id: &'static str,
+	pub label: &'static str,
+}
+
+const fn p(id: &'static str, label: &'static str) -> Preset {
+	Preset { id, label }
+}
+
+/// The ring choice that opens the tool's window instead of running it.
+pub const CUSTOM: Preset = p("custom", "Custom");
 
 impl Op {
 	pub fn label(self) -> &'static str {
 		match self {
 			Op::Convert(f) => f.label(),
-			Op::CompressImage | Op::CompressVideo | Op::CompressAudio => "Compress",
-			Op::HalfSize => "Half size",
-			Op::FitHd => "Fit 1920",
+			Op::Crop => "Crop",
+			Op::AddBackground => "Add BG",
+			Op::RemoveBackground => "Remove BG",
+			Op::Adjust => "Adjust",
+			Op::Annotate => "Annotate",
+			Op::Redact => "Redact",
+			Op::Resize => "Resize",
+			Op::Compress => "Compress",
 			Op::Rotate => "Rotate",
-			Op::StripMetadata => "Strip data",
-			Op::Video720 => "720p",
+			Op::Metadata => "Metadata",
+			Op::MakeIcon => "Make icon",
+			Op::Trace => "To SVG",
+			Op::Combine => "Combine",
+			Op::Trim => "Trim",
+			Op::Speed => "Speed",
+			Op::MakeGif => "Make GIF",
+			Op::Snapshot => "Snapshot",
 			Op::Mute => "Mute",
-			Op::ExtractAudio => "Audio",
+			Op::ExtractAudio => "Get audio",
+			Op::Join => "Join",
+			Op::Reverse => "Reverse",
+			Op::Fade => "Fade",
 			Op::Normalize => "Normalize",
+			Op::Volume => "Volume",
+			Op::Channels => "Mono",
+			Op::Ringtone => "Ringtone",
+			Op::RemoveSilence => "No silence",
+			Op::IconSet => "PNG set",
+			Op::Favicon => "Favicon",
+			Op::WindowsIcon => "Windows",
+			Op::MacIcon => "macOS",
+			Op::ExtractIcons => "Get icons",
+			Op::ReadAloud => "Read aloud",
+			Op::ToUtf8 => "UTF-8",
+			Op::LineEndings => "Line ends",
+			Op::CleanUp => "Clean up",
+			Op::SortLines => "Sort",
+			Op::Dedupe => "Dedupe",
+			Op::ChangeCase => "Case",
+			Op::Stats => "Count",
+			Op::Pretty => "Format",
+			Op::Minify => "Minify",
+			Op::Merge => "Merge",
+			Op::Split => "Split",
+			Op::CodeImage => "Code shot",
+			Op::Indent => "Indent",
+			Op::CopyMarkdown => "Copy as MD",
 			Op::Extract => "Extract",
+			Op::Protect => "Password",
+			Op::Test => "Test",
+			Op::Contents => "Contents",
 			Op::Zip => "ZIP",
+			Op::Copy => "Copy",
 			Op::CopyPath => "Copy path",
-			Op::CopyFile => "Copy",
+			Op::MoveTo => "Move to",
+			Op::Share => "Share",
+			Op::Float => "Float",
+			Op::Hash => "Checksum",
 			Op::Terminal => "Terminal",
-			Op::Reveal => "Show",
 		}
 	}
 
 	/// What the slice does, for the wheel's centre and for screen readers.
-	pub fn describe(self) -> String {
+	pub fn describe(self, kind: Option<Kind>) -> String {
+		let k = kind.unwrap_or(Kind::Other);
 		match self {
 			Op::Convert(f) if f.is_archive() => format!("Pack into {}", f.label()),
+			Op::Convert(Format::M4r) => "Make an iPhone ringtone".into(),
+			Op::Convert(Format::Png) if k == Kind::Code => "Save as a picture".into(),
+			Op::Convert(Format::Html) if k == Kind::Code => "Save as a highlighted page".into(),
 			Op::Convert(f) => format!("Convert to {}", f.label()),
-			Op::CompressImage => "Make the image smaller".into(),
-			Op::HalfSize => "Resize to half".into(),
-			Op::FitHd => "Fit inside 1920 pixels".into(),
-			Op::Rotate => "Rotate a quarter turn".into(),
-			Op::StripMetadata => "Remove location and camera data".into(),
-			Op::CompressVideo => "Make the video smaller".into(),
-			Op::Video720 => "Scale down to 720p".into(),
+			Op::Crop => "Cut to a size or shape".into(),
+			Op::AddBackground => "Put it on a backdrop".into(),
+			Op::RemoveBackground => "Cut out the subject".into(),
+			Op::Adjust => "Light, colour and contrast".into(),
+			Op::Annotate => "Draw, point and write".into(),
+			Op::Redact => "Hide private parts".into(),
+			Op::Resize if k == Kind::Video => "Change the resolution".into(),
+			Op::Resize => "Change the size".into(),
+			Op::Compress => "Make it smaller".into(),
+			Op::Rotate => "Turn or flip".into(),
+			Op::Metadata if k == Kind::Audio => "Title, artist and cover".into(),
+			Op::Metadata => "See or remove hidden data".into(),
+			Op::MakeIcon => "Windows icon with every size".into(),
+			Op::Trace => "Trace into a vector".into(),
+			Op::Combine => "Lay pictures out together".into(),
+			Op::Trim => "Keep or cut a part".into(),
+			Op::Speed => "Faster or slower".into(),
+			Op::MakeGif => "Turn a part into a GIF".into(),
+			Op::Snapshot => "Save a frame as a picture".into(),
 			Op::Mute => "Remove the sound".into(),
-			Op::ExtractAudio => "Save the sound as M4A".into(),
-			Op::CompressAudio => "Make the audio smaller".into(),
-			Op::Normalize => "Even out the volume".into(),
+			Op::ExtractAudio => "Save the sound alone".into(),
+			Op::Join => "Join into one file".into(),
+			Op::Reverse => "Play it backwards".into(),
+			Op::Fade => "Fade in or out".into(),
+			Op::Normalize => "Even out the loudness".into(),
+			Op::Volume => "Louder or quieter".into(),
+			Op::Channels => "Mono or stereo".into(),
+			Op::Ringtone => "Make an iPhone ringtone".into(),
+			Op::RemoveSilence => "Cut quiet gaps".into(),
+			Op::IconSet => "PNGs from 16 to 1024".into(),
+			Op::Favicon => "Every website icon".into(),
+			Op::WindowsIcon => "ICO with every size".into(),
+			Op::MacIcon => "ICNS for macOS".into(),
+			Op::ExtractIcons if k == Kind::Program => "Save the program's icon".into(),
+			Op::ExtractIcons => "Every size as PNG".into(),
+			Op::ReadAloud => "Save as speech".into(),
+			Op::ToUtf8 => "Fix the text encoding".into(),
+			Op::LineEndings => "Windows or Unix line ends".into(),
+			Op::CleanUp => "Trim spaces and blank lines".into(),
+			Op::SortLines => "Sort the lines".into(),
+			Op::Dedupe => "Remove repeated lines".into(),
+			Op::ChangeCase => "UPPER, lower or Title".into(),
+			Op::Stats => "Count lines and words".into(),
+			Op::Pretty => "Tidy the layout".into(),
+			Op::Minify => "Squeeze out the spaces".into(),
+			Op::Merge => "Join into one file".into(),
+			Op::Split => "Cut into smaller files".into(),
+			Op::CodeImage => "A picture of your code".into(),
+			Op::Indent => "Tabs or spaces".into(),
+			Op::CopyMarkdown => "Copy as a code block".into(),
 			Op::Extract => "Unpack here".into(),
+			Op::Protect => "Pack with a password".into(),
+			Op::Test => "Check it isn't damaged".into(),
+			Op::Contents => "See what's inside".into(),
 			Op::Zip => "Pack into one ZIP".into(),
+			Op::Copy => "Copy to paste elsewhere".into(),
 			Op::CopyPath => "Copy the full path".into(),
-			Op::CopyFile => "Copy to paste elsewhere".into(),
+			Op::MoveTo => "Move to a folder".into(),
+			Op::Share => "Send with Windows share".into(),
+			Op::Float => "Keep it handy for later".into(),
+			Op::Hash => "Copy a checksum".into(),
 			Op::Terminal => "Open a terminal here".into(),
-			Op::Reveal => "Show in File Explorer".into(),
 		}
 	}
 
-	/// Runs in the app on the UI thread instead of as a background job.
-	pub fn is_action(self) -> bool {
-		matches!(self, Op::CopyPath | Op::CopyFile | Op::Terminal | Op::Reveal)
+	/// The Fluent icon drawn on the slice.
+	pub fn icon(self, kind: Option<Kind>) -> &'static str {
+		match self {
+			Op::Convert(_) => "",
+			Op::Crop => "crop",
+			Op::AddBackground => "image_add",
+			Op::RemoveBackground => "image_sparkle",
+			Op::Adjust => "options",
+			Op::Annotate => "pen",
+			Op::Redact => "eye_off",
+			Op::Resize => "resize",
+			Op::Compress => "arrow_minimize",
+			Op::Rotate => "arrow_rotate_clockwise",
+			Op::Metadata if kind == Some(Kind::Audio) => "tag",
+			Op::Metadata => "info",
+			Op::MakeIcon => "app_generic",
+			Op::Trace => "shape_union",
+			Op::Combine => "grid",
+			Op::Trim => "cut",
+			Op::Speed => "top_speed",
+			Op::MakeGif => "gif",
+			Op::Snapshot => "camera",
+			Op::Mute => "speaker_mute",
+			Op::ExtractAudio => "music_note_2",
+			Op::Join => "arrow_join",
+			Op::Reverse => "arrow_hook_up_left",
+			Op::Fade => "data_area",
+			Op::Normalize => "data_bar_vertical",
+			Op::Volume => "speaker_2",
+			Op::Channels => "headphones",
+			Op::Ringtone => "phone",
+			Op::RemoveSilence => "timer_off",
+			Op::IconSet => "image_multiple",
+			Op::Favicon => "globe",
+			Op::WindowsIcon => "window",
+			Op::MacIcon => "laptop",
+			Op::ExtractIcons => "apps",
+			Op::ReadAloud => "read_aloud",
+			Op::ToUtf8 => "text_font",
+			Op::LineEndings => "text_wrap",
+			Op::CleanUp => "eraser",
+			Op::SortLines => "text_sort_ascending",
+			Op::Dedupe => "text_bullet_list_square",
+			Op::ChangeCase => "text_case_title",
+			Op::Stats => "number_symbol",
+			Op::Pretty => "text_align_left",
+			Op::Minify => "text_collapse",
+			Op::Merge => "merge",
+			Op::Split => "split_vertical",
+			Op::CodeImage => "code_block",
+			Op::Indent => "text_indent_increase",
+			Op::CopyMarkdown => "markdown",
+			Op::Extract => "archive_arrow_back",
+			Op::Protect => "lock_closed",
+			Op::Test => "shield_checkmark",
+			Op::Contents => "list",
+			Op::Zip => "folder_zip",
+			Op::Copy => "copy",
+			Op::CopyPath => "link",
+			Op::MoveTo => "folder_arrow_right",
+			Op::Share => "share",
+			Op::Float => "pin",
+			Op::Hash => "fingerprint",
+			Op::Terminal => "window_console",
+		}
+	}
+
+	pub fn mode(self) -> Mode {
+		match self {
+			Op::Crop
+			| Op::AddBackground
+			| Op::Adjust
+			| Op::Annotate
+			| Op::Redact
+			| Op::Trim
+			| Op::MakeGif
+			| Op::Combine
+			| Op::CodeImage
+			| Op::Protect
+			| Op::Contents => Mode::Editor,
+			Op::Copy
+			| Op::CopyPath
+			| Op::MoveTo
+			| Op::Share
+			| Op::Float
+			| Op::Hash
+			| Op::Terminal
+			| Op::CopyMarkdown
+			| Op::Stats => Mode::Action,
+			_ => Mode::Run,
+		}
+	}
+
+	/// Choices on the ring around the slice. The first one is what a plain drop on the slice does.
+	pub fn presets(self, kind: Option<Kind>) -> &'static [Preset] {
+		const IMG_COMPRESS: &[Preset] = &[
+			p("balanced", "Balanced"),
+			p("smaller", "Smaller"),
+			p("best", "Best"),
+			CUSTOM,
+		];
+		const VID_COMPRESS: &[Preset] = &[
+			p("balanced", "Balanced"),
+			p("smaller", "Smaller"),
+			p("25mb", "25 MB"),
+			p("10mb", "10 MB"),
+			CUSTOM,
+		];
+		const AUD_COMPRESS: &[Preset] = &[p("128k", "128k"), p("96k", "96k"), p("64k", "64k"), p("192k", "192k")];
+		const IMG_RESIZE: &[Preset] = &[
+			p("half", "50%"),
+			p("1920", "1920"),
+			p("1280", "1280"),
+			p("1080", "1080"),
+			CUSTOM,
+		];
+		const VID_RESIZE: &[Preset] = &[
+			p("720", "720p"),
+			p("1080", "1080p"),
+			p("480", "480p"),
+			p("vertical", "9:16"),
+		];
+		const ROTATE: &[Preset] = &[
+			p("cw", "Right"),
+			p("ccw", "Left"),
+			p("180", "180°"),
+			p("flip_h", "Mirror"),
+			p("flip_v", "Flip"),
+		];
+		const SPEED: &[Preset] = &[p("2", "2×"), p("1.5", "1.5×"), p("4", "4×"), p("0.5", "0.5×")];
+		const FADE: &[Preset] = &[p("both", "Both"), p("in", "In"), p("out", "Out")];
+		const VOLUME: &[Preset] = &[p("+6", "+6 dB"), p("+3", "+3 dB"), p("-3", "−3 dB"), p("-6", "−6 dB")];
+		const CHANNELS: &[Preset] = &[p("mono", "Mono"), p("stereo", "Stereo")];
+		const SNAPSHOT: &[Preset] = &[p("middle", "Middle"), p("first", "First"), p("every", "Every 10 s")];
+		const IMG_META: &[Preset] = &[p("all", "Remove all"), p("location", "Location"), CUSTOM];
+		const AUD_META: &[Preset] = &[CUSTOM, p("all", "Remove all")];
+		const SORT: &[Preset] = &[
+			p("az", "A to Z"),
+			p("za", "Z to A"),
+			p("number", "Numbers"),
+			p("length", "Length"),
+		];
+		const CASE: &[Preset] = &[
+			p("title", "Title"),
+			p("upper", "UPPER"),
+			p("lower", "lower"),
+			p("sentence", "Sentence"),
+		];
+		const ENDINGS: &[Preset] = &[p("crlf", "Windows"), p("lf", "Unix")];
+		const INDENT: &[Preset] = &[p("tabs", "Tabs"), p("2", "2 spaces"), p("4", "4 spaces")];
+		const SPLIT_TEXT: &[Preset] = &[
+			p("1000", "1,000 lines"),
+			p("100", "100 lines"),
+			p("10000", "10,000 lines"),
+		];
+		const SPLIT_ARCHIVE: &[Preset] = &[p("25", "25 MB"), p("100", "100 MB"), p("1000", "1 GB")];
+		const HASH: &[Preset] = &[
+			p("sha256", "SHA-256"),
+			p("md5", "MD5"),
+			p("sha1", "SHA-1"),
+			p("check", "Compare"),
+		];
+		const COMBINE: &[Preset] = &[
+			p("grid", "Grid"),
+			p("row", "Side by side"),
+			p("column", "Stacked"),
+			p("gif", "GIF"),
+			CUSTOM,
+		];
+		const ICON_SIZES: &[Preset] = &[
+			p("all", "All sizes"),
+			p("256", "256"),
+			p("512", "512"),
+			p("1024", "1024"),
+		];
+		match (self, kind) {
+			(Op::Compress, Some(Kind::Video)) => VID_COMPRESS,
+			(Op::Compress, Some(Kind::Audio)) => AUD_COMPRESS,
+			(Op::Compress, _) => IMG_COMPRESS,
+			(Op::Resize, Some(Kind::Video)) => VID_RESIZE,
+			(Op::Resize, _) => IMG_RESIZE,
+			(Op::Rotate, _) => ROTATE,
+			(Op::Speed, _) => SPEED,
+			(Op::Fade, _) => FADE,
+			(Op::Volume, _) => VOLUME,
+			(Op::Channels, _) => CHANNELS,
+			(Op::Snapshot, _) => SNAPSHOT,
+			(Op::Metadata, Some(Kind::Audio)) => AUD_META,
+			(Op::Metadata, _) => IMG_META,
+			(Op::SortLines, _) => SORT,
+			(Op::ChangeCase, _) => CASE,
+			(Op::LineEndings, _) => ENDINGS,
+			(Op::Indent, _) => INDENT,
+			(Op::Split, Some(Kind::Archive)) => SPLIT_ARCHIVE,
+			(Op::Split, _) => SPLIT_TEXT,
+			(Op::Hash, _) => HASH,
+			(Op::Combine, _) => COMBINE,
+			(Op::IconSet, _) => ICON_SIZES,
+			_ => &[],
+		}
+	}
+
+	/// Stable name for settings, usage counts and editor messages.
+	pub fn id(self) -> String {
+		match self {
+			Op::Convert(f) => format!("to-{}", f.id()),
+			o => {
+				let s = serde_json::to_value(o).ok();
+				s.and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default()
+			}
+		}
+	}
+
+	pub fn from_id(id: &str) -> Option<Op> {
+		if let Some(f) = id.strip_prefix("to-") {
+			return Format::from_id(f).map(Op::Convert);
+		}
+		serde_json::from_value(serde_json::Value::String(id.into())).ok()
 	}
 }
 
-const IMAGE_TARGETS: &[Format] = &[
-	Format::Png,
-	Format::Jpg,
-	Format::Webp,
-	Format::Avif,
-	Format::Gif,
-	Format::Tiff,
-	Format::Bmp,
-	Format::Ico,
-];
-const AUDIO_TARGETS: &[Format] = &[
-	Format::Mp3,
-	Format::M4a,
-	Format::Wav,
-	Format::Flac,
-	Format::Ogg,
-	Format::Opus,
-];
-const VIDEO_TARGETS: &[Format] = &[
-	Format::Mp4,
-	Format::Mov,
-	Format::Mkv,
-	Format::Webm,
-	Format::Avi,
-	Format::Gif,
-	Format::Mp3,
-];
-const SUBTITLE_TARGETS: &[Format] = &[Format::Srt, Format::Vtt, Format::Txt];
-const ARCHIVE_TARGETS: &[Format] = &[Format::Zip, Format::SevenZ, Format::Tar, Format::Tgz];
+/// Formats a kind of file can become, best first.
+fn targets(kind: Kind, exts: &[String]) -> Vec<Format> {
+	use Format::*;
+	let all = |e: &str| exts.iter().all(|x| x == e);
+	let any_of = |list: &[&str]| exts.iter().all(|x| list.contains(&x.as_str()));
+	match kind {
+		Kind::Image if all("gif") => vec![Mp4, Webm, Png, Jpg, Webp],
+		Kind::Image => vec![Png, Jpg, Webp, Avif, Gif, Tiff, Bmp, Ico, Tga, Qoi],
+		Kind::Icon if any_of(&["svg", "svgz"]) => vec![Png, Ico, Icns, Webp, Jpg],
+		Kind::Icon => vec![Png, Ico, Icns, Webp, Jpg],
+		Kind::Video => vec![Mp4, Mov, Mkv, Webm, Gif, Mp3, Avi, Wmv, M4a, Wav],
+		Kind::Audio => vec![Mp3, M4a, Wav, Flac, Ogg, Opus, Aiff, Wma, M4r],
+		Kind::Text
+			if any_of(&[
+				"csv", "tsv", "psv", "json", "jsonl", "ndjson", "geojson", "yaml", "yml", "toml", "xml", "plist",
+			]) =>
+		{
+			vec![Json, Csv, Yaml, Xml, Toml, Tsv, Jsonl]
+		}
+		Kind::Text if any_of(&["ini", "cfg", "conf", "properties", "env"]) => vec![Json, Yaml, Toml],
+		Kind::Text if any_of(&["md", "markdown", "mdown", "mkd"]) => vec![Html, Txt],
+		Kind::Text if any_of(&["html", "htm", "xhtml"]) => vec![Md, Txt],
+		Kind::Text if any_of(&["srt", "vtt", "ass", "ssa", "sub"]) => vec![Srt, Vtt, Txt],
+		Kind::Text if any_of(&["rtf"]) => vec![Txt, Md, Html],
+		Kind::Text => vec![Md, Html, Txt],
+		Kind::Code if any_of(&["json"]) => vec![Yaml, Toml, Xml, Csv],
+		Kind::Code => vec![Png, Html, Md, Txt],
+		Kind::Archive => vec![Zip, SevenZ, Tgz, Txz, Tar, Tbz2, Tzst],
+		Kind::Folder | Kind::Program | Kind::Other => vec![Zip, SevenZ, Tgz, Txz, Tar],
+	}
+}
 
-pub const MAX_SLICES: usize = 8;
+fn tools(kind: Option<Kind>, count: usize, exts: &[String]) -> Vec<Op> {
+	use Op::*;
+	let many = count > 1;
+	let any_of = |list: &[&str]| exts.iter().all(|x| list.contains(&x.as_str()));
+	let mut t = match kind {
+		Some(Kind::Image) => {
+			let mut t = vec![
+				Crop,
+				AddBackground,
+				RemoveBackground,
+				Compress,
+				Resize,
+				Adjust,
+				Annotate,
+				Redact,
+				Rotate,
+				Metadata,
+				MakeIcon,
+				Trace,
+			];
+			if many {
+				t.insert(0, Combine);
+			}
+			t
+		}
+		Some(Kind::Video) => {
+			let mut t = vec![
+				Trim,
+				Compress,
+				MakeGif,
+				Resize,
+				Crop,
+				Speed,
+				Snapshot,
+				Mute,
+				ExtractAudio,
+				Rotate,
+				Reverse,
+			];
+			if many {
+				t.insert(0, Join);
+			}
+			t
+		}
+		Some(Kind::Audio) => {
+			let mut t = vec![
+				Trim,
+				Fade,
+				Normalize,
+				Compress,
+				Volume,
+				Speed,
+				Metadata,
+				Ringtone,
+				Channels,
+				RemoveSilence,
+				Reverse,
+			];
+			if many {
+				t.insert(0, Join);
+			}
+			t
+		}
+		Some(Kind::Icon) if any_of(&["svg", "svgz"]) => vec![WindowsIcon, Favicon, IconSet, MacIcon, Minify],
+		Some(Kind::Icon) => vec![ExtractIcons, IconSet, Favicon, WindowsIcon, MacIcon],
+		Some(Kind::Program) => vec![ExtractIcons],
+		Some(Kind::Text) => {
+			let mut t = vec![ReadAloud];
+			if any_of(&[
+				"json", "jsonl", "ndjson", "geojson", "xml", "plist", "yaml", "yml", "toml", "html", "htm", "csv",
+			]) {
+				t.extend([Pretty, Minify]);
+			}
+			t.extend([ToUtf8, CleanUp, SortLines, Dedupe, ChangeCase, LineEndings, Split]);
+			if many {
+				t.insert(0, Merge);
+			}
+			t
+		}
+		Some(Kind::Code) => {
+			let mut t = vec![CodeImage, CopyMarkdown];
+			if any_of(&[
+				"json", "css", "scss", "less", "html", "htm", "xml", "sql", "js", "mjs", "cjs", "vue", "svelte",
+				"astro",
+			]) {
+				t.extend([Pretty, Minify]);
+			}
+			t.extend([Indent, LineEndings, CleanUp, ToUtf8]);
+			if many {
+				t.push(Merge);
+			}
+			t
+		}
+		Some(Kind::Archive) => vec![Extract, Contents, Test, Protect, Split],
+		Some(Kind::Folder) => vec![Protect],
+		_ => Vec::new(),
+	};
+	if kind != Some(Kind::Archive) {
+		t.push(Zip);
+	}
+	t
+}
 
-/// The slices a wheel shows for these files, in order.
+/// The slices a wheel shows for these files, in order. The wheel pages through more than eight.
 pub fn choices(wheel: Wheel, paths: &[impl AsRef<Path>]) -> Vec<Op> {
 	if paths.is_empty() {
 		return Vec::new();
 	}
 	let kind = common_kind(paths);
 	let exts: Vec<String> = paths.iter().map(|p| ext_of(p.as_ref())).collect();
-	let not_same = |f: &&Format| !exts.iter().all(|e| f.same_as(e));
-
-	let mut ops: Vec<Op> = match wheel {
+	match wheel {
 		Wheel::Convert => {
-			let targets: Vec<Format> = match kind {
-				Some(Kind::Image) => {
-					let mut t: Vec<Format> = IMAGE_TARGETS.iter().filter(not_same).copied().collect();
-					// an animated GIF is more useful as a video than as an icon
-					if exts.iter().all(|e| e == "gif") {
-						t.retain(|f| *f != Format::Ico);
-						t.push(Format::Mp4);
-					}
-					t
-				}
-				Some(Kind::Audio) => AUDIO_TARGETS.iter().filter(not_same).copied().collect(),
-				Some(Kind::Video) => VIDEO_TARGETS.iter().filter(not_same).copied().collect(),
-				Some(Kind::Subtitle) => SUBTITLE_TARGETS.iter().filter(not_same).copied().collect(),
-				Some(Kind::Archive) => ARCHIVE_TARGETS.iter().filter(not_same).copied().collect(),
-				Some(Kind::Folder) | Some(Kind::Other) | None => ARCHIVE_TARGETS.to_vec(),
+			let not_same = |f: &Format| !exts.iter().all(|e| f.same_as(e));
+			let fs = match kind {
+				Some(k) => targets(k, &exts),
+				None => targets(Kind::Other, &exts),
 			};
-			targets.into_iter().map(Op::Convert).collect()
+			fs.into_iter().filter(not_same).map(Op::Convert).collect()
 		}
-		Wheel::Tools => {
-			let mut t = match kind {
-				Some(Kind::Image) => vec![
-					Op::CompressImage,
-					Op::HalfSize,
-					Op::FitHd,
-					Op::Rotate,
-					Op::StripMetadata,
-				],
-				Some(Kind::Video) => {
-					vec![Op::CompressVideo, Op::Video720, Op::Mute, Op::ExtractAudio]
-				}
-				Some(Kind::Audio) => vec![Op::CompressAudio, Op::Normalize],
-				Some(Kind::Archive) => vec![Op::Extract],
-				_ => Vec::new(),
-			};
-			t.push(Op::Zip);
-			t
+		Wheel::Tools => tools(kind, paths.len(), &exts),
+		Wheel::Actions => {
+			let mut a = vec![Op::Copy, Op::CopyPath, Op::MoveTo, Op::Share, Op::Float];
+			if paths.iter().all(|p| !p.as_ref().is_dir()) {
+				a.push(Op::Hash);
+			}
+			if paths
+				.iter()
+				.any(|p| matches!(kind_of(p.as_ref()), Kind::Folder | Kind::Code))
+			{
+				a.push(Op::Terminal);
+			}
+			a
 		}
-		Wheel::Actions => vec![Op::CopyPath, Op::CopyFile, Op::Terminal, Op::Reveal],
-	};
-	ops.truncate(MAX_SLICES);
-	ops
-}
-
-/// Whether a wheel has anything for these files.
-pub fn has_choices(wheel: Wheel, paths: &[impl AsRef<Path>]) -> bool {
-	!choices(wheel, paths).is_empty()
+	}
 }
 
 /// Kind used to pick icons and wording for a whole selection.
@@ -301,6 +656,14 @@ pub fn selection_kind(paths: &[impl AsRef<Path>]) -> Option<Kind> {
 	match paths {
 		[one] => Some(kind_of(one.as_ref())),
 		_ => common_kind(paths),
+	}
+}
+
+/// A short word for the selection's format, like "HEIC" or "3 PNGs", for the wheel's centre.
+pub fn selection_badge(paths: &[impl AsRef<Path>]) -> String {
+	match common_ext(paths) {
+		Some(e) if !e.is_empty() => e.to_uppercase(),
+		_ => String::new(),
 	}
 }
 
@@ -318,20 +681,22 @@ mod tests {
 		let ops = choices(Wheel::Convert, &p(&["photo.JPEG"]));
 		assert!(!ops.contains(&Op::Convert(Format::Jpg)));
 		assert!(ops.contains(&Op::Convert(Format::Png)));
-		assert!(ops.len() <= MAX_SLICES);
-	}
-
-	#[test]
-	fn heic_gets_every_image_target() {
-		let ops = choices(Wheel::Convert, &p(&["IMG_0001.HEIC"]));
-		assert_eq!(ops.len(), IMAGE_TARGETS.len());
 	}
 
 	#[test]
 	fn gif_can_become_a_video() {
 		let ops = choices(Wheel::Convert, &p(&["funny.gif"]));
-		assert!(ops.contains(&Op::Convert(Format::Mp4)));
+		assert_eq!(ops[0], Op::Convert(Format::Mp4));
 		assert!(!ops.contains(&Op::Convert(Format::Gif)));
+	}
+
+	#[test]
+	fn data_files_convert_into_each_other() {
+		let ops = choices(Wheel::Convert, &p(&["rows.csv"]));
+		assert!(ops.contains(&Op::Convert(Format::Json)));
+		assert!(!ops.contains(&Op::Convert(Format::Csv)));
+		let ops = choices(Wheel::Convert, &p(&["README.md"]));
+		assert_eq!(ops[0], Op::Convert(Format::Html));
 	}
 
 	#[test]
@@ -341,23 +706,39 @@ mod tests {
 	}
 
 	#[test]
-	fn tools_always_end_with_zip() {
-		for files in [p(&["a.mp4"]), p(&["a.txt"]), p(&["a.png", "b.png"])] {
-			assert_eq!(choices(Wheel::Tools, &files).last(), Some(&Op::Zip));
+	fn several_files_can_be_joined() {
+		assert_eq!(choices(Wheel::Tools, &p(&["a.mp4", "b.mp4"]))[0], Op::Join);
+		assert_eq!(choices(Wheel::Tools, &p(&["a.png", "b.png"]))[0], Op::Combine);
+		assert!(!choices(Wheel::Tools, &p(&["a.mp4"])).contains(&Op::Join));
+	}
+
+	#[test]
+	fn every_kind_has_tools_and_zip_ends_them() {
+		for f in ["a.png", "a.mp4", "a.mp3", "a.ico", "a.txt", "a.rs", "a.exe"] {
+			let t = choices(Wheel::Tools, &p(&[f]));
+			assert!(t.len() >= 2, "{f}");
+			assert_eq!(t.last(), Some(&Op::Zip), "{f}");
 		}
+		assert!(!choices(Wheel::Tools, &p(&["a.zip"])).contains(&Op::Zip));
 	}
 
 	#[test]
-	fn actions_for_anything() {
-		assert_eq!(choices(Wheel::Actions, &p(&["x.bin"])).len(), 4);
-		let none: Vec<PathBuf> = Vec::new();
-		assert!(choices(Wheel::Actions, &none).is_empty());
+	fn terminal_only_for_folders_and_code() {
+		assert!(!choices(Wheel::Actions, &p(&["x.png"])).contains(&Op::Terminal));
+		assert!(choices(Wheel::Actions, &p(&["main.rs"])).contains(&Op::Terminal));
 	}
 
 	#[test]
-	fn same_archive_format_is_not_offered() {
-		let ops = choices(Wheel::Convert, &p(&["backup.tar.gz"]));
-		assert!(!ops.contains(&Op::Convert(Format::Tgz)));
-		assert!(ops.contains(&Op::Convert(Format::Zip)));
+	fn ids_round_trip() {
+		for op in [Op::Crop, Op::RemoveBackground, Op::Convert(Format::Tgz), Op::CopyPath] {
+			assert_eq!(Op::from_id(&op.id()), Some(op), "{op:?}");
+		}
+		assert_eq!(Op::RemoveBackground.id(), "remove_background");
+	}
+
+	#[test]
+	fn presets_exist_for_ring_tools() {
+		assert!(!Op::Compress.presets(Some(Kind::Video)).is_empty());
+		assert!(Op::Crop.presets(Some(Kind::Image)).is_empty());
 	}
 }
