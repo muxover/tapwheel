@@ -55,7 +55,6 @@ pub struct Web {
 	pub files: Arc<Mutex<HashMap<String, PathBuf>>>,
 	pub mail: Arc<Mutex<Mailbox>>,
 	main: usize,
-	next: u64,
 	pub scratch: PathBuf,
 }
 
@@ -68,21 +67,8 @@ impl Web {
 			files: Arc::new(Mutex::new(HashMap::new())),
 			mail: Arc::new(Mutex::new(Mailbox::default())),
 			main: 0,
-			next: 1,
 			scratch: std::env::temp_dir().join("TapWheel").join("web"),
 		}
-	}
-
-	/// A URL the page can load a file from, without exposing the file system.
-	pub fn share_file(&mut self, path: &std::path::Path) -> String {
-		let token = format!("f{}", self.next);
-		self.next += 1;
-		self.files.lock().unwrap().insert(token.clone(), path.to_path_buf());
-		let name = path
-			.file_name()
-			.map(|n| n.to_string_lossy().into_owned())
-			.unwrap_or_default();
-		format!("tapwheel://localhost/file/{token}/{}", urlencode(&name))
 	}
 
 	pub fn get(&self, hwnd: HWND) -> Option<&WebWin> {
@@ -108,7 +94,8 @@ impl Web {
 	}
 }
 
-fn urlencode(s: &str) -> String {
+/// Percent-encodes a file name for the last part of a page URL.
+pub fn urlencode(s: &str) -> String {
 	s.bytes()
 		.map(|b| match b {
 			b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),

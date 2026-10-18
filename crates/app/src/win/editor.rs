@@ -98,7 +98,7 @@ impl App {
 			static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1_000_000);
 			let token = format!("p{}", NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
 			files_map.lock().unwrap().insert(token.clone(), path.to_path_buf());
-			format!("tapwheel://localhost/file/{token}/{}", file_name(path))
+			format!("tapwheel://localhost/file/{token}/{}", web::urlencode(&file_name(path)))
 		};
 		std::thread::spawn(move || {
 			let never = AtomicBool::new(false);

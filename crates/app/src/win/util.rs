@@ -164,30 +164,6 @@ pub fn push_layered_alpha(hwnd: HWND, pm: &Pixmap, x: i32, y: i32, alpha: u8) {
 	}
 }
 
-/// Paints an opaque frame into a window's client area during WM_PAINT.
-pub fn paint_pixmap(hdc: HDC, pm: &Pixmap) {
-	let (w, h) = (pm.width() as i32, pm.height() as i32);
-	let bgra = tapwheel_ui::draw::to_bgra(pm);
-	let bi = bitmap_info(w, h);
-	unsafe {
-		StretchDIBits(
-			hdc,
-			0,
-			0,
-			w,
-			h,
-			0,
-			0,
-			w,
-			h,
-			bgra.as_ptr() as *const c_void,
-			&bi,
-			DIB_RGB_COLORS,
-			SRCCOPY,
-		);
-	}
-}
-
 pub fn get_x(l: isize) -> i32 {
 	(l & 0xffff) as i16 as i32
 }
