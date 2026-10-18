@@ -206,6 +206,7 @@ impl Jobs {
 
 	/// A note that failed, shown in the error colour.
 	pub fn problem(&mut self, op: Op, kind: Option<Kind>, inputs: &[PathBuf], text: String) -> u64 {
+		super::log::write(&format!("{op:?}: {text}"));
 		let mut b = Self::blank(op, kind, inputs);
 		b.note = Some(text);
 		b.state = State::Failed;
@@ -341,6 +342,7 @@ impl Jobs {
 							.and_then(|p| p.file_name())
 							.map(|n| n.to_string_lossy().into_owned())
 							.unwrap_or_default();
+						super::log::write(&format!("{op:?} on {name}: {e}"));
 						failed_inputs.extend(job.inputs.iter().cloned());
 						failures.push(if jobs.len() > 1 {
 							format!("{name}: {e}")

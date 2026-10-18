@@ -505,6 +505,11 @@ impl App {
 		}
 		hooks::WHEEL_OPEN.store(true, std::sync::atomic::Ordering::Relaxed);
 		self.draw_wheel();
+		// how long the wheel takes to appear, for finding slow spots on real PCs
+		let took = self.wheel.opened.elapsed().as_millis();
+		if took > 60 {
+			super::log::write(&format!("slow: the wheel took {took} ms to open"));
+		}
 		unsafe {
 			if mode == Mode::Pick {
 				ShowWindow(self.wheel_hwnd, SW_SHOW);

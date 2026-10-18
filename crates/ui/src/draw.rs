@@ -356,10 +356,9 @@ fn fill_rounded(pm: &mut Pixmap, core: &Path, corner: f32, c: Rgba) {
 	);
 }
 
-/// Three box-blur passes, close to a gaussian, on premultiplied pixels.
 /// Windows 11 Acrylic over an already blurred backdrop: a luminosity layer that keeps the
-/// colours behind but takes the tint's brightness, the tint itself, then fine noise. Values are
-/// WinUI's default acrylic for each theme.
+/// colours behind but takes the tint's brightness, then the tint itself. Values are WinUI's
+/// default acrylic for each theme.
 pub fn acrylic(pm: &mut Pixmap, dark: bool) {
 	let (tint, tint_opacity, lum_opacity) = if dark {
 		([0x2c as f32, 0x2c as f32, 0x2c as f32], 0.15, 0.96)
@@ -395,6 +394,7 @@ pub fn acrylic(pm: &mut Pixmap, dark: bool) {
 	}
 }
 
+/// Three box-blur passes, close to a gaussian, on premultiplied pixels.
 pub fn blur(pm: &mut Pixmap, radius: usize) {
 	if radius == 0 {
 		return;
@@ -453,8 +453,8 @@ pub fn ease_back(t: f32) -> f32 {
 	1.0 + (c + 1.0) * (t - 1.0).powi(3) + c * (t - 1.0).powi(2)
 }
 
-/// Windows 11 acrylic from a quarter-size copy of the screen: blurred, tinted, scaled up to
-/// `w` × `h`, then a fine grain at full size (grain added before scaling up turns into blotches).
+/// Windows 11 acrylic from a quarter-size copy of the screen: blurred, tinted and scaled up to
+/// `w` × `h`. No grain: on a wheel this small it only ever read as dirt.
 pub fn frost(mut small: Pixmap, w: u32, h: u32, dark: bool) -> Option<Pixmap> {
 	// about Windows' 30 px acrylic blur once scaled back up
 	blur(&mut small, 8);
@@ -473,19 +473,5 @@ pub fn frost(mut small: Pixmap, w: u32, h: u32, dark: bool) -> Option<Pixmap> {
 		Transform::from_scale(w as f32 / sw, h as f32 / sh),
 		None,
 	);
-	grain(&mut full);
 	Some(full)
-}
-
-/// Acrylic's noise: about 1.5% either way per pixel, the same every time for the same pixel.
-fn grain(pm: &mut Pixmap) {
-	let w = pm.width() as usize;
-	for (i, px) in pm.data_mut().as_chunks_mut::<4>().0.iter_mut().enumerate() {
-		let (x, y) = ((i % w) as u32, (i / w) as u32);
-		let hsh = (x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663)).wrapping_mul(2_654_435_761);
-		let noise = ((hsh >> 24) as f32 / 255.0 - 0.5) * 0.03 * 255.0;
-		for v in &mut px[..3] {
-			*v = (*v as f32 + noise).round().clamp(0.0, 255.0) as u8;
-		}
-	}
 }

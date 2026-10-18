@@ -7,6 +7,10 @@ export function send(cmd, data = {}) {
 	window.ipc.postMessage(JSON.stringify({ cmd, ...data }));
 }
 
+// errors in a page go to the app's log, where they can be found later
+addEventListener("error", (e) => send("log", { text: `${e.message} at ${e.filename}:${e.lineno}` }));
+addEventListener("unhandledrejection", (e) => send("log", { text: `unhandled: ${e.reason?.message || e.reason}` }));
+
 /** The app calls this with every message for the page. */
 TW.receive = (msg) => {
 	switch (msg.type) {
