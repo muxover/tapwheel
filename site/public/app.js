@@ -1,3 +1,13 @@
+// Reduced motion: the video stays on its poster until someone presses play.
+(() => {
+	const v = document.getElementById("video");
+	if (v && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+		v.removeAttribute("autoplay");
+		v.pause();
+		v.controls = true;
+	}
+})();
+
 // The hero demo: drag the photo, tap a key, drop it on the wheel.
 (() => {
 	const stage = document.getElementById("stage");
