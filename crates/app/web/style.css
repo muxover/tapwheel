@@ -657,3 +657,99 @@ kbd {
 [hidden] {
 	display: none !important;
 }
+
+/* backdrop choices: swatches, your own picture and any colour */
+.backdrops {
+	display: grid;
+	gap: 8px;
+}
+
+.btn.wide {
+	width: 100%;
+	justify-content: flex-start;
+	gap: 8px;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.btn.has-picture {
+	color: #fff;
+	background-size: cover;
+	background-position: center;
+}
+
+.btn[aria-pressed="true"] {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.cp {
+	display: grid;
+	gap: 8px;
+}
+
+.cp-body {
+	display: grid;
+	gap: 8px;
+}
+
+.cp-body[hidden] {
+	display: none;
+}
+
+.cp-square {
+	position: relative;
+	height: 132px;
+	border-radius: var(--radius-s, 4px);
+	background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent);
+	cursor: crosshair;
+	touch-action: none;
+}
+
+.cp-square:focus-visible {
+	outline: 2px solid var(--text);
+	outline-offset: 2px;
+}
+
+.cp-dot {
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	margin: -7px 0 0 -7px;
+	border-radius: 50%;
+	border: 2px solid #fff;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+	pointer-events: none;
+}
+
+.cp-hue {
+	width: 100%;
+	height: 14px;
+	-webkit-appearance: none;
+	appearance: none;
+	border-radius: 7px;
+	background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+
+.cp-hue::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.cp-chip {
+	flex: none;
+	width: 20px;
+	height: 20px;
+	border-radius: 4px;
+	border: 1px solid var(--stroke-strong);
+}
+
+.cp-hex {
+	flex: 1;
+	min-width: 0;
+	font-family: "Cascadia Mono", Consolas, monospace;
+}
