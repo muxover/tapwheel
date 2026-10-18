@@ -27,6 +27,8 @@
 		combine: { tool: "combine", kind: "image", files: ["photo", "plant"] },
 		protect: { tool: "protect", kind: "folder", files: ["folder"] },
 		contents: { tool: "contents", kind: "archive", files: ["album"] },
+		rename: { tool: "rename", kind: "image", files: ["photo", "plant"] },
+		info: { tool: "info", kind: "image", files: ["photo"] },
 	};
 	const LABELS = {
 		crop: ["Crop", "Cut to a size or shape"],
@@ -43,6 +45,8 @@
 		combine: ["Combine", "Lay them out in one picture"],
 		protect: ["Password", "Lock it with a password"],
 		contents: ["Contents", "See what's inside"],
+		rename: ["Rename", "New names, one or many"],
+		info: ["File info", "Size, real type and details"],
 	};
 	const setup = TOOLS[id] || TOOLS.crop;
 	const base = "/try/";
@@ -81,6 +85,7 @@
 			const files = setup.files.map((k, index) => {
 				const p = k === "folder" ? {} : { ...d.prepared[k] };
 				for (const key of ["url", "filmstrip"]) if (p[key]) p[key] = base + p[key];
+				if (setup.tool === "info") return { index, info: details(d.files[k], p) };
 				return { index, ...p };
 			});
 			receive({ type: "prepared", files });
@@ -281,6 +286,46 @@
 		}
 	}
 
+	// what File info shows for a sample, worked out the way the app does
+	function details(f, p) {
+		const ext = f.ext.toUpperCase() === "JPEG" ? "JPG" : f.ext.toUpperCase();
+		const day = Date.UTC(2026, 9, 12, 9, 41) / 1000;
+		return { name: f.name, folder: "C:\\Users\\you\\Pictures", size: f.size, kind: setup.kind, named: ext, actual: ext, matches: true, created: day, modified: day + 3600, items: null, unpacked: null, width: p.width || null, height: p.height || null, duration: null, video: null, audio: null, fps: null, lines: null, words: null };
+	}
+
+	// Rename's preview, following crates/core/src/files.rs
+	const RESERVED = /^(con|prn|aux|nul|com\d|lpt\d)$/i;
+	const SMALL = new Set(["a", "an", "and", "as", "at", "but", "by", "for", "in", "of", "on", "or", "the", "to", "vs", "via"]);
+	const cased = (s, c) =>
+		c === "upper" ? s.toUpperCase()
+		: c === "lower" ? s.toLowerCase()
+		: c === "title" ? s.split(" ").map((w, i) => (i && SMALL.has(w.toLowerCase()) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())).join(" ")
+		: c === "sentence" ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+		: s;
+	function renamePlan(rule) {
+		const many = inputs.length > 1;
+		const plan = inputs.map((f, i) => {
+			const dot = f.name.lastIndexOf(".");
+			const ext = dot > 0 ? f.name.slice(dot) : "";
+			let st = rule.base || (dot > 0 ? f.name.slice(0, dot) : f.name);
+			if (rule.find) st = st.split(rule.find).join(rule.replace || "");
+			st = `${rule.prefix || ""}${cased(st, rule.case)}${rule.suffix || ""}`;
+			if (rule.number || (many && rule.base)) st += ` ${String((rule.start || 0) + i).padStart(Math.max(1, rule.pad || 1), "0")}`;
+			const to = st + ext;
+			const bad = /[<>:"/\\|?*\x00-\x1f]/.exec(to);
+			const problem = !st.trim() ? "the name is empty" : bad ? `names can't contain ${bad[0]}` : /[. ]$/.test(to) ? "names can't end with a dot or a space" : RESERVED.test(st) ? `Windows keeps ${st} for itself` : null;
+			return { from: f.name, to, problem };
+		});
+		const seen = new Set();
+		for (const r of plan) {
+			if (r.problem) continue;
+			const k = r.to.toLowerCase();
+			if (seen.has(k)) r.problem = "another file gets this name too";
+			seen.add(k);
+		}
+		return plan;
+	}
+
 	async function apply(msg) {
 		try {
 			const r = await result(msg.recipe, msg.order);
@@ -297,6 +342,16 @@
 			if (msg.cmd === "ready") ready();
 			else if (msg.cmd === "apply") apply(msg);
 			else if (msg.cmd === "close") tell({ type: "close" });
+			else if (msg.cmd === "renamePreview") receive({ type: "renamePlan", items: renamePlan(msg.rule) });
+			else if (msg.cmd === "rename") {
+				const done = renamePlan(msg.rule).filter((r) => r.from !== r.to);
+				tell({ type: "result", name: done.length === 1 ? `Renamed to ${done[0].to}` : `Renamed ${done.length} items`, note: done.map((r) => `${r.from} to ${r.to}`).join(", ") });
+			} else if (msg.cmd === "copyText") {
+				navigator.clipboard?.writeText(msg.text).then(
+					() => receive({ type: "toast", message: `Copied ${msg.what || "it"}` }),
+					() => receive({ type: "error", message: "The browser didn't allow copying here" }),
+				);
+			}
 		},
 	};
 

@@ -1,4 +1,4 @@
-// The homepage: the wheel in motion, the app's real tool windows with sample files, and every
+// The homepage: a wheel to play with, the app's real tool windows with sample files, and every
 // kind of file with what the wheel offers for it (from data/wheel.json, made from the app).
 
 import { demo } from "/app/demo.js";
@@ -15,6 +15,12 @@ const h = (tag, attrs = {}, ...kids) => {
 	}
 	for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid instanceof Node ? kid : String(kid));
 	return el;
+};
+// text written here gets the same line ties as the page: its last words never sit alone
+const tie = (text, words = 2) => {
+	const parts = String(text).split(" ");
+	if (parts.length <= words) return parts.join("\u00a0");
+	return `${parts.slice(0, -words).join(" ")} ${parts.slice(-words).join("\u00a0")}`;
 };
 const icon = (name, size = 20) => {
 	const d = icons[name];
@@ -50,7 +56,77 @@ for (const seg of document.querySelectorAll("[data-look]")) {
 	});
 }
 
-$("#hero-demo")?.append(demo());
+// the hero's wheels are the real ones for a photo; what each drop would do, in the app's words
+const MOVE_TO = ["Desktop", "Documents", "Choose"];
+function heroScenes(k) {
+	const file = { name: k.sample, kind: "image", tint: ["#ffc178", "#e8506f"] };
+	const ext = k.sample.split(".").pop();
+	const slice = (t) => ({ id: t.id, label: t.label, icon: t.icon, desc: t.desc, window: t.window, ring: t.id === "move_to" ? MOVE_TO : t.ring.length ? t.ring : undefined });
+	const paged = (list) => {
+		const all = list.map(slice);
+		if (all.length <= 8) return [all];
+		const pages = [];
+		for (let i = 0; i < all.length; i += 7) pages.push(all.slice(i, i + 7));
+		return pages;
+	};
+	const scene = (key, list, pickId, ringPick, done) => {
+		const pages = paged(list);
+		const pick = Math.max(0, pages[0].findIndex((t) => t.id === pickId));
+		return { key, file, pages, slices: pages[0], more: pages.length > 1, pick, ringPick, running: key === 1 ? { title: pages[0][pick].desc, detail: k.sample, icon: pages[0][pick].icon } : null, done, work: key === 1 ? 900 : 0 };
+	};
+	return [
+		scene(0, k.convert, "to-jpg", undefined, { title: "photo.jpg", detail: "Saved next to photo.heic", icon: "" }),
+		scene(1, k.tools, "compress", 0, { title: "photo-small.jpg", detail: "Saved next to photo.heic", icon: "arrow_minimize" }),
+		scene(2, k.actions, "copy_path", 1, { title: "Copied the name", detail: "photo.heic", icon: "link" }),
+	].map((sc) => ({ ...sc, ext }));
+}
+
+function heroDone(key, sl, ring) {
+	const name = "photo.heic";
+	if (key === 0) return { title: `photo.${sl.label.toLowerCase()}`, detail: tie(`Saved next to ${name}`), icon: "checkmark_circle", work: 700, running: sl.desc };
+	if (sl.window) return { title: `The ${sl.label} window opens`, detail: "You can try it further down", icon: sl.icon };
+	const said = {
+		copy: ["Copied 1 item, ready to paste", name],
+		copy_path: [`Copied the ${(ring || "Path").toLowerCase()}`, name],
+		move_to: [ring === "Choose" ? "A folder picker opens" : `Moved to ${ring || "a folder"}`, name],
+		duplicate: ["photo - Copy.heic", "Saved next to the original"],
+		share: ["The Windows share sheet opens", name],
+		float: ["Floating on screen", "Drag it out again whenever you need it"],
+		hash: [`Copied the ${ring || "SHA-256"} checksum`, name],
+		properties: ["Properties opens", name],
+		open_with: ["Open with opens", name],
+		zip: ["photo.zip", "Saved next to the original"],
+	}[sl.id];
+	if (said) return { title: said[0], detail: said[1], icon: sl.icon };
+	return { title: ring ? `${sl.label}: ${ring}` : sl.label, detail: `The new file lands next to ${name}`, icon: sl.icon, work: 900, running: sl.desc };
+}
+
+function setupHero(data) {
+	const el = $("#hero-demo");
+	if (!el) return;
+	const k = data?.kinds.find((x) => x.id === "images");
+	el.replaceChildren(k ? demo({ scenes: heroScenes(k), play: { done: heroDone, hint: "Hold the photo, then tap Shift, Ctrl or Alt. Or use the keys below." } }) : demo());
+}
+
+// the header marks the section on screen
+function setupNav() {
+	const links = [...document.querySelectorAll('.nav a[href^="#"]')];
+	const sections = links.map((a) => document.querySelector(a.getAttribute("href"))).filter(Boolean);
+	if (!sections.length || !("IntersectionObserver" in window)) return;
+	const shown = new Map();
+	const io = new IntersectionObserver(
+		(es) => {
+			for (const e of es) shown.set(e.target.id, e.isIntersecting);
+			const on = sections.find((x) => shown.get(x.id));
+			for (const a of links) {
+				if (on && a.getAttribute("href") === `#${on.id}`) a.setAttribute("aria-current", "true");
+				else a.removeAttribute("aria-current");
+			}
+		},
+		{ rootMargin: "-45% 0px -50% 0px" },
+	);
+	for (const x of sections) io.observe(x);
+}
 
 const TRY = [
 	["crop", "Crop", "crop", "photo.jpg"],
@@ -70,6 +146,8 @@ const TRY = [
 	["code_image", "Code shot", "code_block", "app.ts"],
 	["protect", "Password", "lock_closed", "album"],
 	["contents", "Archive contents", "archive", "album.zip"],
+	["rename", "Rename", "rename", "2 files"],
+	["info", "File info", "document_search", "photo.jpg"],
 ];
 
 let current = null;
@@ -153,13 +231,13 @@ function setupTry() {
 
 // what each kind's wheel animation picks, and what the app's card says after
 const PICKS = {
-	images: { tool: "compress", ring: 0, done: ["photo-small.jpg", "4.2 MB to 860 KB, 80% smaller"] },
-	video: { tool: "compress", ring: 2, done: ["clip-small.mp4", "84 MB to 24.6 MB, 71% smaller"] },
-	audio: { tool: "compress", ring: 1, done: ["song-small.mp3", "8.2 MB to 3.6 MB, 56% smaller"] },
-	icons: { tool: "windows_icon", done: ["logo.ico", "3.4 KB to 106 KB, every size from 16 to 256"] },
-	text: { tool: "read_aloud", done: ["notes.mp3", "1.2 KB to 640 KB"] },
-	code: { tool: "pretty", done: ["app-pretty.ts", "2.1 KB to 2.4 KB, 14% larger"] },
-	archives: { tool: "extract", done: ["album", "4 files, 1.2 MB"] },
+	images: { tool: "compress", ring: 0, done: ["photo-small.jpg", "Saved next to the original"] },
+	video: { tool: "compress", ring: 2, done: ["clip-small.mp4", "Saved next to the original"] },
+	audio: { tool: "compress", ring: 1, done: ["song-small.mp3", "Saved next to the original"] },
+	icons: { tool: "windows_icon", done: ["logo.ico", "Every size from 16 to 256"] },
+	text: { tool: "read_aloud", done: ["notes.mp3", "Read in a Windows voice"] },
+	code: { tool: "pretty", done: ["app-pretty.ts", "Saved next to the original"] },
+	archives: { tool: "extract", done: ["album", "Unpacked into a folder"] },
 };
 const FILE_LOOK = {
 	images: { kind: "image", tint: ["#7cc8ff", "#4b5bdc"] },
@@ -196,21 +274,24 @@ function chips(list, cls = "chip") {
 	return h("div", { class: "chips" }, list.map((x) => h("span", { class: cls }, x)));
 }
 
-function toolRow(t) {
-	const window = t.window ? h("a", { class: "badge", href: "#try", onclick: (e) => tryTool(e, t) }, "Has a window") : null;
+function toolRow(t, kind) {
+	const id = t.window ? tryFor(kind, t.id) : null;
+	const open = id ? h("a", { class: "try-link", href: "#try", onclick: (e) => tryTool(e, id), "aria-label": `Try the ${t.label} window` }, "Try it") : null;
 	return h(
 		"div",
 		{ class: "tool", role: "listitem" },
 		h("span", { class: "tool-ic" }, icon(t.icon || "document", 20)),
-		h("div", {}, h("div", { class: "tool-name" }, h("strong", {}, t.label), " ", window), h("span", { class: "tool-desc" }, t.desc), t.ring.length ? chips(t.ring.filter((r) => r !== "Custom"), "ring") : null),
+		h("div", { class: "tool-body" }, h("strong", {}, t.label), h("span", { class: "tool-desc" }, tie(t.desc)), t.ring.length ? chips(t.ring.filter((r) => r !== "Custom"), "ring") : null),
+		open,
 	);
 }
 
-const TRY_FOR = { crop: "crop", add_background: "add_background", adjust: "adjust", annotate: "annotate", redact: "redact", trim: "trim", make_gif: "make_gif", combine: "combine", code_image: "code_image", protect: "protect", contents: "contents" };
+// the window to open for a tool, by kind of file where the same tool has its own window
+const TRY_FOR = { crop: "crop", add_background: "add_background", adjust: "adjust", annotate: "annotate", redact: "redact", resize: "resize", compress: "compress", metadata: "metadata", trim: "trim", make_gif: "make_gif", combine: "combine", code_image: "code_image", protect: "protect", contents: "contents", rename: "rename", info: "info" };
+const TRY_BY_KIND = { "video:crop": "crop-video", "audio:trim": "trim-audio", "audio:metadata": "tags", "video:compress": null, "audio:compress": null, "video:resize": null };
+const tryFor = (kind, id) => (`${kind}:${id}` in TRY_BY_KIND ? TRY_BY_KIND[`${kind}:${id}`] : TRY_FOR[id]);
 
-function tryTool(e, t) {
-	const id = TRY_FOR[t.id];
-	if (!id) return;
+function tryTool(e, id) {
 	e.preventDefault();
 	$("#try").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 	openTool(id);
@@ -238,8 +319,8 @@ async function setupKinds(data) {
 				{ class: "kind-lists" },
 				h("div", { class: "kind-block" }, h("h3", {}, `Opens ${reads.length} formats`), chips(reads, "chip ext")),
 				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Shift"), "Convert to"), chips(k.convert.map((c) => c.label))),
-				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Ctrl"), "Tools"), h("div", { class: "tools", role: "list" }, k.tools.map(toolRow))),
-				k.many.length ? h("div", { class: "kind-block" }, h("h3", {}, "With several files"), h("div", { class: "tools", role: "list" }, k.many.map(toolRow))) : null,
+				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Ctrl"), "Tools"), h("div", { class: "tools", role: "list" }, k.tools.map((t) => toolRow(t, k.id)))),
+				k.many.length ? h("div", { class: "kind-block" }, h("h3", {}, "With several files"), h("div", { class: "tools", role: "list" }, k.many.map((t) => toolRow(t, k.id)))) : null,
 				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Alt"), "Actions"), chips(k.actions.map((a) => a.label))),
 			),
 		);
@@ -288,11 +369,14 @@ function setupLooks() {
 
 setupTry();
 setupLooks();
+setupNav();
 applyLook();
 fetch("/data/wheel.json")
 	.then((r) => r.json())
 	.then((data) => {
+		setupHero(data);
 		setupStats(data);
 		setupKinds(data);
+		applyLook();
 	})
-	.catch(() => {});
+	.catch(() => setupHero(null));
