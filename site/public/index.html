@@ -10,7 +10,7 @@
 		<link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
 		<link rel="stylesheet" href="/style.css" />
 		<link rel="stylesheet" href="/app/demo.css" />
-		<meta name="theme-color" content="#0e0f12" />
+		<meta name="theme-color" content="#1c1c1c" />
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="TapWheel" />
 		<meta property="og:title" content="TapWheel: file tools on a drag for Windows" />
@@ -41,9 +41,10 @@
 			<div class="wrap">
 				<a class="brand" href="/" aria-label="TapWheel home"><img src="/favicon.svg" alt="" width="28" height="28" />TapWheel</a>
 				<nav class="nav" aria-label="Sections" data-order="page">
+					<a href="#wheels">Wheels</a>
 					<a href="#try">Try it</a>
-					<a href="#kinds">Tools</a>
-					<a href="#privacy">Privacy</a>
+					<a href="#kinds">Files</a>
+					<a href="#safe">Safety</a>
 					<a href="#faq">FAQ</a>
 				</nav>
 				<a class="button primary" href="#download">Get TapWheel</a>
@@ -56,12 +57,16 @@
 					<div class="hero-copy">
 						<p class="eyebrow">Free for Windows 10 and 11</p>
 						<h1>Drag a file. Tap a key. Drop it on&nbsp;the&nbsp;wheel.</h1>
-						<p class="lead">Convert, crop, trim, compress and remove backgrounds without opening an app. Pictures, video, sound, icons, text, code and archives, all done on your&nbsp;PC.</p>
+						<p class="lead">Convert, crop, trim, compress and remove backgrounds without opening an app. It works on pictures, video, sound, icons, text, code and archives, all on your&nbsp;PC.</p>
 						<div class="actions">
 							<a class="button primary" href="https://apps.microsoft.com/detail/9MW1GB4106VS" data-store>Get it from Microsoft Store <span class="arrow" aria-hidden="true">&rarr;</span></a>
-							<a class="button" href="#try">Try the tools here</a>
+							<a class="button" href="#try">Try the tools</a>
 						</div>
-						<p class="note">Open source under GPL-3.0. Inspired by Tangerine for&nbsp;Mac.</p>
+						<dl class="facts">
+							<div><dt data-stat="reads">200+</dt><dd>formats it opens</dd></div>
+							<div><dt data-stat="tools">70+</dt><dd>tools on three wheels</dd></div>
+							<div><dt>0</dt><dd>uploads or accounts</dd></div>
+						</dl>
 					</div>
 					<div class="hero-demo">
 						<div class="tw-scope" data-tw-scope data-dark data-win11 id="hero-scope">
@@ -81,20 +86,27 @@
 				</div>
 			</div>
 
-			<section class="stats" aria-label="At a glance">
+			<section id="wheels" class="band">
 				<div class="wrap">
-					<div><strong data-stat="reads">200+</strong><span>formats it opens</span></div>
-					<div><strong data-stat="tools">70+</strong><span>tools on the wheels</span></div>
-					<div><strong>0</strong><span>uploads, accounts or ads</span></div>
-					<div><strong>1</strong><span>drag to do any of it</span></div>
+					<div class="split">
+						<div class="section-head">
+							<h2>Three keys, three&nbsp;wheels</h2>
+							<p>Start dragging any file from File Explorer or the desktop, then tap a key. The wheel opens under your pointer with only what fits that file. Drop on a slice and the result shows up on a&nbsp;card.</p>
+						</div>
+						<ol class="wheels">
+							<li><span class="key">Shift</span><div><h3>Convert</h3><p>Pick a format. The new file lands next to the old one, named so nothing gets&nbsp;replaced.</p></div></li>
+							<li><span class="key">Ctrl</span><div><h3>Tools</h3><p>Crop, trim, compress, resize, remove the background and more, for that kind of&nbsp;file.</p></div></li>
+							<li><span class="key">Alt</span><div><h3>Actions</h3><p>Copy, rename, move, share, see what a file really is, or float it on screen for&nbsp;later.</p></div></li>
+						</ol>
+					</div>
 				</div>
 			</section>
 
 			<section id="try">
 				<div class="wrap">
-					<div class="section-head">
+					<div class="section-head wide">
 						<h2>Every tool has its own&nbsp;window</h2>
-						<p>These are TapWheel's real windows, running right here with sample files. Pictures are made in your browser and you can keep them. For video, sound and archives, it tells you exactly what the app would&nbsp;save.</p>
+						<p>These are TapWheel's real windows, running here with sample files. Pictures are made in your browser and you can keep them. For video, sound and archives, the window tells you what the app would&nbsp;save.</p>
 					</div>
 					<div class="try">
 						<div class="try-tools" role="tablist" aria-label="Tool windows" id="try-tools"></div>
@@ -105,16 +117,16 @@
 							</div>
 							<div class="try-card" id="try-card" role="status" aria-live="polite" hidden></div>
 						</div>
-						<p class="try-note" id="try-note">Best with a mouse on a bigger screen. Every window works with the keyboard too.</p>
+						<p class="try-note" id="try-note">Best with a mouse on a bigger screen. Every window works with the keyboard&nbsp;too.</p>
 					</div>
 				</div>
 			</section>
 
-			<section id="kinds">
+			<section id="kinds" class="band">
 				<div class="wrap">
-					<div class="section-head">
+					<div class="section-head wide">
 						<h2>Seven kinds of file, one&nbsp;wheel</h2>
-						<p>The wheel only shows what makes sense for the file you're holding. <span class="key">Shift</span> converts, <span class="key">Ctrl</span> opens the tools, <span class="key">Alt</span> has the actions. More than eight? Roll the mouse wheel or press&nbsp;Tab.</p>
+						<p>The wheel only shows what makes sense for the file you're holding. When there are more than eight tools, roll the mouse wheel or press Tab for the next&nbsp;page.</p>
 					</div>
 					<div class="kinds">
 						<div class="kind-tabs" role="tablist" aria-label="Kinds of file" id="kind-tabs"></div>
@@ -123,98 +135,98 @@
 				</div>
 			</section>
 
-			<section id="windows">
+			<section id="safe">
 				<div class="wrap">
-					<div class="section-head">
+					<div class="split">
+						<div class="section-head">
+							<h2>Nothing leaves your&nbsp;PC</h2>
+							<p>Online converters need a copy of your file. TapWheel doesn't connect to anything, and it takes care with the files already on your&nbsp;disk.</p>
+						</div>
+						<ul class="checks">
+							<li><h3>No uploads</h3><p>Everything runs on your PC, even Remove BG, with a model that ships inside the&nbsp;app.</p></li>
+							<li><h3>Originals stay</h3><p>New files land next to the old one and never replace a file that's already&nbsp;there.</p></li>
+							<li><h3>Checked before it starts</h3><p>A job that can't read its file or would fill the disk says so instead of&nbsp;starting.</p></li>
+							<li><h3>Careful Undo</h3><p>Undo sends the new file to the Recycle Bin, and only if you haven't changed it&nbsp;since.</p></li>
+							<li><h3>No account, no tracking</h3><p>There's nothing to sign in to, and the app has no telemetry, analytics or update&nbsp;checks.</p></li>
+							<li><h3>Photo privacy</h3><p>See every hidden detail in a photo and take the location out before you share&nbsp;it.</p></li>
+						</ul>
+					</div>
+				</div>
+			</section>
+
+			<section id="looks" class="band">
+				<div class="wrap">
+					<div class="section-head wide">
 						<h2>Looks like your&nbsp;Windows</h2>
-						<p>TapWheel follows light and dark, your accent colour and high contrast. Windows 11 gets rounded corners and frosted glass behind the wheel. Windows 10 gets its own flat, square&nbsp;look.</p>
+						<p>TapWheel follows light and dark, your accent colour and high contrast. On Windows 11 the wheel has rounded corners and frosted glass behind it, and on Windows 10 it turns flat and square to match the rest of the&nbsp;system.</p>
 					</div>
 					<div class="looks-grid" id="looks-grid"></div>
 				</div>
 			</section>
 
-			<section id="privacy">
-				<div class="wrap">
-					<div class="section-head">
-						<h2>Nothing leaves your&nbsp;PC</h2>
-						<p>Online converters need a copy of your file. TapWheel doesn't connect to anything at&nbsp;all.</p>
-					</div>
-					<ul class="checks">
-						<li><strong>No uploads</strong>Everything runs on your PC, even Remove BG, with a model that ships inside the&nbsp;app.</li>
-						<li><strong>Originals stay</strong>New files land next to the old one and never replace a file that's already&nbsp;there.</li>
-						<li><strong>No account</strong>Nothing to sign up for, and nothing to sign in&nbsp;to.</li>
-						<li><strong>No tracking</strong>No telemetry, no analytics in the app, no update&nbsp;checks.</li>
-						<li><strong>Undo built in</strong>Every card has Undo, which sends the new file to the Recycle&nbsp;Bin.</li>
-						<li><strong>Photo privacy</strong>See every hidden detail in a photo and take the location out before you share&nbsp;it.</li>
-					</ul>
-				</div>
-			</section>
-
-			<section id="next">
-				<div class="wrap">
-					<div class="section-head">
-						<h2>Coming&nbsp;next</h2>
-						<p>Planned in the open, one version at a&nbsp;time.</p>
-					</div>
-					<ol class="roadmap">
-						<li><span class="ver">0.2</span><div><strong>Copy anything</strong>Copy the text out of pictures and video frames, plus full screen reader&nbsp;support.</div></li>
-						<li><span class="ver">0.3</span><div><strong>Documents</strong>Word, Excel, PowerPoint, Google Docs files and PDFs, with tools made for&nbsp;them.</div></li>
-						<li><span class="ver">0.4</span><div><strong>Local AI</strong>Transcripts for sound and video, and help rewriting text, all on your PC and only where it runs&nbsp;well.</div></li>
-					</ol>
-				</div>
-			</section>
-
 			<section id="faq">
 				<div class="wrap">
-					<div class="section-head">
-						<h2>Questions</h2>
-					</div>
-					<div class="faq">
-						<details>
-							<summary>Is it free?</summary>
-							<p>Yes. TapWheel is free and open source under the GPL-3.0 license. There's no paid version, trial or&nbsp;account.</p>
-						</details>
-						<details>
-							<summary>Why does it watch my&nbsp;keyboard?</summary>
-							<p>To notice a tap of Shift, Ctrl or Alt while you're dragging a file. TapWheel only reacts to those keys, Tab and Esc, never records what you type, and passes every key and click on&nbsp;untouched.</p>
-						</details>
-						<details>
-							<summary>What if I'm not dragging a&nbsp;file?</summary>
-							<p>Then nothing happens. The wheel only opens when what you're dragging is a file or folder, so tapping Shift while you select text is just&nbsp;Shift.</p>
-						</details>
-						<details>
-							<summary>Won't Shift turn my drag into a&nbsp;move?</summary>
-							<p>Not when you drop on the wheel. TapWheel always works on a copy, so the original stays where it was. Dropping anywhere else works the way Windows always&nbsp;does.</p>
-						</details>
-						<details>
-							<summary>Does it need anything else&nbsp;installed?</summary>
-							<p>No. FFmpeg, the Remove BG model and everything else it needs ship inside the app. The tool windows use WebView2, which comes with Windows 10 and&nbsp;11.</p>
-						</details>
-						<details>
-							<summary>Does it work on Windows 10?</summary>
-							<p>Yes, on Windows 10 version 1809 or later and on Windows 11, on 64-bit Intel and AMD&nbsp;PCs.</p>
-						</details>
-						<details>
-							<summary>Why doesn't the wheel open in some&nbsp;windows?</summary>
-							<p>Windows doesn't let normal apps see drags that start in an app running as administrator. Drags from File Explorer and the desktop always&nbsp;work.</p>
-						</details>
-						<details>
-							<summary>Is this Tangerine for Windows?</summary>
-							<p>No. Tangerine is a separate Mac app by another developer. TapWheel borrows the idea of working from a drag and is built from scratch for&nbsp;Windows.</p>
-						</details>
+					<div class="split">
+						<div class="next">
+							<h2>Coming&nbsp;next</h2>
+							<p class="sub">The plan is public in the repo, one version at a&nbsp;time.</p>
+							<ol class="roadmap">
+								<li><span class="ver">0.2</span><div><h3>Copy anything</h3><p>Copy the text out of pictures and video frames, plus full screen reader&nbsp;support.</p></div></li>
+								<li><span class="ver">0.3</span><div><h3>Documents</h3><p>Word, Excel, PowerPoint, Google Docs files and PDFs, with tools made for&nbsp;them.</p></div></li>
+								<li><span class="ver">0.4</span><div><h3>Local AI</h3><p>Transcripts for sound and video, and help rewriting text, on your PC and only where it runs&nbsp;well.</p></div></li>
+							</ol>
+						</div>
+						<div class="faq">
+							<h2>Questions</h2>
+							<details>
+								<summary>Is it free?</summary>
+								<p>Yes. TapWheel is free and open source under the GPL-3.0 license. There's no paid version, trial or&nbsp;account.</p>
+							</details>
+							<details>
+								<summary>Why does it watch my&nbsp;keyboard?</summary>
+								<p>To notice a tap of Shift, Ctrl or Alt while you're dragging a file. TapWheel only reacts to those keys, Tab and Esc, never records what you type, and passes every key and click on&nbsp;untouched.</p>
+							</details>
+							<details>
+								<summary>What if I'm not dragging a&nbsp;file?</summary>
+								<p>Then nothing happens. The wheel only opens when what you're dragging is a file or folder, so tapping Shift while you select text is just&nbsp;Shift.</p>
+							</details>
+							<details>
+								<summary>Won't Shift turn my drag into a&nbsp;move?</summary>
+								<p>Not when you drop on the wheel. TapWheel always works on a copy, so the original stays where it was. Dropping anywhere else works the way Windows always&nbsp;does.</p>
+							</details>
+							<details>
+								<summary>Does it need anything else&nbsp;installed?</summary>
+								<p>No. FFmpeg, the Remove BG model and everything else it needs ship inside the app. The tool windows use WebView2, which comes with Windows 10 and&nbsp;11.</p>
+							</details>
+							<details>
+								<summary>Does it work on Windows&nbsp;10?</summary>
+								<p>Yes, on Windows 10 version 1809 or later and on Windows 11, on 64-bit Intel and AMD&nbsp;PCs.</p>
+							</details>
+							<details>
+								<summary>Why doesn't the wheel open in some&nbsp;windows?</summary>
+								<p>Windows doesn't let normal apps see drags that start in an app running as administrator. Drags from File Explorer and the desktop always&nbsp;work.</p>
+							</details>
+							<details>
+								<summary>Is this Tangerine for&nbsp;Windows?</summary>
+								<p>No. Tangerine is a separate Mac app by another developer. TapWheel borrows the idea of working from a drag and is built from scratch for&nbsp;Windows.</p>
+							</details>
+						</div>
 					</div>
 				</div>
 			</section>
 
 			<section id="download" class="download">
 				<div class="wrap">
-					<div class="section-head">
-						<h2>Get TapWheel</h2>
-						<p>The Microsoft Store version updates itself. The zip runs from any folder and adds a right-click&nbsp;entry.</p>
-					</div>
-					<div class="actions">
-						<a class="button primary" href="https://apps.microsoft.com/detail/9MW1GB4106VS" data-store>Get it from Microsoft Store <span class="arrow" aria-hidden="true">&rarr;</span></a>
-						<a class="button" href="https://github.com/muxover/tapwheel/releases/latest">Download the zip</a>
+					<div class="get">
+						<img src="/favicon.svg" alt="" width="64" height="64" />
+						<div>
+							<h2>Get TapWheel</h2>
+							<p>The Microsoft Store version is signed by Microsoft and updates itself. Developers and testers can also take an unsigned portable zip from&nbsp;GitHub.</p>
+						</div>
+						<div class="actions">
+							<a class="button primary" href="https://apps.microsoft.com/detail/9MW1GB4106VS" data-store>Get it from Microsoft Store <span class="arrow" aria-hidden="true">&rarr;</span></a>
+							<a class="button" href="https://github.com/muxover/tapwheel/releases/latest">Zip for developers</a>
+						</div>
 					</div>
 				</div>
 			</section>
