@@ -192,7 +192,7 @@ pub fn appear(src: &Pixmap, t: f32) -> Pixmap {
 /// Premultiplied RGBA to the premultiplied BGRA a Windows DIB wants.
 pub fn to_bgra(pm: &Pixmap) -> Vec<u8> {
 	let mut out = pm.data().to_vec();
-	for px in out.chunks_exact_mut(4) {
+	for px in out.as_chunks_mut::<4>().0 {
 		px.swap(0, 2);
 	}
 	out

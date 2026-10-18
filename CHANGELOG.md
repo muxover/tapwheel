@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.1.0] - 2026-10-18
 
 ### Added
+
 - Drag a file, tap Shift, Ctrl or Alt, and drop it on the Convert, Tools or Actions wheel.
 - Conversions for images (including HEIC), audio, video, GIF, subtitles and archives, run on the PC by a bundled FFmpeg.
 - Image, video, audio and archive tools, and actions for copying paths and files, opening a terminal and showing items in File Explorer.
