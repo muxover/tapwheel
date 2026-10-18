@@ -70,7 +70,7 @@ Every tool works offline with what ships inside TapWheel (FFmpeg, our own Rust e
 |------|--------------|--------|
 | Crop | | Free or 1:1, 4:3, 3:2, 16:9, 9:16, 4:5; exact W×H; arrow-key nudging; full resolution kept |
 | Add background | | Gradients, colours, any colour, your own picture, blur of the picture itself; padding, corners, shadow, ratio (Auto, 1:1, 16:9, 4:5, 9:16) |
-| Remove background | | Offline AI cut-out to transparent PNG; optional window to refine edges and pick a fill |
+| Remove background | Cut out, Touch up | Offline AI cut-out to transparent PNG; Touch up opens a window with Keep and Remove brushes that can follow edges, edge softness, and a fill behind |
 | Compress | Balanced, Smaller, Best, Custom | Quality, target size in KB, longest edge; result size shown live |
 | Resize | 50%, 1920, 1280, 1080, Custom | Width, height, percent, keep proportions |
 | Adjust | | Exposure, brightness, contrast, gamma, saturation, warmth, hue, sharpen; live preview; reset per slider |

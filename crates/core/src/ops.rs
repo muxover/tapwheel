@@ -419,6 +419,7 @@ impl Op {
 		const FADE: &[Preset] = &[p("both", "Both"), p("in", "In"), p("out", "Out")];
 		const VOLUME: &[Preset] = &[p("+6", "+6 dB"), p("+3", "+3 dB"), p("-3", "−3 dB"), p("-6", "−6 dB")];
 		const CHANNELS: &[Preset] = &[p("mono", "Mono"), p("stereo", "Stereo")];
+		const CUT_OUT: &[Preset] = &[p("quick", "Cut out"), p("custom", "Touch up")];
 		const SNAPSHOT: &[Preset] = &[
 			p("middle", "Middle"),
 			p("first", "First"),
@@ -486,6 +487,7 @@ impl Op {
 			(Op::Volume, _) => VOLUME,
 			(Op::Channels, _) => CHANNELS,
 			(Op::Snapshot, _) => SNAPSHOT,
+			(Op::RemoveBackground, _) => CUT_OUT,
 			(Op::Metadata, Some(Kind::Audio)) => AUD_META,
 			(Op::Metadata, _) => IMG_META,
 			(Op::SortLines, _) => SORT,
