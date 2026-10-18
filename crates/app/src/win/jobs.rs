@@ -191,6 +191,7 @@ impl Jobs {
 				}
 			};
 			let mut failures = Vec::new();
+			let mut produced: Vec<PathBuf> = Vec::new();
 			for job in &jobs {
 				if cancel.load(Ordering::Relaxed) {
 					break;
@@ -209,11 +210,14 @@ impl Jobs {
 					&cancel,
 				);
 				match result {
-					Ok(out) => update(&mut |b| {
-						b.outputs.push(out.output.clone());
-						b.bytes_in += out.bytes_in;
-						b.bytes_out += out.bytes_out;
-					}),
+					Ok(out) => {
+						produced.push(out.output.clone());
+						update(&mut |b| {
+							b.outputs.push(out.output.clone());
+							b.bytes_in += out.bytes_in;
+							b.bytes_out += out.bytes_out;
+						});
+					}
 					Err(tapwheel_core::Error::Cancelled) => break,
 					Err(e) => {
 						let name = job
@@ -236,12 +240,11 @@ impl Jobs {
 				wake();
 			}
 			let cancelled = cancel.load(Ordering::Relaxed);
-			let mut leftovers = Vec::new();
 			update(&mut |b| {
 				b.finished = Some(Instant::now());
 				if cancelled {
 					b.state = State::Cancelled;
-					leftovers = std::mem::take(&mut b.outputs);
+					b.outputs.clear();
 				} else if b.outputs.is_empty() {
 					b.state = State::Failed;
 					b.error = failures.first().cloned();
@@ -252,8 +255,9 @@ impl Jobs {
 					}
 				}
 			});
-			// a cancelled batch keeps nothing, not even the files it finished
-			for p in leftovers {
+			// a cancelled batch keeps nothing, not even the files it finished,
+			// and its card may already be gone, so this list is kept here
+			for p in if cancelled { produced } else { Vec::new() } {
 				let _ = if p.is_dir() {
 					std::fs::remove_dir_all(&p)
 				} else {
@@ -288,34 +292,32 @@ impl Jobs {
 		self.batches.lock().unwrap().iter().any(|b| b.state == State::Running)
 	}
 
-	/// Drops finished cards after a while; failures stay longer so they can be read.
-	pub fn expire(&self, hovered: bool) -> bool {
-		if hovered {
-			return false;
-		}
-		let mut list = self.batches.lock().unwrap();
-		let before = list.len();
-		list.retain(|b| match (b.state, b.finished) {
-			(State::Running, _) | (_, None) => true,
-			(State::Failed, Some(t)) => t.elapsed().as_secs() < 20,
-			(_, Some(t)) if b.note.is_some() => t.elapsed().as_millis() < 2500,
-			(State::Cancelled, Some(t)) => t.elapsed().as_secs() < 4,
-			(_, Some(t)) => t.elapsed().as_secs() < 10,
-		});
-		// keep the newest cards when there are too many
-		let n = list.len();
-		if n > hud::MAX_CARDS {
-			let mut excess = n - hud::MAX_CARDS;
-			list.retain(|b| {
-				if excess > 0 && b.state != State::Running {
-					excess -= 1;
-					false
-				} else {
-					true
-				}
-			});
-		}
-		list.len() != before
+	/// Cards whose time is up: finished ones after a while (failures stay longer so they can be
+	/// read), and the oldest finished ones when there are too many.
+	pub fn expired(&self, hovered: bool) -> Vec<u64> {
+		let list = self.batches.lock().unwrap();
+		let mut out: Vec<u64> = if hovered {
+			Vec::new()
+		} else {
+			list.iter()
+				.filter(|b| match (b.state, b.finished) {
+					(State::Running, _) | (_, None) => false,
+					(State::Failed, Some(t)) => t.elapsed().as_secs() >= 20,
+					(_, Some(t)) if b.note.is_some() => t.elapsed().as_millis() >= 2500,
+					(State::Cancelled, Some(t)) => t.elapsed().as_millis() >= 1500,
+					(_, Some(t)) => t.elapsed().as_secs() >= 10,
+				})
+				.map(|b| b.id)
+				.collect()
+		};
+		let excess = list.len().saturating_sub(hud::MAX_CARDS);
+		out.extend(
+			list.iter()
+				.filter(|b| b.state != State::Running)
+				.take(excess)
+				.map(|b| b.id),
+		);
+		out
 	}
 }
 

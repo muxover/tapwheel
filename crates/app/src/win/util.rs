@@ -130,6 +130,11 @@ fn bitmap_info(w: i32, h: i32) -> BITMAPINFO {
 
 /// Puts a premultiplied frame on a layered window at (x, y) in screen pixels.
 pub fn push_layered(hwnd: HWND, pm: &Pixmap, x: i32, y: i32) {
+	push_layered_alpha(hwnd, pm, x, y, 255);
+}
+
+/// Same, with the whole frame faded by `alpha`.
+pub fn push_layered_alpha(hwnd: HWND, pm: &Pixmap, x: i32, y: i32, alpha: u8) {
 	let (w, h) = (pm.width() as i32, pm.height() as i32);
 	let bgra = tapwheel_ui::draw::to_bgra(pm);
 	unsafe {
@@ -147,7 +152,7 @@ pub fn push_layered(hwnd: HWND, pm: &Pixmap, x: i32, y: i32) {
 			let blend = BLENDFUNCTION {
 				BlendOp: AC_SRC_OVER as u8,
 				BlendFlags: 0,
-				SourceConstantAlpha: 255,
+				SourceConstantAlpha: alpha,
 				AlphaFormat: AC_SRC_ALPHA as u8,
 			};
 			UpdateLayeredWindow(hwnd, screen, &dst, &size, mem, &src, 0, &blend, ULW_ALPHA);

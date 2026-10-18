@@ -109,6 +109,7 @@ fn main() {
 					state: State::Running,
 					progress: Some(0.42),
 					buttons: vec![Button::Cancel],
+					shown: 1.0,
 				},
 				Card {
 					title: "holiday-video-small.mp4".into(),
@@ -116,6 +117,7 @@ fn main() {
 					state: State::Done,
 					progress: None,
 					buttons: vec![Button::Undo, Button::Show, Button::Open, Button::Close],
+					shown: 1.0,
 				},
 				Card {
 					title: "broken.heic".into(),
@@ -123,6 +125,7 @@ fn main() {
 					state: State::Failed,
 					progress: None,
 					buttons: vec![Button::Close],
+					shown: 1.0,
 				},
 			],
 			hover: Some((1, Button::Open)),

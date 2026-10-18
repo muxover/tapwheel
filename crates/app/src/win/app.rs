@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -7,7 +8,7 @@ use tapwheel_core::ops::selection_kind;
 use tapwheel_core::settings::Key;
 use tapwheel_core::{Kind, Op, Settings, Wheel, choices, plan};
 use tapwheel_ui::home::{self, Action, HomeView};
-use tapwheel_ui::hud::{self, Button, HudView, State};
+use tapwheel_ui::hud::{self, Button, Card, HudView, State};
 use tapwheel_ui::wheel::{self, Hover, Slice, WheelView};
 use tapwheel_ui::{Fonts, Theme, icon};
 use tiny_skia::Pixmap;
@@ -39,6 +40,11 @@ const WM_MOUSELEAVE: u32 = 0x02a3;
 const T_APPEAR: usize = 1;
 const T_NUDGE: usize = 2;
 const T_HIDE: usize = 3;
+const T_FADE: usize = 4;
+
+const FADE_OUT_MS: f32 = 90.0;
+const CARD_IN_MS: f32 = 180.0;
+const CARD_OUT_MS: f32 = 150.0;
 const T_PICK: usize = 10;
 const T_HUD: usize = 20;
 
@@ -72,6 +78,9 @@ struct WheelState {
 	y: i32,
 	appear: f32,
 	last_tap: Option<(usize, Instant)>,
+	/// Last frame drawn, faded out when the wheel closes.
+	frame: Option<Pixmap>,
+	closing: Option<Instant>,
 }
 
 struct HudState {
@@ -82,6 +91,9 @@ struct HudState {
 	anchor: POINT,
 	start: Instant,
 	tracking: bool,
+	/// When each card arrived and, once it's going, when it started to fold away.
+	anim: HashMap<u64, (Instant, Option<Instant>)>,
+	cards: Vec<Card>,
 }
 
 struct HomeState {
@@ -248,12 +260,26 @@ impl App {
 		}
 	}
 
-	fn draw_wheel(&self) {
+	fn draw_wheel(&mut self) {
 		if !self.wheel.visible {
 			return;
 		}
 		let pm = wheel::render(&self.wheel_view(), &self.theme, &self.fonts, self.wheel.scale);
 		push_layered(self.wheel_hwnd, &pm, self.wheel.x, self.wheel.y);
+		self.wheel.frame = Some(pm);
+	}
+
+	/// Lets clicks and drops fall through the wheel while it fades out.
+	fn wheel_click_through(&self, on: bool) {
+		unsafe {
+			let ex = GetWindowLongPtrW(self.wheel_hwnd, GWL_EXSTYLE) as u32;
+			let ex = if on {
+				ex | WS_EX_TRANSPARENT
+			} else {
+				ex & !WS_EX_TRANSPARENT
+			};
+			SetWindowLongPtrW(self.wheel_hwnd, GWL_EXSTYLE, ex as isize);
+		}
 	}
 
 	fn show_wheel(&mut self, mode: Mode, wh: Wheel, files: Option<Vec<PathBuf>>) {
@@ -263,6 +289,10 @@ impl App {
 		let x = (pt.x - (wheel::CX * scale) as i32).clamp(work.left, (work.right - w as i32).max(work.left));
 		let y = (pt.y - (wheel::CY * scale) as i32).clamp(work.top, (work.bottom - h as i32).max(work.top));
 		let animate = !reduced_motion();
+		if self.wheel.closing.take().is_some() {
+			unsafe { KillTimer(self.wheel_hwnd, T_FADE) };
+			self.wheel_click_through(false);
+		}
 		self.wheel = WheelState {
 			visible: true,
 			mode,
@@ -277,6 +307,8 @@ impl App {
 			y,
 			appear: if animate { 0.0 } else { 1.0 },
 			last_tap: self.wheel.last_tap,
+			frame: None,
+			closing: None,
 		};
 		self.refresh_ops();
 		if mode == Mode::Pick && !self.wheel.ops.is_empty() {
@@ -310,7 +342,34 @@ impl App {
 		unsafe {
 			KillTimer(self.wheel_hwnd, T_HIDE);
 			KillTimer(self.wheel_hwnd, T_APPEAR);
-			ShowWindow(self.wheel_hwnd, SW_HIDE);
+			if reduced_motion() || self.wheel.frame.is_none() {
+				ShowWindow(self.wheel_hwnd, SW_HIDE);
+			} else {
+				self.wheel.closing = Some(Instant::now());
+				self.wheel_click_through(true);
+				SetTimer(self.wheel_hwnd, T_FADE, 10, None);
+			}
+		}
+	}
+
+	fn fade_step(&mut self) {
+		let Some(start) = self.wheel.closing else {
+			unsafe { KillTimer(self.wheel_hwnd, T_FADE) };
+			return;
+		};
+		let t = start.elapsed().as_secs_f32() * 1000.0 / FADE_OUT_MS;
+		if t >= 1.0 || self.wheel.frame.is_none() {
+			self.wheel.closing = None;
+			unsafe {
+				KillTimer(self.wheel_hwnd, T_FADE);
+				ShowWindow(self.wheel_hwnd, SW_HIDE);
+			}
+			self.wheel_click_through(false);
+			return;
+		}
+		let alpha = ((1.0 - t) * (1.0 - t) * 255.0) as u8;
+		if let Some(f) = &self.wheel.frame {
+			push_layered_alpha(self.wheel_hwnd, f, self.wheel.x, self.wheel.y, alpha);
 		}
 	}
 
@@ -423,16 +482,59 @@ impl App {
 
 	fn hud_view(&self) -> HudView {
 		HudView {
-			cards: self.jobs.cards().into_iter().map(|(_, c)| c).collect(),
+			cards: self.hud.cards.clone(),
 			hover: self.hud.hover,
 			time: self.hud.start.elapsed().as_secs_f32(),
 		}
 	}
 
+	/// Starts folding a card away; it's dropped once the animation ends.
+	fn leave(&mut self, id: u64) {
+		let entry = self.hud.anim.entry(id).or_insert((Instant::now(), None));
+		if entry.1.is_none() {
+			entry.1 = Some(Instant::now());
+		}
+	}
+
 	fn refresh_hud(&mut self) {
-		let cards = self.jobs.cards();
-		self.hud.ids = cards.iter().map(|(id, _)| *id).collect();
-		if cards.is_empty() {
+		for id in self.jobs.expired(self.hud.hover.is_some()) {
+			self.leave(id);
+		}
+		let still = reduced_motion();
+		let now = Instant::now();
+		let mut cards = Vec::new();
+		let mut ids = Vec::new();
+		let mut moving = false;
+		let mut gone = Vec::new();
+		for (id, mut card) in self.jobs.cards() {
+			let (arrived, leaving) = *self.hud.anim.entry(id).or_insert((now, None));
+			let ms = |t: Instant| now.duration_since(t).as_secs_f32() * 1000.0;
+			card.shown = match leaving {
+				Some(_) if still => 0.0,
+				Some(t) => 1.0 - ms(t) / CARD_OUT_MS,
+				None if still => 1.0,
+				None => ms(arrived) / CARD_IN_MS,
+			}
+			.clamp(0.0, 1.0);
+			if leaving.is_some() && card.shown <= 0.0 {
+				gone.push(id);
+				continue;
+			}
+			moving |= card.shown < 1.0;
+			ids.push(id);
+			cards.push(card);
+		}
+		for id in gone {
+			self.jobs.remove(id);
+			self.hud.anim.remove(&id);
+		}
+		self.hud.anim.retain(|id, _| ids.contains(id));
+		if self.hud.hover.is_some_and(|(i, _)| i >= cards.len()) {
+			self.hud.hover = None;
+		}
+		self.hud.ids = ids;
+		self.hud.cards = cards;
+		if self.hud.cards.is_empty() {
 			if self.hud.visible {
 				self.hud.visible = false;
 				self.hud.hover = None;
@@ -445,7 +547,7 @@ impl App {
 		}
 		let (work, scale) = monitor_at(self.hud.anchor);
 		self.hud.scale = scale;
-		let (w, h) = hud::size(cards.len(), scale);
+		let (w, h) = hud::size(&self.hud.cards, scale);
 		let x = work.right - w as i32;
 		let y = work.bottom - h as i32;
 		let pm = hud::render(&self.hud_view(), &self.theme, &self.fonts, scale);
@@ -456,8 +558,14 @@ impl App {
 				ShowWindow(self.hud_hwnd, SW_SHOWNOACTIVATE);
 				self.hud.visible = true;
 			}
-			let fast = self.jobs.any_running();
-			SetTimer(self.hud_hwnd, T_HUD, if fast { 50 } else { 500 }, None);
+			let every = if moving {
+				12
+			} else if self.jobs.any_running() {
+				50
+			} else {
+				500
+			};
+			SetTimer(self.hud_hwnd, T_HUD, every, None);
 		}
 	}
 
@@ -473,24 +581,20 @@ impl App {
 				if let Some(p) = batch.outputs.first() {
 					shell::open(p);
 				}
-				self.jobs.remove(id);
 			}
 			Button::Show => {
 				shell::reveal(&batch.outputs);
-				self.jobs.remove(id);
 			}
 			Button::Undo => {
 				shell::recycle(&batch.outputs);
-				self.jobs.remove(id);
 			}
-			Button::Cancel => self.jobs.cancel(id),
-			Button::Close => {
+			Button::Cancel | Button::Close => {
 				if batch.state == State::Running {
 					self.jobs.cancel(id);
 				}
-				self.jobs.remove(id);
 			}
 		}
+		self.leave(id);
 		self.hud.hover = None;
 		self.refresh_hud();
 	}
@@ -823,10 +927,7 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 				unsafe { SetTimer(a.wheel_hwnd, T_HIDE, 400, None) };
 			}
 		}),
-		WM_APP_JOBS => with(|a| {
-			a.jobs.expire(a.hud.hover.is_some());
-			a.refresh_hud();
-		}),
+		WM_APP_JOBS => with(|a| a.refresh_hud()),
 		WM_APP_TRAY => with(|a| match l as u32 {
 			WM_LBUTTONUP => a.show_home(),
 			WM_RBUTTONUP | WM_CONTEXTMENU => a.tray_menu(),
@@ -889,6 +990,7 @@ unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM)
 					KillTimer(hwnd, T_NUDGE);
 					hooks::nudge();
 				}
+				T_FADE => a.fade_step(),
 				T_HIDE => {
 					KillTimer(hwnd, T_HIDE);
 					a.hide_wheel();
@@ -953,12 +1055,7 @@ unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM)
 unsafe extern "system" fn hud_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
 	let handled = match msg {
 		WM_MOUSEACTIVATE => return MA_NOACTIVATE as isize,
-		WM_TIMER => with(|a| {
-			let changed = a.jobs.expire(a.hud.hover.is_some());
-			if changed || a.jobs.any_running() || a.hud.visible {
-				a.refresh_hud();
-			}
-		}),
+		WM_TIMER => with(|a| a.refresh_hud()),
 		WM_MOUSEMOVE => with(|a| unsafe {
 			if !a.hud.tracking {
 				let mut tme = TRACKMOUSEEVENT {
@@ -1224,6 +1321,8 @@ pub fn run() -> i32 {
 			y: 0,
 			appear: 1.0,
 			last_tap: None,
+			frame: None,
+			closing: None,
 		},
 		hud: HudState {
 			visible: false,
@@ -1233,6 +1332,8 @@ pub fn run() -> i32 {
 			anchor: cursor(),
 			start: Instant::now(),
 			tracking: false,
+			anim: HashMap::new(),
+			cards: Vec::new(),
 		},
 		home: HomeState {
 			hwnd: std::ptr::null_mut(),
