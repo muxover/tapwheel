@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicIsize, AtomicU32, AtomicU64
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::SystemInformation::GetTickCount64;
+use windows_sys::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -78,7 +79,8 @@ unsafe extern "system" fn keyboard(code: i32, w: WPARAM, l: LPARAM) -> LRESULT {
 				_ if down => {
 					DIRTY.store(true, Ordering::Relaxed);
 					if WHEEL_OPEN.load(Ordering::Relaxed) {
-						if k.vkCode == VK_ESCAPE as u32 {
+						// Esc, or the Windows key (Start is about to cover the wheel), closes it
+						if k.vkCode == VK_ESCAPE as u32 || k.vkCode == VK_LWIN as u32 || k.vkCode == VK_RWIN as u32 {
 							post(WM_APP_ESCAPE, 0);
 						} else if k.vkCode == VK_TAB as u32 {
 							// Tab turns the wheel's page while a drag holds the mouse
@@ -134,9 +136,18 @@ unsafe extern "system" fn mouse(code: i32, w: WPARAM, l: LPARAM) -> LRESULT {
 	unsafe { CallNextHookEx(std::ptr::null_mut(), code, w, l) }
 }
 
+/// Another app came to the front (Start, Task view, Alt+Tab, a window that takes focus): an open
+/// wheel would sit over it, so it fades out the way Esc closes it. TapWheel's own windows don't count.
+unsafe extern "system" fn foreground(_: HWINEVENTHOOK, _: u32, _: HWND, _: i32, _: i32, _: u32, _: u32) {
+	if WHEEL_OPEN.load(Ordering::Relaxed) {
+		post(WM_APP_ESCAPE, 0);
+	}
+}
+
 pub struct Hooks {
 	kb: HHOOK,
 	ms: HHOOK,
+	fg: HWINEVENTHOOK,
 }
 
 impl Hooks {
@@ -147,6 +158,15 @@ impl Hooks {
 			Hooks {
 				kb: SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard), module, 0),
 				ms: SetWindowsHookExW(WH_MOUSE_LL, Some(mouse), module, 0),
+				fg: SetWinEventHook(
+					EVENT_SYSTEM_FOREGROUND,
+					EVENT_SYSTEM_FOREGROUND,
+					std::ptr::null_mut(),
+					Some(foreground),
+					0,
+					0,
+					WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+				),
 			}
 		}
 	}
@@ -164,6 +184,9 @@ impl Drop for Hooks {
 			}
 			if !self.ms.is_null() {
 				UnhookWindowsHookEx(self.ms);
+			}
+			if !self.fg.is_null() {
+				UnhookWinEvent(self.fg);
 			}
 		}
 	}
