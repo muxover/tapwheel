@@ -354,7 +354,8 @@ pub fn open_sized(a: &mut App, page: Page, mut init: Value, inputs: Vec<PathBuf>
 	let dark = a.theme.dark;
 	let built = WebViewBuilder::new_with_web_context(&mut a.web.context)
 		.with_url("tapwheel://localhost/index.html")
-		.with_transparent(true)
+		// opaque, in the page's own colour, so no white shows while it loads or resizes
+		.with_background_color(if dark { (32, 32, 32, 255) } else { (243, 243, 243, 255) })
 		.with_devtools(cfg!(debug_assertions))
 		.with_default_context_menus(cfg!(debug_assertions))
 		.with_browser_accelerator_keys(false)
