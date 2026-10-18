@@ -28,6 +28,8 @@
 		protect: { tool: "protect", kind: "folder", files: ["folder"] },
 		contents: { tool: "contents", kind: "archive", files: ["album"] },
 		rename: { tool: "rename", kind: "image", files: ["photo", "plant"] },
+		snapshot: { tool: "snapshot", kind: "video", files: ["clip"] },
+		touchup: { tool: "remove_background", kind: "image", files: ["plantphoto"] },
 		info: { tool: "info", kind: "image", files: ["photo"] },
 	};
 	const LABELS = {
@@ -46,9 +48,18 @@
 		protect: ["Password", "Lock it with a password"],
 		contents: ["Contents", "See what's inside"],
 		rename: ["Rename", "New names, one or many"],
+		snapshot: ["Snapshot", "Save a frame as a picture"],
+		remove_background: ["Remove BG", "Cut out the subject"],
 		info: ["File info", "Size, real type and details"],
 	};
 	const setup = TOOLS[id] || TOOLS.crop;
+	// samples only these windows use: a photo with its background, and the app's cut-out of it
+	const EXTRA = {
+		plantphoto: {
+			file: { name: "plant.jpg", path: "C:\\Users\\you\\Pictures\\plant.jpg", ext: "jpg", size: 56706 },
+			prep: { url: "plant-photo.jpg", cutout: "plant.png" },
+		},
+	};
 	const base = "/try/";
 	const saved = new Map();
 	let data = null;
@@ -76,15 +87,15 @@
 
 	async function ready() {
 		const d = await load();
-		inputs = setup.files.map((k) => (k === "folder" ? { name: "album", path: "C:\\Users\\you\\Pictures\\album", ext: "", size: 0 } : d.files[k]));
+		inputs = setup.files.map((k) => (k === "folder" ? { name: "album", path: "C:\\Users\\you\\Pictures\\album", ext: "", size: 0 } : EXTRA[k]?.file || d.files[k]));
 		const [label, describe] = LABELS[setup.tool];
 		const title = inputs.length === 1 ? `${label} · ${inputs[0].name}` : `${label} · ${inputs.length} files`;
 		receive({ type: "init", page: "editor", title, tool: setup.tool, label, describe, kind: setup.kind, files: inputs, defaults: d.defaults, presets: [], theme });
 		// the app prepares previews in the background; a short wait shows the loading state honestly
 		setTimeout(() => {
 			const files = setup.files.map((k, index) => {
-				const p = k === "folder" ? {} : { ...d.prepared[k] };
-				for (const key of ["url", "filmstrip"]) if (p[key]) p[key] = base + p[key];
+				const p = k === "folder" ? {} : { ...(EXTRA[k]?.prep || d.prepared[k]) };
+				for (const key of ["url", "filmstrip", "cutout"]) if (p[key]) p[key] = base + p[key];
 				if (setup.tool === "info") return { index, info: details(d.files[k], p) };
 				return { index, ...p };
 			});
@@ -279,8 +290,12 @@
 			}
 			case "protect":
 				return { note: `Saves album.${recipe.format === "7z" ? "7z" : "zip"} locked with AES-256${recipe.format === "7z" ? ", file names hidden too" : ""}` };
-			case "extract":
-				return { note: `Unpacks ${d.prepared.album.items.filter((i) => !i.dir).length} files into a folder named album` };
+			case "extract": {
+				const n = recipe.only?.length;
+				return { note: n ? `Unpacks the ${n === 1 ? "item" : `${n} items`} you ticked into a folder named album` : `Unpacks ${d.prepared.album.items.filter((i) => !i.dir).length} files into a folder named album` };
+			}
+			case "snapshot":
+				return { note: `Saves ${named(file, "frame", "png")}, the frame at ${time(recipe.at.at ?? 0)}, at full size` };
 			default:
 				return { note: "Done" };
 		}
