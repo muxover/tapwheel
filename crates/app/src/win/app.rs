@@ -278,23 +278,7 @@ fn capture_backdrop(x: i32, y: i32, w: u32, h: u32, dark: bool) -> Option<Pixmap
 		DeleteDC(mem);
 		ReleaseDC(std::ptr::null_mut(), screen);
 	}
-	// about Windows' 30 px acrylic blur once scaled back up
-	tapwheel_ui::draw::blur(&mut small, 8);
-	tapwheel_ui::draw::acrylic(&mut small, dark);
-	let mut full = Pixmap::new(w, h)?;
-	let paint = tiny_skia::PixmapPaint {
-		quality: tiny_skia::FilterQuality::Bilinear,
-		..Default::default()
-	};
-	full.draw_pixmap(
-		0,
-		0,
-		small.as_ref(),
-		&paint,
-		tiny_skia::Transform::from_scale(w as f32 / sw as f32, h as f32 / sh as f32),
-		None,
-	);
-	Some(full)
+	tapwheel_ui::draw::frost(small, w, h, dark)
 }
 
 impl App {

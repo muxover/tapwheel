@@ -90,6 +90,60 @@ pub fn ring_segment(cx: f32, cy: f32, r_in: f32, r_out: f32, a0: f32, a1: f32) -
 	pb.finish()
 }
 
+/// A slice of the wheel between the dividers at `a0` and `a1`, its sides kept `d` away from each
+/// divider all the way out, so neighbours sit the same distance apart at every radius.
+pub fn slice_shape(cx: f32, cy: f32, r_in: f32, r_out: f32, a0: f32, a1: f32, d: f32) -> Option<Path> {
+	if r_out <= r_in {
+		return None;
+	}
+	// how far round a point d off the divider sits at radius r
+	let off = |r: f32| (d / r).clamp(-1.0, 1.0).asin();
+	let (o0, o1) = (a0 + off(r_out), a1 - off(r_out));
+	let (i0, i1) = (a0 + off(r_in), a1 - off(r_in));
+	if o1 <= o0 || i1 <= i0 {
+		return None;
+	}
+	let arc_steps = |a: f32, b: f32| (((b - a).abs() / (PI / 90.0)).ceil() as usize).max(2);
+	let mut pb = PathBuilder::new();
+	let n = arc_steps(o0, o1);
+	for i in 0..=n {
+		let a = o0 + (o1 - o0) * i as f32 / n as f32;
+		let (x, y) = (cx + r_out * a.cos(), cy + r_out * a.sin());
+		if i == 0 {
+			pb.move_to(x, y);
+		} else {
+			pb.line_to(x, y);
+		}
+	}
+	let n = arc_steps(i0, i1);
+	for i in (0..=n).rev() {
+		let a = i0 + (i1 - i0) * i as f32 / n as f32;
+		pb.line_to(cx + r_in * a.cos(), cy + r_in * a.sin());
+	}
+	pb.close();
+	pb.finish()
+}
+
+/// A wheel slice with rounded corners and an even `gap` to its neighbours.
+#[allow(clippy::too_many_arguments)]
+pub fn slice(
+	pm: &mut Pixmap,
+	cx: f32,
+	cy: f32,
+	r_in: f32,
+	r_out: f32,
+	a0: f32,
+	a1: f32,
+	gap: f32,
+	corner: f32,
+	c: Rgba,
+) {
+	let Some(core) = slice_shape(cx, cy, r_in + corner, r_out - corner, a0, a1, gap / 2.0 + corner) else {
+		return;
+	};
+	fill_rounded(pm, &core, corner, c);
+}
+
 pub fn fill_path(pm: &mut Pixmap, p: &Path, c: Rgba) {
 	pm.fill_path(p, &paint(c), FillRule::Winding, Transform::identity(), None);
 }
@@ -243,16 +297,22 @@ pub fn petal(pm: &mut Pixmap, cx: f32, cy: f32, r_in: f32, r_out: f32, a0: f32, 
 	let Some(core) = ring_segment(cx, cy, r_in + corner, r_out - corner, a0 + pad, a1 - pad) else {
 		return;
 	};
+	fill_rounded(pm, &core, corner, c);
+}
+
+/// Fills `core` grown by `corner` with round joins. See-through colours go through one mask so the
+/// grown edge doesn't double up.
+fn fill_rounded(pm: &mut Pixmap, core: &Path, corner: f32, c: Rgba) {
 	if corner <= 0.0 || c.a >= 0.999 {
 		let paint = paint(c);
-		pm.fill_path(&core, &paint, FillRule::Winding, Transform::identity(), None);
+		pm.fill_path(core, &paint, FillRule::Winding, Transform::identity(), None);
 		if corner > 0.0 {
 			let s = Stroke {
 				width: corner * 2.0,
 				line_join: tiny_skia::LineJoin::Round,
 				..Stroke::default()
 			};
-			pm.stroke_path(&core, &paint, &s, Transform::identity(), None);
+			pm.stroke_path(core, &paint, &s, Transform::identity(), None);
 		}
 		return;
 	}
@@ -269,7 +329,7 @@ pub fn petal(pm: &mut Pixmap, cx: f32, cy: f32, r_in: f32, r_out: f32, a0: f32, 
 		return;
 	};
 	let shift = Transform::from_translate(-x0, -y0);
-	mask.fill_path(&core, FillRule::Winding, true, shift);
+	mask.fill_path(core, FillRule::Winding, true, shift);
 	let s = Stroke {
 		width: corner * 2.0,
 		line_join: tiny_skia::LineJoin::Round,
@@ -322,19 +382,13 @@ pub fn acrylic(pm: &mut Pixmap, dark: bool) {
 		}
 		c
 	};
-	let (w, h) = (pm.width() as usize, pm.height());
-	for (i, px) in pm.data_mut().as_chunks_mut::<4>().0.iter_mut().enumerate() {
+	for px in pm.data_mut().as_chunks_mut::<4>().0.iter_mut() {
 		let b = [px[0] as f32, px[1] as f32, px[2] as f32];
 		let lit = set_lum(b, lum(tint));
 		let b1: [f32; 3] = std::array::from_fn(|k| b[k] + (lit[k] - b[k]) * lum_opacity);
 		let colored = set_lum(tint, lum(b1));
-		// stable noise per pixel, about 2% either way
-		let (x, y) = ((i % w) as u32, (i / w) as u32);
-		let hsh = (x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663) ^ h.wrapping_mul(83_492_791))
-			.wrapping_mul(2_654_435_761);
-		let noise = ((hsh >> 24) as f32 / 255.0 - 0.5) * 0.04 * 255.0;
 		for k in 0..3 {
-			let v = b1[k] + (colored[k] - b1[k]) * tint_opacity + noise;
+			let v = b1[k] + (colored[k] - b1[k]) * tint_opacity;
 			px[k] = v.round().clamp(0.0, 255.0) as u8;
 		}
 		px[3] = 255;
@@ -397,4 +451,41 @@ pub fn ease_back(t: f32) -> f32 {
 	let t = t.clamp(0.0, 1.0);
 	let c = 1.4;
 	1.0 + (c + 1.0) * (t - 1.0).powi(3) + c * (t - 1.0).powi(2)
+}
+
+/// Windows 11 acrylic from a quarter-size copy of the screen: blurred, tinted, scaled up to
+/// `w` × `h`, then a fine grain at full size (grain added before scaling up turns into blotches).
+pub fn frost(mut small: Pixmap, w: u32, h: u32, dark: bool) -> Option<Pixmap> {
+	// about Windows' 30 px acrylic blur once scaled back up
+	blur(&mut small, 8);
+	acrylic(&mut small, dark);
+	let mut full = Pixmap::new(w, h)?;
+	let paint = tiny_skia::PixmapPaint {
+		quality: tiny_skia::FilterQuality::Bilinear,
+		..Default::default()
+	};
+	let (sw, sh) = (small.width() as f32, small.height() as f32);
+	full.draw_pixmap(
+		0,
+		0,
+		small.as_ref(),
+		&paint,
+		Transform::from_scale(w as f32 / sw, h as f32 / sh),
+		None,
+	);
+	grain(&mut full);
+	Some(full)
+}
+
+/// Acrylic's noise: about 1.5% either way per pixel, the same every time for the same pixel.
+fn grain(pm: &mut Pixmap) {
+	let w = pm.width() as usize;
+	for (i, px) in pm.data_mut().as_chunks_mut::<4>().0.iter_mut().enumerate() {
+		let (x, y) = ((i % w) as u32, (i / w) as u32);
+		let hsh = (x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663)).wrapping_mul(2_654_435_761);
+		let noise = ((hsh >> 24) as f32 / 255.0 - 0.5) * 0.03 * 255.0;
+		for v in &mut px[..3] {
+			*v = (*v as f32 + noise).round().clamp(0.0, 255.0) as u8;
+		}
+	}
 }
