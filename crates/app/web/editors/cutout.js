@@ -1,6 +1,4 @@
-// Remove BG, touched up: the AI's cut-out over the original, with brushes to keep or remove parts,
-// a softer or harder edge, and a fill behind. The mask stays at full size the whole time, so the
-// saved PNG keeps every hair the model found.
+// Touch up a Remove BG cut-out. The mask stays full size, so the saved PNG keeps every hair.
 // B toggles the brush, [ and ] change its size, Ctrl+Z undoes a stroke.
 
 import { apply, fit, group, h, loadImage, outName, prepared, saveCanvas, savesAs, segmented, shell, slider, stageLoading, toggle } from "../tw.js";
