@@ -11,7 +11,7 @@ use windows::Win32::UI::Shell::{
 	FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS, FileOpenDialog, IDataTransferManagerInterop, IFileOpenDialog, IShellItem,
 	SHCreateItemFromParsingName, SIGDN_FILESYSPATH,
 };
-use windows::core::{HSTRING, Interface};
+use windows::core::{AgileReference, HSTRING, Interface};
 
 fn item(p: &Path) -> windows::core::Result<IStorageItem> {
 	let path = HSTRING::from(p.as_os_str());
@@ -35,12 +35,14 @@ pub fn share(hwnd: isize, files: &[PathBuf]) -> windows::core::Result<()> {
 	let interop = windows::core::factory::<DataTransferManager, IDataTransferManagerInterop>()?;
 	let window = HWND(hwnd as *mut _);
 	let dtm: DataTransferManager = unsafe { interop.GetForWindow(window)? };
+	// the handler may run on another thread, so it holds the list through an agile reference
+	let list: windows_collections::IIterable<IStorageItem> = items.into();
+	let list = AgileReference::new(&list)?;
 	let handler = TypedEventHandler::<DataTransferManager, DataRequestedEventArgs>::new(move |_, args| {
 		if let Some(args) = args.as_ref() {
 			let data = args.Request()?.Data()?;
 			data.Properties()?.SetTitle(&HSTRING::from(title.as_str()))?;
-			let list: windows_collections::IIterable<IStorageItem> = items.clone().into();
-			data.SetStorageItemsReadOnly(&list)?;
+			data.SetStorageItemsReadOnly(&list.resolve()?)?;
 		}
 		Ok(())
 	});
