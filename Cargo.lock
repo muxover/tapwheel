@@ -4749,6 +4749,7 @@ version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "svgtypes",
+ "tapwheel-core",
  "tiny-skia 0.12.0",
 ]
 

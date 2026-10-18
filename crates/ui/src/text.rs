@@ -1,5 +1,5 @@
-use ab_glyph::{Font, FontVec, PxScale, ScaleFont, VariableFont, point};
-use tiny_skia::Pixmap;
+use ab_glyph::{Font, FontVec, OutlineCurve, PxScale, ScaleFont, VariableFont, point};
+use tiny_skia::{Path, PathBuilder, Pixmap};
 
 use crate::theme::Rgba;
 
@@ -121,6 +121,98 @@ impl Fonts {
 				blend(data, ((py * width + px) * 4) as usize, color, a);
 			});
 		}
+	}
+
+	/// One line bent along the circle of radius `r` around (cx, cy), centred on `angle`, with the
+	/// letters' middle on the circle. `flip` runs it the other way so text below the centre reads
+	/// left to right instead of upside down.
+	#[allow(clippy::too_many_arguments)]
+	pub fn arc(
+		&self,
+		text: &str,
+		size: f32,
+		w: Weight,
+		cx: f32,
+		cy: f32,
+		r: f32,
+		angle: f32,
+		flip: bool,
+	) -> Option<Path> {
+		let font = self.font(w).as_scaled(PxScale::from(size));
+		let (sx, sy) = (font.h_scale_factor(), font.v_scale_factor());
+		let total = self.width(text, size, w);
+		let cap = font
+			.font
+			.outline(font.glyph_id('H'))
+			.map(|o| o.bounds.max.y * sy)
+			.unwrap_or(size * 0.7);
+		let base = if flip { r + cap / 2.0 } else { r - cap / 2.0 };
+		let mut pb = PathBuilder::new();
+		let mut pen = 0.0;
+		let mut prev = None;
+		for c in text.chars() {
+			let id = font.glyph_id(c);
+			if let Some(p) = prev {
+				pen += font.kern(p, id);
+			}
+			let adv = font.h_advance(id);
+			let along = pen + adv / 2.0 - total / 2.0;
+			let a = if flip {
+				angle - along / base
+			} else {
+				angle + along / base
+			};
+			let (s, co) = a.sin_cos();
+			let (t, up) = if flip {
+				((s, -co), (-co, -s))
+			} else {
+				((-s, co), (co, s))
+			};
+			let (ox, oy) = (cx + co * base, cy + s * base);
+			let at = |p: ab_glyph::Point| {
+				let (u, v) = (p.x * sx - adv / 2.0, p.y * sy);
+				(ox + u * t.0 + v * up.0, oy + u * t.1 + v * up.1)
+			};
+			if let Some(o) = font.font.outline(id) {
+				let mut last: Option<ab_glyph::Point> = None;
+				for curve in &o.curves {
+					let (start, end) = match *curve {
+						OutlineCurve::Line(a, b) => (a, b),
+						OutlineCurve::Quad(a, _, b) => (a, b),
+						OutlineCurve::Cubic(a, _, _, b) => (a, b),
+					};
+					// the outline is one list of curves; a gap starts the next contour
+					if last.is_none_or(|l| (l.x - start.x).abs() > 0.01 || (l.y - start.y).abs() > 0.01) {
+						if last.is_some() {
+							pb.close();
+						}
+						let (x, y) = at(start);
+						pb.move_to(x, y);
+					}
+					match *curve {
+						OutlineCurve::Line(_, b) => {
+							let (x, y) = at(b);
+							pb.line_to(x, y);
+						}
+						OutlineCurve::Quad(_, c1, b) => {
+							let ((x1, y1), (x, y)) = (at(c1), at(b));
+							pb.quad_to(x1, y1, x, y);
+						}
+						OutlineCurve::Cubic(_, c1, c2, b) => {
+							let ((x1, y1), (x2, y2), (x, y)) = (at(c1), at(c2), at(b));
+							pb.cubic_to(x1, y1, x2, y2, x, y);
+						}
+					}
+					last = Some(end);
+				}
+				if last.is_some() {
+					pb.close();
+				}
+			}
+			pen += adv;
+			prev = Some(id);
+		}
+		pb.finish()
 	}
 
 	pub fn draw_centered(

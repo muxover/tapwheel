@@ -159,6 +159,138 @@ fn ring_layout(v: &WheelView, fonts: &Fonts, i: usize) -> Vec<(f32, f32)> {
 		.collect()
 }
 
+/// Kept clear at each end of a label's arc, inside the petal's rounded corners.
+const LABEL_PAD: f32 = 8.0;
+
+/// Where a slice's label goes: one or two lines, each on its own arc (first line first), the
+/// size that fits, which way the text runs, and the icon's radius.
+#[derive(Debug, Clone)]
+pub struct LabelFit {
+	pub lines: Vec<(String, f32)>,
+	pub size: f32,
+	pub flip: bool,
+	pub icon_r: Option<f32>,
+}
+
+/// Below the centre, text runs the other way so it never reads upside down.
+fn flipped(mid: f32) -> bool {
+	let (s, c) = mid.sin_cos();
+	s > 1e-3 || (s.abs() <= 1e-3 && c < 0.0)
+}
+
+/// Fits a label into a slice `span` radians wide: one line if it fits at any size, else two
+/// lines split where they balance. Labels that fit neither way are left for the label test.
+pub fn fit_label(fonts: &Fonts, label: &str, has_icon: bool, span: f32, mid: f32) -> LabelFit {
+	let flip = flipped(mid);
+	let sizes: &[f32] = if has_icon {
+		&[12.5, 12.0, 11.5, 11.0]
+	} else {
+		&[16.0, 15.0, 14.0, 13.0]
+	};
+	// the icon sits above the text as it reads: outside on the top half, inside on the bottom
+	let (icon_r, text_r) = match (has_icon, flip) {
+		(true, false) => (Some(140.0), 104.0),
+		(true, true) => (Some(104.0), 140.0),
+		(false, _) => (None, (R_IN + R_OUT) / 2.0),
+	};
+	let room = |r: f32| span.min(PI) * r - 2.0 * LABEL_PAD;
+	let width = |t: &str, size: f32| fonts.width(t, size, Weight::Semibold);
+	for &size in sizes {
+		if width(label, size) <= room(text_r) {
+			return LabelFit {
+				lines: vec![(label.to_string(), text_r)],
+				size,
+				flip,
+				icon_r,
+			};
+		}
+	}
+	let words: Vec<&str> = label.split(' ').collect();
+	for &size in sizes {
+		let gap = fonts.line_height(size, Weight::Semibold) * 0.9;
+		let (r1, r2) = if flip {
+			(text_r - gap / 2.0, text_r + gap / 2.0)
+		} else {
+			(text_r + gap / 2.0, text_r - gap / 2.0)
+		};
+		let best = (1..words.len())
+			.map(|k| (words[..k].join(" "), words[k..].join(" ")))
+			.min_by(|a, b| {
+				let wa = width(&a.0, size).max(width(&a.1, size));
+				let wb = width(&b.0, size).max(width(&b.1, size));
+				wa.total_cmp(&wb)
+			});
+		if let Some((a, b)) = best
+			&& width(&a, size) <= room(r1)
+			&& width(&b, size) <= room(r2)
+		{
+			return LabelFit {
+				lines: vec![(a, r1), (b, r2)],
+				size,
+				flip,
+				icon_r,
+			};
+		}
+	}
+	LabelFit {
+		lines: vec![(label.to_string(), text_r)],
+		size: sizes[sizes.len() - 1],
+		flip,
+		icon_r,
+	}
+}
+
+/// Every label on the open wheel as filled outlines, each with the shape it must stay inside
+/// (the petal or ring chip, less its rounded corners). Used by the label test.
+// `items` is one short when the last slice is More
+#[allow(clippy::needless_range_loop)]
+pub fn label_shapes(v: &WheelView, fonts: &Fonts, win11: bool) -> Vec<(String, tiny_skia::Path, tiny_skia::Path)> {
+	let mut out = Vec::new();
+	let n = count_on_page(v);
+	let (items, more) = page_items(v.slices.len(), v.page);
+	let corner = if win11 { 10.0 } else { 2.0 };
+	let ga = if n > 1 { 3.0 / R_OUT } else { 0.0 };
+	for k in 0..n {
+		let (a0, mid, a1) = angles(n, k);
+		let mid = if n == 1 { -PI / 2.0 } else { mid };
+		let (label, has_icon) = if more && k == n - 1 {
+			("More".to_string(), true)
+		} else {
+			let sl = &v.slices[items[k]];
+			(sl.label.clone(), !sl.icon.is_empty())
+		};
+		let fit = fit_label(fonts, &label, has_icon, a1 - a0 - 2.0 * ga, mid);
+		let (r_in, r_out) = (R_IN + 6.0 + corner, R_OUT - 6.0 - corner);
+		let pad = corner / ((r_in + r_out) / 2.0);
+		let Some(region) = ring_segment(CX, CY, r_in, r_out, a0 + ga + pad, a1 - ga - pad) else {
+			continue;
+		};
+		for (line, r) in &fit.lines {
+			if let Some(path) = fonts.arc(line, fit.size, Weight::Semibold, CX, CY, *r, mid, fit.flip) {
+				out.push((label.clone(), path, region.clone()));
+			}
+		}
+	}
+	if let Hover::Slice(i) | Hover::Ring(i, _) = v.hover
+		&& let Some(&k) = items.get(i)
+	{
+		let rc = if win11 { 12.0 } else { 2.0 };
+		for (j, (a0, a1)) in ring_layout(v, fonts, i).into_iter().enumerate() {
+			let label = &v.slices[k].ring[j];
+			let mid = (a0 + a1) / 2.0;
+			let rr = (RING_IN + RING_OUT) / 2.0;
+			let pad = rc / rr;
+			let Some(region) = ring_segment(CX, CY, RING_IN + rc, RING_OUT - rc, a0 + pad, a1 - pad) else {
+				continue;
+			};
+			if let Some(path) = fonts.arc(label, 12.5, Weight::Semibold, CX, CY, rr, mid, flipped(mid)) {
+				out.push((label.clone(), path, region));
+			}
+		}
+	}
+	out
+}
+
 fn angle_in(a: f32, a0: f32, a1: f32) -> bool {
 	let a = (a - a0).rem_euclid(TAU);
 	a <= (a1 - a0)
@@ -315,18 +447,6 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 			pm.stroke_path(&seg, &paint(p.text), &st, Transform::identity(), None);
 		}
 
-		let r_mid = (R_IN + R_OUT) / 2.0 + 4.0;
-		let (lx, ly) = if n == 1 {
-			(cx, cy - r_mid * s)
-		} else {
-			(cx + mid.cos() * r_mid * s + ox, cy + mid.sin() * r_mid * s + oy)
-		};
-		let chord = if n == 1 {
-			150.0
-		} else {
-			2.0 * r_mid * ((TAU / n as f32) / 2.0).sin() * 0.84
-		};
-		let max = chord.min(R_OUT - R_IN - 4.0) * s;
 		let ink = p.text.mix(p.on_accent, hv).alpha(fade);
 		let (label, icon_name) = if more && k == n - 1 {
 			("More".to_string(), "more_horizontal".to_string())
@@ -334,40 +454,45 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 			let sl = &v.slices[items[k]];
 			(sl.label.clone(), sl.icon.clone())
 		};
-		let label_size = if icon_name.is_empty() { 16.0 * s } else { 12.5 * s };
-		let lh = fonts.line_height(label_size, Weight::Semibold);
-		let icon_size = 24.0 * s;
-		let block = if icon_name.is_empty() {
-			lh
-		} else {
-			icon_size + 4.0 * s + lh
-		};
-		let mut top = ly - block / 2.0;
+		let mid = if n == 1 { -PI / 2.0 } else { mid };
+		let fit = fit_label(fonts, &label, !icon_name.is_empty(), a1 - a0 - 2.0 * ga, mid);
+		let (pcx, pcy) = (cx + ox, cy + oy);
+		let at = |r: f32| (pcx + mid.cos() * r * s, pcy + mid.sin() * r * s);
+		if let Some(ir) = fit.icon_r {
+			let size = 24.0 * s;
+			let (x, y) = at(ir);
+			icon(&mut pm, &icon_name, x - size / 2.0, y - size / 2.0, size, ink);
+		}
+		for (line, r) in &fit.lines {
+			if let Some(path) = fonts.arc(line, fit.size * s, Weight::Semibold, pcx, pcy, r * s, mid, fit.flip) {
+				fill_path(&mut pm, &path, ink);
+			}
+		}
 		if v.keyboard && k < 9 && !(more && k == n - 1) {
 			let nsize = 10.5 * s;
+			let (x, y) = at(if fit.flip { 84.0 } else { 158.0 });
+			let nh = fonts.line_height(nsize, Weight::Regular);
 			fonts.draw_centered(
 				&mut pm,
 				&(k + 1).to_string(),
-				lx,
-				top - 14.0 * s,
+				x,
+				y - nh / 2.0,
 				nsize,
 				Weight::Regular,
 				p.text2.mix(p.on_accent, hv).alpha(fade),
 				None,
 			);
 		}
-		if !icon_name.is_empty() {
-			icon(&mut pm, &icon_name, lx - icon_size / 2.0, top, icon_size, ink);
-			top += icon_size + 4.0 * s;
-		}
-		fonts.draw_centered(&mut pm, &label, lx, top, label_size, Weight::Semibold, ink, Some(max));
 		if more && k == n - 1 {
+			// page dots under the label as it reads
+			let last = fit.lines.last().map_or(104.0, |l| l.1);
+			let r = if fit.flip { last + 14.0 } else { last - 14.0 };
 			let dots = pages(v.slices.len());
-			let dy = top + lh + 5.0 * s;
-			let span = (dots as f32 - 1.0) * 9.0 * s;
 			for d in 0..dots {
+				let off = (d as f32 - (dots as f32 - 1.0) / 2.0) * 9.0 / r;
+				let a = if fit.flip { mid - off } else { mid + off };
 				let c = if d == v.page { ink } else { ink.alpha(0.35) };
-				fill_circle(&mut pm, lx - span / 2.0 + d as f32 * 9.0 * s, dy, 2.6 * s, c);
+				fill_circle(&mut pm, pcx + a.cos() * r * s, pcy + a.sin() * r * s, 2.6 * s, c);
 			}
 		}
 		if hovered
@@ -427,21 +552,11 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 				}
 				let mid = (a0 + a1) / 2.0;
 				let rr = (r0 + r1) / 2.0;
-				let size = 12.5 * s;
-				let lh = fonts.line_height(size, Weight::Semibold);
 				let label = &v.slices[k].ring[j];
 				let ink = if on { p.on_accent } else { p.text };
-				let width = rr * (a1 - a0) - 12.0 * s;
-				fonts.draw_centered(
-					&mut pm,
-					label,
-					cx + mid.cos() * rr,
-					cy + mid.sin() * rr - lh / 2.0,
-					size,
-					Weight::Semibold,
-					ink.alpha(alpha),
-					Some(width),
-				);
+				if let Some(path) = fonts.arc(label, 12.5 * s, Weight::Semibold, cx, cy, rr, mid, flipped(mid)) {
+					fill_path(&mut pm, &path, ink.alpha(alpha));
+				}
 			}
 		}
 	}
