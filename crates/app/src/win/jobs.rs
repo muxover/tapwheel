@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Instant;
@@ -30,7 +30,7 @@ pub struct Batch {
 	pub copy: Option<String>,
 }
 
-fn name(p: &PathBuf) -> String {
+fn name(p: &Path) -> String {
 	p.file_name()
 		.map(|n| n.to_string_lossy().into_owned())
 		.unwrap_or_default()

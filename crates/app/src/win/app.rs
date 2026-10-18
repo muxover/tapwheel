@@ -189,15 +189,6 @@ pub fn with<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
 	APP.with(|a| a.try_borrow_mut().ok().and_then(|mut g| g.as_mut().map(f)))
 }
 
-fn key_index(k: Key) -> usize {
-	match k {
-		Key::Shift => 0,
-		Key::Ctrl => 1,
-		Key::Alt => 2,
-		Key::Off => 3,
-	}
-}
-
 fn key_from(i: usize) -> Key {
 	match i {
 		0 => Key::Shift,
@@ -305,14 +296,6 @@ fn capture_backdrop(x: i32, y: i32, w: u32, h: u32) -> Option<Pixmap> {
 impl App {
 	pub fn save(&self) {
 		let _ = self.settings.save(&self.settings_path);
-	}
-
-	fn keys(&self) -> [usize; 3] {
-		[
-			key_index(self.settings.keys.convert),
-			key_index(self.settings.keys.tools),
-			key_index(self.settings.keys.actions),
-		]
 	}
 
 	fn key_hints(&self) -> Vec<KeyHint> {
@@ -932,15 +915,6 @@ impl App {
 	pub fn show_settings(&mut self) {
 		let init = self.settings_payload();
 		super::web::open(self, super::web::Page::Settings, init);
-	}
-
-	pub fn set_key(&mut self, wheel: Wheel, key: usize) {
-		self.settings.keys.assign(wheel, key_from(key));
-		self.save();
-	}
-
-	pub fn keys_now(&self) -> [usize; 3] {
-		self.keys()
 	}
 
 	fn add_tray(&self) {
