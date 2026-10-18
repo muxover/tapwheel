@@ -160,7 +160,7 @@ fn main() {
 				"ring",
 				WheelView {
 					hover: Hover::Ring(3, 1),
-					hint: Some("About 640 KB".into()),
+					hint: None,
 					motion: Motion {
 						hover: vec![0.0, 0.0, 0.0, 1.0],
 						..Motion::default()
