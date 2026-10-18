@@ -42,11 +42,8 @@
 	color-scheme: dark;
 }
 
-/* Windows 11 shows Mica through the page; Windows 10 is flat and square. */
-:root[data-win11] body {
-	background: transparent;
-}
-
+/* Windows 10 is flat and square. Every page draws its own solid background (the colours
+   Windows uses behind Mica), so nothing behind the WebView can ever show through. */
 :root:not([data-win11]) {
 	--radius: 0px;
 	--radius-s: 0px;
