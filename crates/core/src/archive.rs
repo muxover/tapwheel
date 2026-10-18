@@ -167,7 +167,16 @@ fn safe_join(dest: &Path, name: &str) -> Option<PathBuf> {
 	(out != dest).then_some(out)
 }
 
-pub fn extract(input: &Path, dest: &Path, cancel: &AtomicBool) -> Result<(), Error> {
+/// Unpacks everything, or only the entries named in `only` (a folder brings what's inside it).
+pub fn extract(input: &Path, dest: &Path, only: &[String], cancel: &AtomicBool) -> Result<(), Error> {
+	let wanted = |name: &str| {
+		let name = name.trim_end_matches('/');
+		only.is_empty()
+			|| only.iter().any(|o| {
+				let o = o.trim_end_matches('/');
+				name == o || name.starts_with(&format!("{o}/"))
+			})
+	};
 	fs::create_dir_all(dest)?;
 	match ext_of(input).as_str() {
 		"zip" | "jar" | "apk" | "cbz" | "nupkg" | "vsix" | "whl" => {
@@ -181,6 +190,9 @@ pub fn extract(input: &Path, dest: &Path, cancel: &AtomicBool) -> Result<(), Err
 					other => zip_err(other),
 				})?;
 				let name = f.name().map_err(zip_err)?.into_owned();
+				if !wanted(&name) {
+					continue;
+				}
 				let Some(path) = safe_join(dest, &name) else {
 					continue;
 				};
@@ -198,6 +210,9 @@ pub fn extract(input: &Path, dest: &Path, cancel: &AtomicBool) -> Result<(), Err
 			sevenz_rust2::decompress_file_with_extract_fn(input, dest, |entry, reader, _| {
 				if cancel.load(Ordering::Relaxed) {
 					return Err(sevenz_rust2::Error::Other("cancelled".into()));
+				}
+				if !wanted(entry.name()) {
+					return Ok(true);
 				}
 				let Some(path) = safe_join(dest, entry.name()) else {
 					return Ok(true);
@@ -220,23 +235,31 @@ pub fn extract(input: &Path, dest: &Path, cancel: &AtomicBool) -> Result<(), Err
 				}
 			})?;
 		}
-		"tar" => untar(BufReader::new(File::open(input)?), dest, cancel)?,
+		"tar" => untar(BufReader::new(File::open(input)?), dest, &wanted, cancel)?,
 		"tgz" => untar(
 			flate2::read::GzDecoder::new(BufReader::new(File::open(input)?)),
 			dest,
+			&wanted,
 			cancel,
 		)?,
 		"txz" => untar(
 			xz2::read::XzDecoder::new(BufReader::new(File::open(input)?)),
 			dest,
+			&wanted,
 			cancel,
 		)?,
 		"tbz" | "tbz2" => untar(
 			bzip2::read::BzDecoder::new(BufReader::new(File::open(input)?)),
 			dest,
+			&wanted,
 			cancel,
 		)?,
-		"tzst" => untar(zstd::Decoder::new(BufReader::new(File::open(input)?))?, dest, cancel)?,
+		"tzst" => untar(
+			zstd::Decoder::new(BufReader::new(File::open(input)?))?,
+			dest,
+			&wanted,
+			cancel,
+		)?,
 		"gz" | "xz" | "bz2" | "zst" => {
 			let name = crate::plan::stem_of(input);
 			let mut r = single_stream(input)?;
@@ -247,11 +270,14 @@ pub fn extract(input: &Path, dest: &Path, cancel: &AtomicBool) -> Result<(), Err
 	Ok(())
 }
 
-fn untar<R: Read>(r: R, dest: &Path, cancel: &AtomicBool) -> Result<(), Error> {
+fn untar<R: Read>(r: R, dest: &Path, wanted: &dyn Fn(&str) -> bool, cancel: &AtomicBool) -> Result<(), Error> {
 	let mut tar = tar::Archive::new(r);
 	for entry in tar.entries()? {
 		check(cancel)?;
 		let mut entry = entry?;
+		if !wanted(&entry.path()?.to_string_lossy()) {
+			continue;
+		}
 		// unpack_in refuses paths that escape `dest`
 		entry.unpack_in(dest)?;
 	}
@@ -260,7 +286,7 @@ fn untar<R: Read>(r: R, dest: &Path, cancel: &AtomicBool) -> Result<(), Error> {
 
 /// Archive to archive: unpack into a scratch folder, then pack its contents.
 pub fn repack(input: &Path, format: Format, output: &Path, scratch: &Path, cancel: &AtomicBool) -> Result<(), Error> {
-	extract(input, scratch, cancel)?;
+	extract(input, scratch, &[], cancel)?;
 	let mut items: Vec<PathBuf> = fs::read_dir(scratch)?
 		.map(|e| e.map(|e| e.path()))
 		.collect::<Result<_, _>>()?;
@@ -476,9 +502,14 @@ mod tests {
 			let out = root.join(format!("out.{}", f.ext()));
 			pack(std::slice::from_ref(&folder), f, &out, &never).unwrap();
 			let dest = root.join(format!("x-{}", f.ext()));
-			extract(&out, &dest, &never).unwrap();
+			extract(&out, &dest, &[], &never).unwrap();
 			assert_eq!(fs::read(dest.join("photos/a.txt")).unwrap(), b"alpha", "{f:?}");
 			assert_eq!(fs::read(dest.join("photos/trip/b.txt")).unwrap().len(), 10_000, "{f:?}");
+			// only what's picked: a folder brings its contents, nothing else comes along
+			let some = root.join(format!("some-{}", f.ext()));
+			extract(&out, &some, &["photos/trip".into()], &never).unwrap();
+			assert!(some.join("photos/trip/b.txt").exists(), "{f:?}");
+			assert!(!some.join("photos/a.txt").exists(), "{f:?}");
 		}
 		fs::remove_dir_all(root).unwrap();
 	}
@@ -492,7 +523,7 @@ mod tests {
 		let out = root.join("in.7z");
 		repack(&zip, Format::SevenZ, &out, &root.join("scratch"), &never).unwrap();
 		let dest = root.join("check");
-		extract(&out, &dest, &never).unwrap();
+		extract(&out, &dest, &[], &never).unwrap();
 		assert_eq!(fs::read(dest.join("photos/a.txt")).unwrap(), b"alpha");
 		fs::remove_dir_all(root).unwrap();
 	}
@@ -512,7 +543,7 @@ mod tests {
 		.unwrap();
 		let names: Vec<String> = list(&zip).unwrap().into_iter().map(|i| i.name).collect();
 		assert!(names.contains(&"photos/a.txt".to_string()));
-		let err = extract(&zip, &root.join("nope"), &never).unwrap_err();
+		let err = extract(&zip, &root.join("nope"), &[], &never).unwrap_err();
 		assert!(err.to_string().contains("password"), "{err}");
 
 		let sz = root.join("locked.7z");
