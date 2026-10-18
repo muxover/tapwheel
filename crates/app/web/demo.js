@@ -127,7 +127,7 @@ function petal(cx, cy, r0, r1, a0, a1, corner, fill) {
 }
 
 /** A slice whose sides stay `d` from each divider at every radius, rounded by `corner`. */
-function slice(cx, cy, r0, r1, a0, a1, d, corner, fill) {
+function evenSlice(cx, cy, r0, r1, a0, a1, d, corner, fill) {
 	const ri = r0 + corner;
 	const ro = r1 - corner;
 	const dd = d + corner;
@@ -264,7 +264,7 @@ function wheel(scene, m, win11) {
 		const oy = Math.sin(mid) * pop;
 		const ga = 2 / R_OUT;
 		out += `<g opacity="${fade.toFixed(3)}">`;
-		out += slice(CX + ox, CY + oy, R_IN + 6, R_OUT - 6, a0, a1, 2, corner, mix(tile, P.accent, hv));
+		out += evenSlice(CX + ox, CY + oy, R_IN + 6, R_OUT - 6, a0, a1, 2, corner, mix(tile, P.accent, hv));
 		const ink = mix(P.text, P.onAccent, hv);
 		const label = isMore ? "More" : scene.slices[k].label;
 		const ic = isMore ? "more_horizontal" : scene.slices[k].icon || "";
