@@ -115,25 +115,58 @@ function sector(cx, cy, r0, r1, a0, a1) {
 	return `M${p(r1, a0)}A${r1} ${r1} 0 ${big} 1 ${p(r1, a1)}L${p(r0, a1)}A${r0} ${r0} 0 ${big} 0 ${p(r0, a0)}Z`;
 }
 
-function petal(cx, cy, r0, r1, a0, a1, corner, fill, extra = "") {
+function petal(cx, cy, r0, r1, a0, a1, corner, fill) {
 	const mid = (r0 + r1) / 2;
 	const pad = Math.min(corner / mid, (a1 - a0) / 2 - 0.001);
 	const d = sector(cx, cy, r0 + corner, r1 - corner, a0 + pad, a1 - pad);
 	if (!d) return "";
-	return `<path d="${d}" style="fill:${fill};stroke:${fill};stroke-width:${corner * 2};stroke-linejoin:round" ${extra}/>`;
+	// opaque inside a faded group, so the rounding stroke doesn't double the alpha at the edges
+	const solid = css([fill[0], fill[1], fill[2], 1]);
+	return `<g opacity="${fill[3].toFixed(3)}"><path d="${d}" fill="${solid}" stroke="${solid}" stroke-width="${corner * 2}" stroke-linejoin="round"/></g>`;
 }
 
 function glyph(name, x, y, size, fill) {
 	const d = icons[name];
 	if (!d) return "";
-	return `<path d="${d}" transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${size / 20})" style="fill:${fill}"/>`;
+	return `<path d="${d}" transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${size / 20})" fill="${css(fill)}"/>`;
 }
 
 function text(str, x, y, size, weight, fill, anchor = "middle", extra = "") {
-	return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="${anchor}" dominant-baseline="central" style="font:${weight} ${size}px var(--font);fill:${fill}" ${extra}>${esc(str)}</text>`;
+	return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="${anchor}" dominant-baseline="central" font-family="${esc(P.font)}" font-size="${size}" font-weight="${weight}" fill="${css(fill)}" ${extra}>${esc(str)}</text>`;
 }
 
-const mix = (a, b, t) => (t <= 0 ? a : t >= 1 ? b : `color-mix(in srgb, ${b} ${(t * 100).toFixed(1)}%, ${a})`);
+// the page's colour tokens, read once per frame so the drawing needs no inline styles
+let P = null;
+const probe = document.createElement("canvas").getContext("2d");
+function rgba(value) {
+	probe.fillStyle = "#000";
+	probe.fillStyle = value.trim() || "#000";
+	const v = probe.fillStyle;
+	if (v[0] === "#") return [parseInt(v.slice(1, 3), 16), parseInt(v.slice(3, 5), 16), parseInt(v.slice(5, 7), 16), 1];
+	const n = v.match(/[\d.]+/g).map(Number);
+	return [n[0], n[1], n[2], n[3] ?? 1];
+}
+function palette(el) {
+	const cs = getComputedStyle(el);
+	const get = (name) => rgba(cs.getPropertyValue(name));
+	return {
+		text: get("--text"),
+		text2: get("--text-2"),
+		text3: get("--text-3"),
+		accent: get("--accent"),
+		onAccent: get("--on-accent"),
+		surface: get("--surface"),
+		raised: get("--surface-2"),
+		stroke: get("--stroke"),
+		strong: get("--stroke-strong"),
+		font: cs.getPropertyValue("--font").trim() || "Segoe UI, sans-serif",
+	};
+}
+const css = ([r, g, b, a]) => `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${+a.toFixed(3)})`;
+const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * clamp(t));
+const alpha = (c, k) => [c[0], c[1], c[2], c[3] * k];
+const NONE = [0, 0, 0, 0];
+const shape = (fill, stroke = NONE, width = 1) => `fill="${css(fill)}" stroke="${css(stroke)}" stroke-width="${width}"`;
 
 /** Picks words into at most `lines` lines that fit `max` pixels, roughly measured. */
 function wrap(str, size, max, lines) {
@@ -155,9 +188,9 @@ function wrap(str, size, max, lines) {
 function wheel(scene, m, win11) {
 	const n = scene.slices.length + (scene.more ? 1 : 0);
 	const corner = win11 ? 10 : 2;
-	const tile = "color-mix(in srgb, var(--text) 5%, transparent)";
+	const tile = alpha(P.text, 0.05);
 	let out = "";
-	out += `<circle cx="${CX}" cy="${CY}" r="${R_OUT}" class="disc"/>`;
+	out += `<circle cx="${CX}" cy="${CY}" r="${R_OUT}" ${shape(P.surface, P.strong)}/>`;
 	for (let k = 0; k < n; k++) {
 		const [a0, mid, a1] = angles(n, k);
 		const isMore = scene.more && k === n - 1;
@@ -168,12 +201,12 @@ function wheel(scene, m, win11) {
 		const ox = Math.cos(mid) * pop;
 		const oy = Math.sin(mid) * pop;
 		const ga = 3 / R_OUT;
-		out += `<g style="opacity:${fade.toFixed(3)}">`;
-		out += petal(CX + ox, CY + oy, R_IN + 6, R_OUT - 6, a0 + ga, a1 - ga, corner, mix(tile, "var(--accent)", hv));
+		out += `<g opacity="${fade.toFixed(3)}">`;
+		out += petal(CX + ox, CY + oy, R_IN + 6, R_OUT - 6, a0 + ga, a1 - ga, corner, mix(tile, P.accent, hv));
 		const rMid = (R_IN + R_OUT) / 2 + 4;
 		const lx = CX + Math.cos(mid) * rMid + ox;
 		const ly = CY + Math.sin(mid) * rMid + oy;
-		const ink = mix("var(--text)", "var(--on-accent)", hv);
+		const ink = mix(P.text, P.onAccent, hv);
 		const label = isMore ? "More" : scene.slices[k].label;
 		const ic = isMore ? "more_horizontal" : scene.slices[k].icon || "";
 		if (ic) {
@@ -183,7 +216,7 @@ function wheel(scene, m, win11) {
 			out += text(label, lx, ly, 16, 600, ink);
 		}
 		if (isMore) {
-			out += `<circle cx="${lx - 4.5}" cy="${ly + 27}" r="2.6" style="fill:${ink}"/><circle cx="${lx + 4.5}" cy="${ly + 27}" r="2.6" style="fill:${ink};opacity:.35"/>`;
+			out += `<circle cx="${lx - 4.5}" cy="${ly + 27}" r="2.6" fill="${css(ink)}"/><circle cx="${lx + 4.5}" cy="${ly + 27}" r="2.6" fill="${css(alpha(ink, 0.35))}"/>`;
 		}
 		out += "</g>";
 	}
@@ -194,31 +227,31 @@ function wheel(scene, m, win11) {
 		const grow = easeBack(m.ring);
 		const r0 = R_OUT + (RING_IN - R_OUT) * grow;
 		const r1 = R_OUT + (RING_OUT - R_OUT) * grow;
-		const alpha = easeOut(m.ring * 1.6);
+		const shown = easeOut(m.ring * 1.6);
 		const rc = win11 ? 12 : 2;
 		const r = (RING_IN + RING_OUT) / 2;
 		const gap = 6 / r;
 		const widths = slice.ring.map((l) => Math.max(l.length * 7.2 + 30, 64) / r);
 		const total = widths.reduce((a, b) => a + b, 0) + gap * (widths.length - 1);
 		let a = angles(n, m.slice)[1] - total / 2;
-		out += `<g style="opacity:${alpha.toFixed(3)}">`;
+		out += `<g opacity="${shown.toFixed(3)}">`;
 		slice.ring.forEach((l, j) => {
 			const s0 = a;
 			const s1 = a + widths[j];
 			a = s1 + gap;
 			const on = m.ringOn === j;
-			out += petal(CX, CY + 3, r0, r1, s0, s1, rc, "rgba(0,0,0,.14)");
-			out += petal(CX, CY, r0, r1, s0, s1, rc, on ? "var(--accent)" : "var(--raised)");
-			if (!on) out += `<path d="${sector(CX, CY, r0 + rc / 2, r1 - rc / 2, s0 + 0.005, s1 - 0.005)}" style="fill:none;stroke:var(--stroke-strong);stroke-width:1"/>`;
+			out += petal(CX, CY + 3, r0, r1, s0, s1, rc, [0, 0, 0, 0.14]);
+			out += petal(CX, CY, r0, r1, s0, s1, rc, on ? P.accent : P.raised);
+			if (!on) out += `<path d="${sector(CX, CY, r0 + rc / 2, r1 - rc / 2, s0 + 0.005, s1 - 0.005)}" ${shape(NONE, P.strong)}/>`;
 			const md = (s0 + s1) / 2;
 			const rr = (r0 + r1) / 2;
-			out += text(l, CX + Math.cos(md) * rr, CY + Math.sin(md) * rr, 12.5, 600, on ? "var(--on-accent)" : "var(--text)");
+			out += text(l, CX + Math.cos(md) * rr, CY + Math.sin(md) * rr, 12.5, 600, on ? P.onAccent : P.text);
 		});
 		out += "</g>";
 	}
 
 	// centre
-	out += `<circle cx="${CX}" cy="${CY}" r="${R_CENTER}" style="fill:var(--raised);stroke:var(--stroke-strong);stroke-width:1"/>`;
+	out += `<circle cx="${CX}" cy="${CY}" r="${R_CENTER}" ${shape(P.raised, P.strong)}/>`;
 	let head = WHEELS[scene.key][1];
 	let body = scene.file.name;
 	if (slice) {
@@ -233,10 +266,10 @@ function wheel(scene, m, win11) {
 	const lines = wrap(body, 12, 104, 3);
 	const total = 20 + lines.length * 16;
 	let y = CY - total / 2 + 9;
-	out += text(head, CX, y, 15, 600, "var(--text)");
+	out += text(head, CX, y, 15, 600, P.text);
 	y += 20;
 	for (const l of lines) {
-		out += text(l, CX, y, 12, 400, "var(--text-2)");
+		out += text(l, CX, y, 12, 400, P.text2);
 		y += 16;
 	}
 
@@ -246,32 +279,32 @@ function wheel(scene, m, win11) {
 	const pw = inner + 20;
 	const px = CX - pw / 2;
 	const pr = win11 ? PILL_H / 2 : 0;
-	out += `<rect x="${px}" y="${PILL_Y}" width="${pw}" height="${PILL_H}" rx="${pr}" class="pill"/>`;
+	out += `<rect x="${px}" y="${PILL_Y}" width="${pw}" height="${PILL_H}" rx="${pr}" ${shape(P.surface, P.strong)}/>`;
 	let x = px + 10;
 	for (const p of parts) {
 		const ky = PILL_Y + 10;
 		const kr = win11 ? 4 : 0;
 		out += p.on
-			? `<rect x="${x}" y="${ky}" width="${p.kw}" height="20" rx="${kr}" style="fill:var(--accent)"/>`
-			: `<rect x="${x + 0.5}" y="${ky + 0.5}" width="${p.kw - 1}" height="19" rx="${kr}" style="fill:none;stroke:var(--text-3)"/>`;
-		out += text(p.k, x + p.kw / 2, ky + 10, 11, 600, p.on ? "var(--on-accent)" : "var(--text-2)");
+			? `<rect x="${x}" y="${ky}" width="${p.kw}" height="20" rx="${kr}" ${shape(P.accent)}/>`
+			: `<rect x="${x + 0.5}" y="${ky + 0.5}" width="${p.kw - 1}" height="19" rx="${kr}" ${shape(NONE, P.text3)}/>`;
+		out += text(p.k, x + p.kw / 2, ky + 10, 11, 600, p.on ? P.onAccent : P.text2);
 		x += p.kw + 6;
-		out += text(p.name, x, PILL_Y + PILL_H / 2, 12, p.on ? 600 : 400, "var(--text)", "start");
+		out += text(p.name, x, PILL_Y + PILL_H / 2, 12, p.on ? 600 : 400, P.text, "start");
 		x += p.nw + 14;
 	}
 
 	// opening scales up with a little overshoot; closing shrinks and fades
 	let scale = 1;
-	let alpha = 1;
+	let seen = 1;
 	if (m.close > 0) {
 		const t = easeOut(m.close);
 		scale = m.picked !== null ? 1 - 0.06 * t : 1 - 0.1 * t;
-		alpha = 1 - t;
+		seen = 1 - t;
 	} else if (m.open < 1) {
 		scale = 0.86 + 0.14 * easeBack(m.open);
-		alpha = easeOut(m.open * 1.4);
+		seen = easeOut(m.open * 1.4);
 	}
-	return `<g transform="translate(${CX} ${CY}) scale(${scale.toFixed(4)}) translate(${-CX} ${-CY})" style="opacity:${clamp(alpha).toFixed(3)}" filter="url(#tw-demo-shadow)">${out}</g>`;
+	return `<g transform="translate(${CX} ${CY}) scale(${scale.toFixed(4)}) translate(${-CX} ${-CY})" opacity="${clamp(seen).toFixed(3)}" filter="url(#tw-demo-shadow)">${out}</g>`;
 }
 
 /** A result card as the real one draws it: tile, title, detail, progress on the bottom edge. */
@@ -284,25 +317,25 @@ function card(c, shown, progress, win11, time) {
 	const y = H - ch - 28;
 	const r = win11 ? 8 : 0;
 	const done = progress === null;
-	let s = `<g transform="translate(${((1 - t) * 36).toFixed(2)} 0) translate(${x + cw / 2} ${y + ch / 2}) scale(${(0.96 + 0.04 * t).toFixed(4)}) translate(${-(x + cw / 2)} ${-(y + ch / 2)})" style="opacity:${t.toFixed(3)}" filter="url(#tw-demo-shadow)">`;
-	s += `<rect x="${x}" y="${y}" width="${cw}" height="${ch}" rx="${r}" class="card"/>`;
+	let s = `<g transform="translate(${((1 - t) * 36).toFixed(2)} 0) translate(${x + cw / 2} ${y + ch / 2}) scale(${(0.96 + 0.04 * t).toFixed(4)}) translate(${-(x + cw / 2)} ${-(y + ch / 2)})" opacity="${t.toFixed(3)}" filter="url(#tw-demo-shadow)">`;
+	s += `<rect x="${x}" y="${y}" width="${cw}" height="${ch}" rx="${r}" ${shape(P.surface, P.strong)}/>`;
 	const tx = x + 14;
 	const ty = y + 14;
-	s += `<rect x="${tx}" y="${ty}" width="36" height="36" rx="${win11 ? 8 : 0}" style="fill:${done ? "color-mix(in srgb, var(--accent) 16%, transparent)" : "color-mix(in srgb, var(--text) 7%, transparent)"}"/>`;
-	s += glyph(c.icon || "checkmark_circle", tx + 8, ty + 8, 20, done ? "var(--accent)" : "var(--text)");
+	s += `<rect x="${tx}" y="${ty}" width="36" height="36" rx="${win11 ? 8 : 0}" ${shape(done ? alpha(P.accent, 0.16) : alpha(P.text, 0.07))}/>`;
+	s += glyph(c.icon || "checkmark_circle", tx + 8, ty + 8, 20, done ? P.accent : P.text);
 	if (done) {
 		const bx = tx + 32;
 		const by = ty + 32;
-		s += `<circle cx="${bx}" cy="${by}" r="8" style="fill:var(--surface)"/><circle cx="${bx}" cy="${by}" r="6.5" style="fill:var(--accent)"/>`;
-		s += `<path d="M${bx - 3} ${by}l2 2 4-4" style="fill:none;stroke:var(--on-accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"/>`;
+		s += `<circle cx="${bx}" cy="${by}" r="8" ${shape(P.surface)}/><circle cx="${bx}" cy="${by}" r="6.5" ${shape(P.accent)}/>`;
+		s += `<path d="M${bx - 3} ${by}l2 2 4-4" ${shape(NONE, P.onAccent, 1.6)} stroke-linecap="round" stroke-linejoin="round"/>`;
 	}
 	const detail = done ? c.detail : `${Math.round(progress * 100)}%  ·  ${c.detail}`;
-	s += text(c.title, x + 62, y + 24, 13.5, 600, "var(--text)", "start");
-	s += text(detail, x + 62, y + 42, 12, 400, "var(--text-2)", "start");
+	s += text(c.title, x + 62, y + 24, 13.5, 600, P.text, "start");
+	s += text(detail, x + 62, y + 42, 12, 400, P.text2, "start");
 	if (!done) {
 		const bw = cw - 28;
-		s += `<rect x="${x + 14}" y="${y + ch - 7}" width="${bw}" height="3" rx="1.5" style="fill:color-mix(in srgb, var(--text-2) 18%, transparent)"/>`;
-		s += `<rect x="${x + 14}" y="${y + ch - 7}" width="${(bw * clamp(progress)).toFixed(2)}" height="3" rx="1.5" style="fill:var(--accent)"/>`;
+		s += `<rect x="${x + 14}" y="${y + ch - 7}" width="${bw}" height="3" rx="1.5" ${shape(alpha(P.text2, 0.18))}/>`;
+		s += `<rect x="${x + 14}" y="${y + ch - 7}" width="${(bw * clamp(progress)).toFixed(2)}" height="3" rx="1.5" ${shape(P.accent)}/>`;
 	}
 	void time;
 	return `${s}</g>`;
@@ -331,11 +364,11 @@ function explorer(scene, pressed, lifted, win11) {
 	const w = 340;
 	const h = 330;
 	const r = win11 ? 8 : 0;
-	let s = `<g filter="url(#tw-demo-shadow)"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" class="card"/></g>`;
-	s += `<rect x="${x}" y="${y}" width="${w}" height="40" rx="${r}" style="fill:var(--surface-2)"/><rect x="${x}" y="${y + 30}" width="${w}" height="10" style="fill:var(--surface-2)"/>`;
-	s += glyph("folder", x + 14, y + 10, 20, "#e8b130");
-	s += text(scene.file.kind === "video" ? "Videos" : "Pictures", x + 42, y + 20, 13, 600, "var(--text)", "start");
-	s += `<line x1="${x}" y1="${y + 40}" x2="${x + w}" y2="${y + 40}" style="stroke:var(--stroke)"/>`;
+	let s = `<g filter="url(#tw-demo-shadow)"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ${shape(P.surface, P.strong)}/></g>`;
+	s += `<rect x="${x}" y="${y}" width="${w}" height="40" rx="${r}" ${shape(P.raised)}/><rect x="${x}" y="${y + 30}" width="${w}" height="10" ${shape(P.raised)}/>`;
+	s += glyph("folder", x + 14, y + 10, 20, [232, 177, 48, 1]);
+	s += text(scene.file.kind === "video" ? "Videos" : "Pictures", x + 42, y + 20, 13, 600, P.text, "start");
+	s += `<line x1="${x}" y1="${y + 40}" x2="${x + w}" y2="${y + 40}" ${shape(NONE, P.stroke)}/>`;
 	const others = [
 		{ name: "notes.txt", doc: true },
 		{ name: "trip.png", kind: "image", tint: ["#ffd76b", "#ff7a45"] },
@@ -350,15 +383,15 @@ function explorer(scene, pressed, lifted, win11) {
 		const ix = x + 22 + col * 104;
 		const iy = y + 60 + row * 128;
 		const me = i === 0;
-		if (me && pressed) s += `<rect x="${ix - 8}" y="${iy - 8}" width="96" height="112" rx="${win11 ? 6 : 0}" style="fill:color-mix(in srgb, var(--accent) 18%, transparent);stroke:color-mix(in srgb, var(--accent) 55%, transparent)"/>`;
-		s += `<g style="opacity:${me && lifted ? 0.45 : 1}">`;
+		if (me && pressed) s += `<rect x="${ix - 8}" y="${iy - 8}" width="96" height="112" rx="${win11 ? 6 : 0}" ${shape(alpha(P.accent, 0.18), alpha(P.accent, 0.55))}/>`;
+		s += `<g opacity="${me && lifted ? 0.45 : 1}">`;
 		if (f.doc) {
-			s += `<rect x="${ix + 10}" y="${iy}" width="60" height="70" rx="4" style="fill:var(--surface-2);stroke:var(--stroke-strong)"/>`;
-			s += glyph(f.doc === true ? "document_text" : f.doc, ix + 26, iy + 21, 28, "var(--text-2)");
+			s += `<rect x="${ix + 10}" y="${iy}" width="60" height="70" rx="4" ${shape(P.raised, P.strong)}/>`;
+			s += glyph(f.doc === true ? "document_text" : f.doc, ix + 26, iy + 21, 28, P.text2);
 		} else {
 			s += thumb(f, ix, iy + 6, 80);
 		}
-		s += text(f.name, ix + 40, iy + 88, 12, 400, "var(--text)");
+		s += text(f.name, ix + 40, iy + 88, 12, 400, P.text);
 		s += "</g>";
 	});
 	return s;
@@ -366,13 +399,13 @@ function explorer(scene, pressed, lifted, win11) {
 
 function cursor(x, y, down) {
 	const k = down ? 0.94 : 1;
-	return `<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${1.25 * k})"><path d="M0 0V16.5l4.2-4 2.9 6.6 2.6-1.1-2.8-6.4H12.8Z" style="fill:#fff;stroke:#111;stroke-width:1;stroke-linejoin:round"/></g>`;
+	return `<g transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${1.25 * k})"><path d="M0 0V16.5l4.2-4 2.9 6.6 2.6-1.1-2.8-6.4H12.8Z" fill="#fff" stroke="#111" stroke-width="1" stroke-linejoin="round"/></g>`;
 }
 
 /** The dragged file under the pointer, the way Windows shows it. */
-function ghost(file, x, y, alpha) {
-	if (alpha <= 0) return "";
-	return `<g transform="translate(${(x + 14).toFixed(2)} ${(y + 22).toFixed(2)})" style="opacity:${(0.7 * alpha).toFixed(3)}">${thumb(file, 0, 0, 44)}</g>`;
+function ghost(file, x, y, shown) {
+	if (shown <= 0) return "";
+	return `<g transform="translate(${(x + 14).toFixed(2)} ${(y + 22).toFixed(2)})" opacity="${(0.7 * shown).toFixed(3)}">${thumb(file, 0, 0, 44)}</g>`;
 }
 
 /** A keycap that dips when it's tapped. */
@@ -381,7 +414,7 @@ function keycap(label, x, y, press, shown) {
 	const w = label.length * 10 + 34;
 	const dip = Math.sin(clamp(press) * Math.PI) * 4;
 	const t = easeOut(shown);
-	return `<g style="opacity:${t.toFixed(3)}" transform="translate(${x - w / 2} ${(y + (1 - t) * 10).toFixed(2)})"><rect x="0" y="4" width="${w}" height="44" rx="8" style="fill:color-mix(in srgb, var(--text) 22%, var(--surface))"/><rect x="0" y="${dip.toFixed(2)}" width="${w}" height="44" rx="8" class="key"/>${text(label, w / 2, 22 + dip, 16, 600, "var(--text)")}</g>`;
+	return `<g opacity="${t.toFixed(3)}" transform="translate(${x - w / 2} ${(y + (1 - t) * 10).toFixed(2)})"><rect x="0" y="4" width="${w}" height="44" rx="8" ${shape(mix(P.surface, P.text, 0.22))}/><rect x="0" y="${dip.toFixed(2)}" width="${w}" height="44" rx="8" ${shape(P.surface, P.strong)}/>${text(label, w / 2, 22 + dip, 16, 600, P.text)}</g>`;
 }
 
 /** Times in the loop, in milliseconds. */
@@ -550,6 +583,7 @@ export function demo({ scenes = SCENES, labels = true, scene = 0, at = null } = 
 		const s = scenes[index];
 		// a still shows the moment just before the drop
 		const ms = at ?? (still ? (s.slices[s.pick].ring ? T.ringAt + 100 : T.sliceAt + 100) : now - t0);
+		P = palette(root);
 		const f = frame(s, ms, win11());
 		layer.innerHTML = f.svg;
 		buttons.forEach((b, i) => b.setAttribute("aria-pressed", String(i === index)));
