@@ -32,6 +32,7 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-18: the privacy page also promises: errors go to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on the PC (error messages and file names, never typing, under 256 KB, removed by Remove from this PC, never sent anywhere).
 - 2026-10-18: screenshots, screen recording and customizing the wheels are goals (asked for by Jax); they're planned for v0.2.0 next to Copy anything, which uses the same screen capture.
 - 2026-10-18: the Contents window extracts what you tick instead of dragging single items out, which WebView2 can't hand to Explorer.
+- 2026-10-18: the zip stays unsigned (no code-signing certificate). It's for developers and technical users, who can get past Chrome's and SmartScreen's warnings; the site always sends people to the Microsoft Store version, which Microsoft signs.
 - 2026-10-18: the Store package can't write classic shell keys, so its right-click entry waits for the Explorer command handler in v0.2.0; the portable build adds a classic one.
 
 ## Status

@@ -50,10 +50,8 @@ Every file also gets ZIP and the Actions wheel: Copy, Copy path, Move to, Share,
 
 ## Installation
 
-- [Microsoft Store](https://apps.microsoft.com/detail/9MW1GB4106VS): signed by Microsoft, updates itself.
-- [Portable zip](https://github.com/muxover/tapwheel/releases/latest): unzip anywhere and run `tapwheel.exe`. No admin rights needed, and it adds a right-click entry.
-
-The zip isn't code-signed, so SmartScreen may ask once before the first run.
+- [Microsoft Store](https://apps.microsoft.com/detail/9MW1GB4106VS): the one to get. Signed by Microsoft and updates itself.
+- [Portable zip](https://github.com/muxover/tapwheel/releases/latest), for developers and testers: unzip anywhere and run `tapwheel.exe`. No admin rights needed, and it adds a right-click entry. It isn't code-signed, so your browser may flag the download and SmartScreen may ask once before the first run.
 
 ---
 
