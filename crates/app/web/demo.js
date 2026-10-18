@@ -185,6 +185,51 @@ function wrap(str, size, max, lines) {
 	return out.slice(0, lines);
 }
 
+// same fitting as the app's wheel (crates/ui/src/wheel.rs): one line, else two, sizes stepping down
+const LABEL_PAD = 8;
+const measure = document.createElement("canvas").getContext("2d");
+const widthOf = (t, size) => {
+	measure.font = `600 ${size}px ${P.font}`;
+	return measure.measureText(t).width;
+};
+const flipped = (mid) => {
+	const s = Math.sin(mid);
+	return s > 1e-3 || (Math.abs(s) <= 1e-3 && Math.cos(mid) < 0);
+};
+function fitLabel(label, hasIcon, span, mid) {
+	const flip = flipped(mid);
+	const sizes = hasIcon ? [12.5, 12, 11.5, 11] : [16, 15, 14, 13];
+	const [iconR, textR] = hasIcon ? (flip ? [104, 140] : [140, 104]) : [null, (R_IN + R_OUT) / 2];
+	const room = (r) => Math.min(span, Math.PI) * r - 2 * LABEL_PAD;
+	for (const size of sizes) if (widthOf(label, size) <= room(textR)) return { lines: [[label, textR]], size, flip, iconR };
+	const words = label.split(" ");
+	for (const size of sizes) {
+		const gap = size * 1.33 * 0.9;
+		const [r1, r2] = flip ? [textR - gap / 2, textR + gap / 2] : [textR + gap / 2, textR - gap / 2];
+		let best = null;
+		for (let k = 1; k < words.length; k++) {
+			const a = words.slice(0, k).join(" ");
+			const b = words.slice(k).join(" ");
+			const w = Math.max(widthOf(a, size), widthOf(b, size));
+			if (!best || w < best.w) best = { a, b, w };
+		}
+		if (best && widthOf(best.a, size) <= room(r1) && widthOf(best.b, size) <= room(r2)) return { lines: [[best.a, r1], [best.b, r2]], size, flip, iconR };
+	}
+	return { lines: [[label, textR]], size: sizes[sizes.length - 1], flip, iconR };
+}
+
+let arcs = 0;
+/** Text on an arc, with its letters' middle on the circle; flipped runs the other way. */
+function arcText(str, cx, cy, r, mid, flip, size, fill) {
+	const cap = size * 0.7;
+	const base = flip ? r + cap / 2 : r - cap / 2;
+	const reach = 1.5;
+	const pt = (a) => `${(cx + Math.cos(a) * base).toFixed(2)} ${(cy + Math.sin(a) * base).toFixed(2)}`;
+	const id = `tw-arc-${arcs++}`;
+	const d = flip ? `M${pt(mid + reach)}A${base} ${base} 0 0 0 ${pt(mid - reach)}` : `M${pt(mid - reach)}A${base} ${base} 0 0 1 ${pt(mid + reach)}`;
+	return `<defs><path id="${id}" d="${d}"/></defs><text font-family="${esc(P.font)}" font-size="${size}" font-weight="600" fill="${css(fill)}"><textPath href="#${id}" startOffset="50%" text-anchor="middle">${esc(str)}</textPath></text>`;
+}
+
 /** The wheel at one moment. `m` follows the real Motion: open, close, hover per slice, ring, picked. */
 function wheel(scene, m, win11) {
 	const n = scene.slices.length + (scene.more ? 1 : 0);
@@ -204,20 +249,23 @@ function wheel(scene, m, win11) {
 		const ga = 3 / R_OUT;
 		out += `<g opacity="${fade.toFixed(3)}">`;
 		out += petal(CX + ox, CY + oy, R_IN + 6, R_OUT - 6, a0 + ga, a1 - ga, corner, mix(tile, P.accent, hv));
-		const rMid = (R_IN + R_OUT) / 2 + 4;
-		const lx = CX + Math.cos(mid) * rMid + ox;
-		const ly = CY + Math.sin(mid) * rMid + oy;
 		const ink = mix(P.text, P.onAccent, hv);
 		const label = isMore ? "More" : scene.slices[k].label;
 		const ic = isMore ? "more_horizontal" : scene.slices[k].icon || "";
-		if (ic) {
-			out += glyph(ic, lx - 12, ly - 22, 24, ink);
-			out += text(label, lx, ly + 13, 12.5, 600, ink);
-		} else {
-			out += text(label, lx, ly, 16, 600, ink);
-		}
+		const fit = fitLabel(label, !!ic, a1 - a0 - 2 * ga, mid);
+		const pcx = CX + ox;
+		const pcy = CY + oy;
+		if (fit.iconR) out += glyph(ic, pcx + Math.cos(mid) * fit.iconR - 12, pcy + Math.sin(mid) * fit.iconR - 12, 24, ink);
+		for (const [line, r] of fit.lines) out += arcText(line, pcx, pcy, r, mid, fit.flip, fit.size, ink);
 		if (isMore) {
-			out += `<circle cx="${lx - 4.5}" cy="${ly + 27}" r="2.6" fill="${css(ink)}"/><circle cx="${lx + 4.5}" cy="${ly + 27}" r="2.6" fill="${css(alpha(ink, 0.35))}"/>`;
+			// page dots under the label as it reads
+			const last = fit.lines[fit.lines.length - 1][1];
+			const r = fit.flip ? last + 14 : last - 14;
+			[0, 1].forEach((d) => {
+				const off = (d - 0.5) * (9 / r);
+				const a = fit.flip ? mid - off : mid + off;
+				out += `<circle cx="${(pcx + Math.cos(a) * r).toFixed(2)}" cy="${(pcy + Math.sin(a) * r).toFixed(2)}" r="2.6" fill="${css(d === 0 ? ink : alpha(ink, 0.35))}"/>`;
+			});
 		}
 		out += "</g>";
 	}
@@ -232,7 +280,7 @@ function wheel(scene, m, win11) {
 		const rc = win11 ? 8 : 2;
 		const r = (RING_IN + RING_OUT) / 2;
 		const gap = 6 / r;
-		const widths = slice.ring.map((l) => Math.max(l.length * 7.2 + 30, 64) / r);
+		const widths = slice.ring.map((l) => Math.max(widthOf(l, 12.5) + 30, 64) / r);
 		const total = widths.reduce((a, b) => a + b, 0) + gap * (widths.length - 1);
 		let a = angles(n, m.slice)[1] - total / 2;
 		out += `<g opacity="${shown.toFixed(3)}">`;
@@ -246,7 +294,7 @@ function wheel(scene, m, win11) {
 			if (!on) out += `<path d="${sector(CX, CY, r0 + rc / 2, r1 - rc / 2, s0 + 0.005, s1 - 0.005)}" ${shape(NONE, P.strong)}/>`;
 			const md = (s0 + s1) / 2;
 			const rr = (r0 + r1) / 2;
-			out += text(l, CX + Math.cos(md) * rr, CY + Math.sin(md) * rr, 12.5, 600, on ? P.onAccent : P.text);
+			out += arcText(l, CX, CY, rr, md, flipped(md), 12.5, on ? P.onAccent : P.text);
 		});
 		out += "</g>";
 	}
@@ -442,7 +490,7 @@ function ringPoint(scene, k, j) {
 	const slice = scene.slices[k];
 	const r = (RING_IN + RING_OUT) / 2;
 	const gap = 6 / r;
-	const widths = slice.ring.map((l) => Math.max(l.length * 7.2 + 30, 64) / r);
+	const widths = slice.ring.map((l) => Math.max(widthOf(l, 12.5) + 30, 64) / r);
 	const total = widths.reduce((a, b) => a + b, 0) + gap * (widths.length - 1);
 	let a = angles(n, k)[1] - total / 2;
 	for (let i = 0; i < j; i++) a += widths[i] + gap;
