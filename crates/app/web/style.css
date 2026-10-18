@@ -358,10 +358,22 @@ select {
 	user-select: text;
 }
 
-input:focus,
+/* text boxes get Windows' accent underline when focused; sliders and ticks don't */
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):focus,
 select:focus {
 	outline: none;
 	border-bottom: 2px solid var(--accent);
+}
+
+/* a slider shows keyboard focus on its knob, never as a box or a line around the track */
+input[type="range"]:focus,
+input[type="range"]:focus-visible {
+	outline: none;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+	outline: 2px solid var(--text);
+	outline-offset: 2px;
 }
 
 /* toggle switch */
@@ -724,20 +736,7 @@ kbd {
 
 .cp-hue {
 	width: 100%;
-	height: 14px;
-	-webkit-appearance: none;
-	appearance: none;
-	border-radius: 7px;
-	background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
-}
-
-.cp-hue::-webkit-slider-thumb {
-	-webkit-appearance: none;
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	background: #fff;
-	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+	height: 18px;
 }
 
 .cp-chip {
@@ -781,17 +780,20 @@ kbd {
 	margin-bottom: 8px;
 }
 
-/* the hue strip shows its own rainbow, not the usual filled track */
-.cp-hue::-webkit-slider-runnable-track {
+/* the hue strip shows its own rainbow; "input.cp-hue" outranks the general slider rules */
+input.cp-hue::-webkit-slider-runnable-track {
 	height: 14px;
-	background: transparent;
+	border-radius: 7px;
+	background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
 }
 
-.cp-hue::-webkit-slider-thumb {
-	margin-top: -1px;
-	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
-	background: #fff;
-	border: 0;
+input.cp-hue::-webkit-slider-thumb {
+	margin-top: -2px;
+	width: 18px;
+	height: 18px;
+	border: 2px solid #fff;
+	background: transparent;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 /* a row you can tick, in Contents */
