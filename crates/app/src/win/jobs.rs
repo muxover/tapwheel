@@ -282,7 +282,8 @@ impl Jobs {
 		let batches = self.batches.clone();
 		let slots = self.slots.clone();
 		let engines = self.engines.clone();
-		std::thread::spawn(move || {
+		let worker = std::thread::Builder::new().stack_size(tapwheel_core::run::JOB_STACK);
+		let spawned = worker.spawn(move || {
 			{
 				let mut free = slots.free.lock().unwrap();
 				while *free == 0 {
@@ -391,6 +392,14 @@ impl Jobs {
 			slots.cv.notify_one();
 			wake();
 		});
+		if let Err(e) = spawned {
+			super::log::write(&format!("{op:?}: the job couldn't start: {e}"));
+			if let Some(b) = self.batches.lock().unwrap().iter_mut().find(|b| b.id == id) {
+				b.state = State::Failed;
+				b.error = Some("Windows couldn't start the job; try again".into());
+				b.finished = Some(Instant::now());
+			}
+		}
 	}
 
 	pub fn cards(&self) -> Vec<(u64, Card)> {
