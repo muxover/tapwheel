@@ -94,7 +94,10 @@ fn time(t: &str, sep: char) -> String {
 		_ => t,
 	};
 	match t.split_once(sep) {
-		Some((whole, frac)) => format!("{whole}{sep}{:0<3}", &frac[..frac.len().min(3)]),
+		Some((whole, frac)) => {
+			let frac: String = frac.chars().filter(char::is_ascii_digit).take(3).collect();
+			format!("{whole}{sep}{frac:0<3}")
+		}
 		None => format!("{t}{sep}000"),
 	}
 }
@@ -163,6 +166,12 @@ mod tests {
 
 	const SRT: &str = "1\r\n00:00:01,000 --> 00:00:02,500\r\nHello <i>there</i>\r\n\r\n2\r\n00:00:03,000 --> 00:00:04,000\r\nTwo\r\nlines\r\n";
 	const VTT: &str = "WEBVTT\n\nNOTE made by hand\n\n00:01.000 --> 00:02.500 align:start\nHello\n\nintro\n00:00:03.000 --> 00:00:04.000\nAgain\n";
+
+	#[test]
+	fn non_ascii_in_a_timing_fraction() {
+		let s = convert("1\n00:00:01,abé --> 00:00:02,000\nHello\n", Format::Srt);
+		assert!(s.contains("00:00:01,000 --> 00:00:02,000\nHello"), "{s}");
+	}
 
 	#[test]
 	fn srt_to_vtt() {
