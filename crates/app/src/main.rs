@@ -4,6 +4,10 @@
 mod win;
 
 #[cfg(windows)]
+#[global_allocator]
+static ALLOC: win::Logged = win::Logged;
+
+#[cfg(windows)]
 fn main() {
 	std::process::exit(win::run());
 }
