@@ -378,11 +378,21 @@ pub fn out(path: &Path) -> Vec<OsString> {
 	vec!["-progress".into(), "pipe:1".into(), "-nostats".into(), path.into()]
 }
 
-/// Decodes any picture FFmpeg reads into RGBA8 pixels, already turned upright.
-pub fn decode_rgba(ffmpeg: &Path, input: &Path, size: (u32, u32)) -> Result<Vec<u8>, Error> {
-	let mut child = command(ffmpeg)
-		.args(["-hide_banner", "-nostdin", "-loglevel", "error", "-i"])
-		.arg(input)
+/// Decodes any picture FFmpeg reads into RGBA8 pixels, through `filter` (the upright turn) when
+/// there is one. `size` is the size after the filter.
+pub fn decode_rgba(ffmpeg: &Path, input: &Path, size: (u32, u32), filter: &str) -> Result<Vec<u8>, Error> {
+	crate::image::check_pixels(size.0, size.1)?;
+	let mut cmd = command(ffmpeg);
+	cmd.args(["-hide_banner", "-nostdin", "-loglevel", "error"]);
+	if !filter.is_empty() {
+		// the filter does the turn; FFmpeg mustn't turn it a second time
+		cmd.arg("-noautorotate");
+	}
+	cmd.arg("-i").arg(input);
+	if !filter.is_empty() {
+		cmd.args(["-vf", filter]);
+	}
+	let mut child = cmd
 		.args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"])
 		.stdin(Stdio::null())
 		.stdout(Stdio::piped())

@@ -381,7 +381,11 @@ fn execute(
 				.file_name()
 				.map(|n| n.to_string_lossy().into_owned())
 				.unwrap_or_default();
-			write(code::to_html(&text::read(input)?, &ext, &name)?)
+			write(code::to_html(
+				&text::read_within(input, text::DATA_LIMIT)?,
+				&ext,
+				&name,
+			)?)
 		}
 		Recipe::Convert { to: Format::Md } if kind == Kind::Code => {
 			write(code::markdown_block(&text::read(input)?, &ext))
@@ -399,7 +403,7 @@ fn execute(
 		| Recipe::Minify => Ok(fs::write(part, text::tool(input, &job.recipe)?)?),
 		Recipe::SplitText { lines } => text::split(input, *lines, part).map(drop),
 		Recipe::ReadAloud { voice, rate } => {
-			let body = text::read(input)?;
+			let body = text::read_within(input, text::SPEECH_LIMIT)?;
 			let body = match ext.as_str() {
 				"srt" | "vtt" | "ass" | "ssa" => subs::convert(&body, Format::Txt),
 				"md" | "markdown" | "html" | "htm" | "rtf" => text::convert(input, Format::Txt)?,
@@ -509,5 +513,27 @@ mod tests {
 		let err = preflight(&job, 0).unwrap_err().to_string();
 		assert!(err.contains("gone.txt can't be read"), "{err}");
 		assert!(free_space(&d).is_some_and(|f| f > 0));
+	}
+
+	#[test]
+	fn read_aloud_refuses_a_book_before_speaking() {
+		let d = dir("speech");
+		let input = d.join("novel.txt");
+		fs::write(&input, "word ".repeat(80_000)).unwrap();
+		let job = crate::plan(
+			Op::ReadAloud,
+			&Recipe::ReadAloud { voice: None, rate: 1.0 },
+			std::slice::from_ref(&input),
+		)
+		.remove(0);
+		let err = run(
+			&job,
+			&engines(&d),
+			&Defaults::default(),
+			&mut |_| {},
+			&AtomicBool::new(false),
+		)
+		.unwrap_err();
+		assert!(err.to_string().starts_with("This file is too big"), "{err}");
 	}
 }

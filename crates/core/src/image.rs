@@ -47,10 +47,26 @@ pub fn write_png(path: &Path, w: u32, h: u32, rgba: &[u8]) -> Result<(), Error> 
 	Ok(())
 }
 
+/// FFmpeg's own ceiling (16384 × 16384); nothing larger is decoded or drawn.
+pub const MAX_PIXELS: u64 = 16384 * 16384;
+
+/// Refuses a picture size before anything that large is allocated.
+pub fn check_pixels(w: u32, h: u32) -> Result<(), Error> {
+	if w as u64 * h as u64 > MAX_PIXELS {
+		return Err(Error::Engine(format!(
+			"This picture is too large ({w} × {h}); up to {} megapixels works",
+			MAX_PIXELS / 1_000_000
+		)));
+	}
+	Ok(())
+}
+
 pub fn read_png(path: &Path) -> Result<(u32, u32, Vec<u8>), Error> {
 	let mut d = png::Decoder::new(std::io::BufReader::new(fs::File::open(path)?));
 	d.set_transformations(png::Transformations::normalize_to_color8() | png::Transformations::ALPHA);
 	let mut r = d.read_info().map_err(|e| Error::Engine(e.to_string()))?;
+	let (w, h) = (r.info().width, r.info().height);
+	check_pixels(w, h)?;
 	let mut buf = vec![
 		0;
 		r.output_buffer_size()
@@ -91,6 +107,9 @@ pub fn render_svg(path: &Path, min_edge: u32) -> Result<(u32, u32, Vec<u8>), Err
 	render_svg_bytes(&data, min_edge, None)
 }
 
+/// The longest side an SVG is drawn at.
+pub const SVG_EDGE: u32 = 8192;
+
 /// Renders SVG bytes at `exact` size (square box) or at least `min_edge` on the longest side.
 pub fn render_svg_bytes(data: &[u8], min_edge: u32, exact: Option<u32>) -> Result<(u32, u32, Vec<u8>), Error> {
 	let mut opt = resvg::usvg::Options::default();
@@ -98,13 +117,19 @@ pub fn render_svg_bytes(data: &[u8], min_edge: u32, exact: Option<u32>) -> Resul
 	let tree = resvg::usvg::Tree::from_data(data, &opt).map_err(|e| Error::Engine(format!("SVG: {e}")))?;
 	let size = tree.size();
 	let (sw, sh) = (size.width().max(1.0), size.height().max(1.0));
+	// a declared size of 20000 × 20000 would need gigabytes; draw it at most SVG_EDGE across
 	let scale = match exact {
-		Some(n) => n as f32 / sw.max(sh),
-		None => (min_edge as f32 / sw.max(sh)).max(1.0),
+		Some(n) => n.min(SVG_EDGE) as f32 / sw.max(sh),
+		None => (min_edge as f32 / sw.max(sh))
+			.max(1.0)
+			.min(SVG_EDGE as f32 / sw.max(sh)),
 	};
 	let (w, h) = match exact {
-		Some(n) => (n, n),
-		None => ((sw * scale).round() as u32, (sh * scale).round() as u32),
+		Some(n) => (n.min(SVG_EDGE), n.min(SVG_EDGE)),
+		None => (
+			((sw * scale).round() as u32).max(1),
+			((sh * scale).round() as u32).max(1),
+		),
 	};
 	let mut pm = tiny_skia::Pixmap::new(w.max(1), h.max(1)).ok_or_else(|| Error::Engine("SVG is too large".into()))?;
 	let (dx, dy) = ((w as f32 - sw * scale) / 2.0, (h as f32 - sh * scale) / 2.0);
@@ -780,5 +805,41 @@ mod tests {
 		let err = decode_special(&e, &path, "psd").unwrap_err();
 		assert_eq!(err.to_string(), "This PSD can't be read");
 		let _ = fs::remove_dir_all(dir);
+	}
+
+	#[test]
+	fn huge_declared_sizes_are_capped_or_refused() {
+		let svg = br#"<svg xmlns="http://www.w3.org/2000/svg" width="20000" height="20000"><rect width="10" height="10"/></svg>"#;
+		let (w, h, px) = render_svg_bytes(svg, 1024, None).unwrap();
+		assert_eq!((w, h), (SVG_EDGE, SVG_EDGE));
+		assert_eq!(px.len(), (w * h * 4) as usize);
+		let dir = std::env::temp_dir().join(format!("tw-big-{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+		// a PNG header that claims 40000 × 40000 and carries no pixels
+		let mut png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR".to_vec();
+		let ihdr = [&40000u32.to_be_bytes()[..], &40000u32.to_be_bytes(), &[8, 6, 0, 0, 0]].concat();
+		let mut crc_in = b"IHDR".to_vec();
+		crc_in.extend(&ihdr);
+		png.extend(&ihdr);
+		png.extend(crc32(&crc_in).to_be_bytes());
+		png.extend([0, 0, 0, 0]);
+		png.extend(b"IDAT");
+		png.extend(crc32(b"IDAT").to_be_bytes());
+		let path = dir.join("huge.png");
+		fs::write(&path, &png).unwrap();
+		let err = read_png(&path).unwrap_err().to_string();
+		assert!(err.contains("too large"), "{err}");
+		let _ = fs::remove_dir_all(dir);
+	}
+
+	fn crc32(data: &[u8]) -> u32 {
+		let mut c = 0xffff_ffffu32;
+		for &b in data {
+			c ^= b as u32;
+			for _ in 0..8 {
+				c = if c & 1 != 0 { 0xedb8_8320 ^ (c >> 1) } else { c >> 1 };
+			}
+		}
+		!c
 	}
 }
