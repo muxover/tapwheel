@@ -227,6 +227,17 @@ The PC test results decide the details. In scope: the hooks on their own thread 
 
 Done when: the PC test shows the wheel opening on every Alt tap with the Trim window open on the 2.92 GB file, and no editor waits on a filmstrip it doesn't show.
 
+### Plan to launch v0.1.1
+
+| Phase | Work | Done when |
+|---|---|---|
+| 1 | Stop the crashes | Every item tested, CI green |
+| 2 | Stop the wrong output | Every item tested, CI green |
+| 3 | The UI thread and editors | The PC test results are in and the phase 3 bar above holds |
+| Release | Notes, CHANGELOG, the signed release commit and tag | `release-notes/v0.1.1.md` and the CHANGELOG entry are written, and the tag builds the zip and checksums |
+
+Progress: phases 1 and 2 are on `build`; phase 3 waits on the PC test.
+
 ### Release blockers for v0.1.1
 
 - Any test from phase 1 or 2 failing on Linux or Windows.
