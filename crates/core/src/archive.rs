@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::{Component, Path, PathBuf};
@@ -153,22 +154,113 @@ fn write_tar<W: Write>(w: W, entries: &[Entry], cancel: &AtomicBool) -> Result<W
 	Ok(tar.into_inner()?)
 }
 
-/// Joins an entry name onto `dest`, refusing anything that would land outside it.
-fn safe_join(dest: &Path, name: &str) -> Option<PathBuf> {
-	let rel = Path::new(name.trim_start_matches(['/', '\\']));
-	let mut out = dest.to_path_buf();
-	for c in rel.components() {
-		match c {
-			Component::Normal(p) => out.push(p),
-			Component::CurDir => {}
-			_ => return None,
+/// Where extracted entries land: inside `dest`, under names Windows can hold, and never two on
+/// one name (NTFS doesn't tell README from readme). Keeps count of what it had to change.
+struct Landing<'a> {
+	dest: &'a Path,
+	taken: HashSet<String>,
+	renamed: usize,
+	skipped: Vec<String>,
+}
+
+impl<'a> Landing<'a> {
+	fn new(dest: &'a Path) -> Self {
+		Landing {
+			dest,
+			taken: HashSet::new(),
+			renamed: 0,
+			skipped: Vec::new(),
 		}
 	}
-	(out != dest).then_some(out)
+
+	/// The path for an entry, or `None` when it would land outside `dest`.
+	fn place(&mut self, name: &str, dir: bool) -> Option<PathBuf> {
+		let rel = Path::new(name.trim_start_matches(['/', '\\']));
+		let mut out = self.dest.to_path_buf();
+		let mut changed = false;
+		for c in rel.components() {
+			match c {
+				Component::Normal(p) => {
+					let p = p.to_string_lossy();
+					let fit = windows_name(&p);
+					changed |= fit != p;
+					out.push(fit);
+				}
+				Component::CurDir => {}
+				_ => return None,
+			}
+		}
+		if out == self.dest {
+			return None;
+		}
+		if !dir {
+			let first = out.clone();
+			let mut n = 1;
+			while !self.taken.insert(out.to_string_lossy().to_lowercase()) {
+				n += 1;
+				let stem = crate::plan::stem_of(&first);
+				let name = first
+					.file_name()
+					.map(|f| f.to_string_lossy().into_owned())
+					.unwrap_or_default();
+				out = first.with_file_name(format!("{stem} ({n}){}", &name[stem.len()..]));
+				changed = true;
+			}
+		}
+		self.renamed += changed as usize;
+		Some(out)
+	}
+
+	/// What the card says when not everything came out as it was named.
+	fn note(self) -> Option<String> {
+		let mut parts = Vec::new();
+		match self.skipped.as_slice() {
+			[] => {}
+			[one] => parts.push(format!("skipped the link {one}")),
+			many => parts.push(format!("skipped {} links", many.len())),
+		}
+		match self.renamed {
+			0 => {}
+			1 => parts.push("renamed 1 file Windows can't hold as it was".into()),
+			n => parts.push(format!("renamed {n} files Windows can't hold as they were")),
+		}
+		(!parts.is_empty()).then(|| {
+			let s = parts.join("; ");
+			let mut c = s.chars();
+			c.next()
+				.map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+				.unwrap_or_default()
+		})
+	}
+}
+
+/// A name Windows accepts: no reserved device names, no `<>:"|?*`, no trailing dot or space.
+fn windows_name(name: &str) -> String {
+	let mut s: String = name
+		.chars()
+		.map(|c| {
+			if r#"<>:"|?*"#.contains(c) || c.is_control() {
+				'_'
+			} else {
+				c
+			}
+		})
+		.collect();
+	let kept = s.trim_end_matches(['.', ' ']).len();
+	s.truncate(kept);
+	if s.is_empty() {
+		return "_".into();
+	}
+	let stem = s.split('.').next().unwrap_or("").trim_end().to_uppercase();
+	if crate::files::RESERVED.contains(&stem.as_str()) || stem == "CONIN$" || stem == "CONOUT$" {
+		s.insert(0, '_');
+	}
+	s
 }
 
 /// Unpacks everything, or only the entries named in `only` (a folder brings what's inside it).
-pub fn extract(input: &Path, dest: &Path, only: &[String], cancel: &AtomicBool) -> Result<(), Error> {
+/// Returns a note for the card when links were skipped or names had to change.
+pub fn extract(input: &Path, dest: &Path, only: &[String], cancel: &AtomicBool) -> Result<Option<String>, Error> {
 	let wanted = |name: &str| {
 		let name = name.trim_end_matches('/');
 		only.is_empty()
@@ -178,6 +270,7 @@ pub fn extract(input: &Path, dest: &Path, only: &[String], cancel: &AtomicBool) 
 			})
 	};
 	fs::create_dir_all(dest)?;
+	let mut land = Landing::new(dest);
 	match ext_of(input).as_str() {
 		"zip" | "jar" | "apk" | "cbz" | "nupkg" | "vsix" | "whl" => {
 			let mut zip = zip::ZipArchive::new(BufReader::new(File::open(input)?)).map_err(zip_err)?;
@@ -193,7 +286,7 @@ pub fn extract(input: &Path, dest: &Path, only: &[String], cancel: &AtomicBool) 
 				if !wanted(&name) {
 					continue;
 				}
-				let Some(path) = safe_join(dest, &name) else {
+				let Some(path) = land.place(&name, f.is_dir()) else {
 					continue;
 				};
 				if f.is_dir() {
@@ -214,7 +307,7 @@ pub fn extract(input: &Path, dest: &Path, only: &[String], cancel: &AtomicBool) 
 				if !wanted(entry.name()) {
 					return Ok(true);
 				}
-				let Some(path) = safe_join(dest, entry.name()) else {
+				let Some(path) = land.place(entry.name(), entry.is_directory()) else {
 					return Ok(true);
 				};
 				if entry.is_directory() {
@@ -235,51 +328,71 @@ pub fn extract(input: &Path, dest: &Path, only: &[String], cancel: &AtomicBool) 
 				}
 			})?;
 		}
-		"tar" => untar(BufReader::new(File::open(input)?), dest, &wanted, cancel)?,
+		"tar" => untar(BufReader::new(File::open(input)?), &mut land, &wanted, cancel)?,
 		"tgz" => untar(
 			flate2::read::MultiGzDecoder::new(BufReader::new(File::open(input)?)),
-			dest,
+			&mut land,
 			&wanted,
 			cancel,
 		)?,
 		"txz" => untar(
 			xz2::read::XzDecoder::new_multi_decoder(BufReader::new(File::open(input)?)),
-			dest,
+			&mut land,
 			&wanted,
 			cancel,
 		)?,
 		"tbz" | "tbz2" => untar(
 			bzip2::read::MultiBzDecoder::new(BufReader::new(File::open(input)?)),
-			dest,
+			&mut land,
 			&wanted,
 			cancel,
 		)?,
 		"tzst" => untar(
 			zstd::Decoder::new(BufReader::new(File::open(input)?))?,
-			dest,
+			&mut land,
 			&wanted,
 			cancel,
 		)?,
 		"gz" | "xz" | "bz2" | "zst" => {
 			let name = crate::plan::stem_of(input);
 			let mut r = single_stream(input)?;
-			io::copy(&mut r, &mut BufWriter::new(File::create(dest.join(name))?))?;
+			let path = land.place(&name, false).unwrap_or_else(|| dest.join("_"));
+			io::copy(&mut r, &mut BufWriter::new(File::create(path)?))?;
 		}
 		other => return Err(Error::Engine(format!("can't open .{other} archives"))),
 	}
-	Ok(())
+	Ok(land.note())
 }
 
-fn untar<R: Read>(r: R, dest: &Path, wanted: &dyn Fn(&str) -> bool, cancel: &AtomicBool) -> Result<(), Error> {
+fn untar<R: Read>(r: R, land: &mut Landing, wanted: &dyn Fn(&str) -> bool, cancel: &AtomicBool) -> Result<(), Error> {
 	let mut tar = tar::Archive::new(r);
 	for entry in tar.entries()? {
 		check(cancel)?;
 		let mut entry = entry?;
-		if !wanted(&entry.path()?.to_string_lossy()) {
+		let name = entry.path()?.to_string_lossy().into_owned();
+		if !wanted(&name) {
 			continue;
 		}
-		// unpack_in refuses paths that escape `dest`
-		entry.unpack_in(dest)?;
+		let kind = entry.header().entry_type();
+		if kind.is_symlink() || kind.is_hard_link() {
+			// a link can point anywhere, and Windows only makes them with extra rights
+			land.skipped.push(name);
+			continue;
+		}
+		let dir = kind.is_dir();
+		if !dir && !kind.is_file() && !matches!(kind, tar::EntryType::Continuous | tar::EntryType::GNUSparse) {
+			continue;
+		}
+		// place() refuses names that would land outside the folder
+		let Some(path) = land.place(&name, dir) else { continue };
+		if dir {
+			fs::create_dir_all(&path)?;
+		} else {
+			if let Some(p) = path.parent() {
+				fs::create_dir_all(p)?;
+			}
+			entry.unpack(&path)?;
+		}
 	}
 	Ok(())
 }
@@ -603,13 +716,58 @@ mod tests {
 	#[test]
 	fn zip_slip_is_skipped() {
 		let dest = Path::new("/safe/out");
-		assert_eq!(safe_join(dest, "../evil.txt"), None);
-		assert_eq!(safe_join(dest, "a/../../evil"), None);
+		let mut land = Landing::new(dest);
+		assert_eq!(land.place("../evil.txt", false), None);
+		assert_eq!(land.place("a/../../evil", false), None);
 		assert_eq!(
-			safe_join(dest, "/abs/ok.txt"),
+			land.place("/abs/ok.txt", false),
 			Some(PathBuf::from("/safe/out/abs/ok.txt"))
 		);
-		assert_eq!(safe_join(dest, "./x/y"), Some(PathBuf::from("/safe/out/x/y")));
+		assert_eq!(land.place("./x/y", false), Some(PathBuf::from("/safe/out/x/y")));
+	}
+
+	#[test]
+	fn extract_skips_links_and_renames_what_windows_cant_hold() {
+		let root = std::env::temp_dir().join(format!("tw-land-{}", std::process::id()));
+		let _ = fs::remove_dir_all(&root);
+		fs::create_dir_all(&root).unwrap();
+		let tar_path = root.join("linux.tar");
+		{
+			let mut b = tar::Builder::new(File::create(&tar_path).unwrap());
+			let mut link = tar::Header::new_gnu();
+			link.set_entry_type(tar::EntryType::Symlink);
+			link.set_size(0);
+			b.append_link(&mut link, "link", "/tmp").unwrap();
+			for (name, body) in [
+				("link/inside.txt", "a"),
+				("aux.c", "b"),
+				("a:b.txt", "c"),
+				("README", "d"),
+				("readme", "e"),
+			] {
+				let mut h = tar::Header::new_gnu();
+				h.set_size(body.len() as u64);
+				h.set_mode(0o644);
+				h.set_cksum();
+				b.append_data(&mut h, name, body.as_bytes()).unwrap();
+			}
+			b.finish().unwrap();
+		}
+		let dest = root.join("out");
+		let note = extract(&tar_path, &dest, &[], &AtomicBool::new(false))
+			.unwrap()
+			.unwrap();
+		assert_eq!(
+			note,
+			"Skipped the link link; renamed 3 files Windows can't hold as they were"
+		);
+		assert_eq!(fs::read_to_string(dest.join("link/inside.txt")).unwrap(), "a");
+		assert!(!dest.join("link").is_symlink());
+		assert_eq!(fs::read_to_string(dest.join("_aux.c")).unwrap(), "b");
+		assert_eq!(fs::read_to_string(dest.join("a_b.txt")).unwrap(), "c");
+		assert_eq!(fs::read_to_string(dest.join("README")).unwrap(), "d");
+		assert_eq!(fs::read_to_string(dest.join("readme (2)")).unwrap(), "e");
+		let _ = fs::remove_dir_all(root);
 	}
 
 	#[test]

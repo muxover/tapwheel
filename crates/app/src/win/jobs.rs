@@ -326,6 +326,7 @@ impl Jobs {
 						if let Some(n) = out.note {
 							notes.push(n);
 						} else {
+							notes.extend(out.warning);
 							produced.push(out.output.clone());
 							update(&mut |b| {
 								b.outputs.push(out.output.clone());
