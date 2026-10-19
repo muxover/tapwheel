@@ -237,19 +237,19 @@ pub fn extract(input: &Path, dest: &Path, only: &[String], cancel: &AtomicBool) 
 		}
 		"tar" => untar(BufReader::new(File::open(input)?), dest, &wanted, cancel)?,
 		"tgz" => untar(
-			flate2::read::GzDecoder::new(BufReader::new(File::open(input)?)),
+			flate2::read::MultiGzDecoder::new(BufReader::new(File::open(input)?)),
 			dest,
 			&wanted,
 			cancel,
 		)?,
 		"txz" => untar(
-			xz2::read::XzDecoder::new(BufReader::new(File::open(input)?)),
+			xz2::read::XzDecoder::new_multi_decoder(BufReader::new(File::open(input)?)),
 			dest,
 			&wanted,
 			cancel,
 		)?,
 		"tbz" | "tbz2" => untar(
-			bzip2::read::BzDecoder::new(BufReader::new(File::open(input)?)),
+			bzip2::read::MultiBzDecoder::new(BufReader::new(File::open(input)?)),
 			dest,
 			&wanted,
 			cancel,
@@ -298,9 +298,9 @@ pub fn repack(input: &Path, format: Format, output: &Path, scratch: &Path, cance
 fn single_stream(input: &Path) -> Result<Box<dyn Read>, Error> {
 	let f = BufReader::new(File::open(input)?);
 	Ok(match ext_of(input).as_str() {
-		"gz" | "tgz" => Box::new(flate2::read::GzDecoder::new(f)),
-		"xz" | "txz" => Box::new(xz2::read::XzDecoder::new(f)),
-		"bz2" | "tbz" | "tbz2" => Box::new(bzip2::read::BzDecoder::new(f)),
+		"gz" | "tgz" => Box::new(flate2::read::MultiGzDecoder::new(f)),
+		"xz" | "txz" => Box::new(xz2::read::XzDecoder::new_multi_decoder(f)),
+		"bz2" | "tbz" | "tbz2" => Box::new(bzip2::read::MultiBzDecoder::new(f)),
 		"zst" | "tzst" => Box::new(zstd::Decoder::new(f)?),
 		_ => Box::new(f),
 	})
@@ -472,6 +472,37 @@ fn sz_err(e: sevenz_rust2::Error) -> Error {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn concatenated_streams_come_out_whole() {
+		let dir = std::env::temp_dir().join(format!("tw-multi-{}", std::process::id()));
+		let _ = fs::remove_dir_all(&dir);
+		fs::create_dir_all(&dir).unwrap();
+		let parts: [&[u8]; 2] = [b"part one\n", b"part two\n"];
+		let mut files = Vec::new();
+		for ext in ["gz", "bz2", "xz"] {
+			let mut all = Vec::new();
+			for p in parts {
+				let mut w: Box<dyn Write> = match ext {
+					"gz" => Box::new(flate2::write::GzEncoder::new(&mut all, flate2::Compression::default())),
+					"bz2" => Box::new(bzip2::write::BzEncoder::new(&mut all, bzip2::Compression::default())),
+					_ => Box::new(xz2::write::XzEncoder::new(&mut all, 6)),
+				};
+				w.write_all(p).unwrap();
+				drop(w);
+			}
+			let f = dir.join(format!("log.txt.{ext}"));
+			fs::write(&f, all).unwrap();
+			files.push(f);
+		}
+		for f in files {
+			let out = dir.join(format!("out-{}", ext_of(&f)));
+			extract(&f, &out, &[], &AtomicBool::new(false)).unwrap();
+			assert_eq!(fs::read(out.join("log.txt")).unwrap(), b"part one\npart two\n", "{f:?}");
+			assert!(test(&f, &AtomicBool::new(false)).is_ok(), "{f:?}");
+		}
+		let _ = fs::remove_dir_all(dir);
+	}
 
 	fn fixture() -> (PathBuf, PathBuf) {
 		// tests run in parallel and Windows clocks are coarse, so a counter keeps folders apart
