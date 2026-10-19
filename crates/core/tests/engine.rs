@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::AtomicBool;
 
-use tapwheel_core::recipe::{Layout, Recipe, Span};
+use tapwheel_core::recipe::{Layout, Recipe, Span, Turn};
 use tapwheel_core::run::{Engines, run};
 use tapwheel_core::{Defaults, Format, Kind, Op, Wheel, choices, plan, recipe_for};
 
@@ -589,4 +589,82 @@ fn icons_made_at_the_same_time_keep_their_own_picture() {
 			fs::remove_file(&out.output).unwrap();
 		}
 	}
+}
+
+/// Frames in a file, as FFprobe counts them.
+fn frames(e: &Engines, file: &Path) -> usize {
+	let out = Command::new(&e.ffprobe)
+		.args([
+			"-v",
+			"error",
+			"-count_frames",
+			"-select_streams",
+			"v:0",
+			"-show_entries",
+			"stream=nb_read_frames",
+			"-of",
+			"csv=p=0",
+		])
+		.arg(file)
+		.output()
+		.unwrap();
+	String::from_utf8_lossy(&out.stdout).trim().parse().unwrap_or(0)
+}
+
+#[test]
+fn animated_gifs_stay_animated() {
+	let Some((e, dir)) = engines("gif-frames") else { return };
+	let gif = dir.join("anim.gif");
+	make(&e.ffmpeg, &["-f", "lavfi", "-i", "testsrc2=s=120x90:d=1:r=8"], &gif);
+	let count = frames(&e, &gif);
+	assert_eq!(count, 8);
+	let recipes = [
+		(
+			Op::Resize,
+			Recipe::ResizeImage {
+				width: None,
+				height: None,
+				percent: Some(50.0),
+			},
+		),
+		(Op::Rotate, Recipe::RotateImage { turn: Turn::Cw }),
+		(
+			Op::Crop,
+			Recipe::CropImage {
+				x: 10,
+				y: 10,
+				w: 60,
+				h: 40,
+			},
+		),
+		(
+			Op::Compress,
+			recipe_for(Op::Compress, None, Some(Kind::Image), &Defaults::default()).unwrap(),
+		),
+		(Op::Metadata, Recipe::StripMetadata { location_only: false }),
+	];
+	for (op, r) in recipes {
+		let job = plan(op, &r, std::slice::from_ref(&gif)).remove(0);
+		let out = run(&job, &e, &Defaults::default(), &mut |_| {}, &AtomicBool::new(false)).unwrap();
+		assert_eq!(frames(&e, &out.output), count, "{op:?}");
+	}
+	// Combine as a GIF, from pictures of three different sizes
+	let mut pics = Vec::new();
+	for (i, size) in ["320x240", "160x320", "640x200"].iter().enumerate() {
+		let p = dir.join(format!("p{i}.png"));
+		make(
+			&e.ffmpeg,
+			&["-f", "lavfi", "-i", &format!("testsrc2=s={size}:d=1"), "-frames:v", "1"],
+			&p,
+		);
+		pics.push(p);
+	}
+	let r = Recipe::Combine {
+		layout: Layout::Gif,
+		gap: 0,
+		background: "#ffffff".into(),
+	};
+	let job = plan(Op::Combine, &r, &pics).remove(0);
+	let out = run(&job, &e, &Defaults::default(), &mut |_| {}, &AtomicBool::new(false)).unwrap();
+	assert_eq!(frames(&e, &out.output), 3);
 }

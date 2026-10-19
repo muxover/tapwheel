@@ -358,10 +358,23 @@ pub fn write(
 		run = run.arg("-noautorotate");
 	}
 	let vf = join_vf(&[src.upright, filter]);
-	run.input(&src.path)
-		.args(image_args(to, &vf, quality, true))
-		.args(out(part))
-		.go(&mut |_| {}, c)?;
+	let mut args = image_args(to, &vf, quality, true);
+	if to == Format::Gif && gif_frames(&src.path) > 1 {
+		// an animation stays one: every frame, looping as before
+		let mut all = Vec::with_capacity(args.len());
+		let mut it = args.into_iter();
+		while let Some(a) = it.next() {
+			if matches!(a.as_str(), "-frames:v" | "-update") {
+				it.next();
+			} else {
+				all.push(a);
+			}
+		}
+		let f = all.iter().position(|a| a == "-f").unwrap_or(all.len());
+		all.splice(f..f, strs(&["-loop", "0"]));
+		args = all;
+	}
+	run.input(&src.path).args(args).args(out(part)).go(&mut |_| {}, c)?;
 	if !strip
 		&& let Some(exif) = &src.exif
 		&& matches!(to, Format::Jpg | Format::Png)
@@ -372,6 +385,38 @@ pub fn write(
 		}
 	}
 	Ok(())
+}
+
+/// How many pictures a GIF holds, from its blocks; 0 for anything that isn't a GIF.
+pub fn gif_frames(path: &Path) -> usize {
+	let Ok(b) = fs::read(path) else { return 0 };
+	if !b.starts_with(b"GIF8") || b.len() < 13 {
+		return 0;
+	}
+	let table = |flags: u8| if flags & 0x80 != 0 { 3 << ((flags & 7) + 1) } else { 0 };
+	let skip_blocks = |mut i: usize| {
+		while let Some(&n) = b.get(i) {
+			i += 1 + n as usize;
+			if n == 0 {
+				break;
+			}
+		}
+		i
+	};
+	let mut i = 13 + table(b[10]);
+	let mut frames = 0;
+	while let Some(&kind) = b.get(i) {
+		match kind {
+			0x21 => i = skip_blocks(i + 2),
+			0x2c => {
+				frames += 1;
+				let flags = b.get(i + 9).copied().unwrap_or(0);
+				i = skip_blocks(i + 10 + table(flags) + 1);
+			}
+			_ => break,
+		}
+	}
+	frames
 }
 
 /// The format a recipe writes for this input when it keeps the input's own format.
@@ -733,17 +778,39 @@ pub fn parse_colour(s: &str) -> Option<tiny_skia::Color> {
 fn gif_from(e: &Engines, pics: &[(u32, u32, Vec<u8>)], part: &Path, c: &AtomicBool) -> Result<(), Error> {
 	let dir = e.scratch_path("gif", "");
 	fs::create_dir_all(&dir)?;
-	let (w, h) = (pics[0].0.min(960), pics[0].1 * pics[0].0.min(960) / pics[0].0.max(1));
-	for (i, (pw, ph, rgba)) in pics.iter().enumerate() {
-		write_png(&dir.join(format!("{i:04}.png")), *pw, *ph, rgba)?;
-	}
-	let vf = format!(
-		"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=white,split[a][b];[a]palettegen[p];[b][p]paletteuse"
+	let (w, h) = (
+		pics[0].0.min(960),
+		(pics[0].1 * pics[0].0.min(960) / pics[0].0.max(1)).max(1),
 	);
+	// every frame the same size, each picture fitted on white: FFmpeg drops frames whose size
+	// changes halfway through a palette filter
+	for (i, (pw, ph, rgba)) in pics.iter().enumerate() {
+		let mut frame =
+			tiny_skia::Pixmap::new(w, h).ok_or_else(|| Error::Engine("the GIF would be too large".into()))?;
+		frame.fill(tiny_skia::Color::WHITE);
+		if let Some(pm) = pixmap_from(*pw, *ph, rgba) {
+			let s = (w as f32 / *pw as f32).min(h as f32 / *ph as f32);
+			let (x, y) = ((w as f32 - *pw as f32 * s) / 2.0, (h as f32 - *ph as f32 * s) / 2.0);
+			let paint = tiny_skia::PixmapPaint {
+				quality: tiny_skia::FilterQuality::Bicubic,
+				..Default::default()
+			};
+			frame.draw_pixmap(
+				0,
+				0,
+				pm.as_ref(),
+				&paint,
+				tiny_skia::Transform::from_row(s, 0.0, 0.0, s, x, y),
+				None,
+			);
+		}
+		write_png(&dir.join(format!("{i:04}.png")), w, h, &unpremultiply(frame.data()))?;
+	}
+	let vf = "split[a][b];[a]palettegen[p];[b][p]paletteuse";
 	let result = Run::new(&e.ffmpeg)
 		.args(strs(&["-framerate", "1"]))
 		.input(&dir.join("%04d.png"))
-		.args(strs(&["-vf", &vf, "-loop", "0", "-f", "gif"]))
+		.args(strs(&["-vf", vf, "-loop", "0", "-f", "gif"]))
 		.args(out(part))
 		.go(&mut |_| {}, c);
 	let _ = fs::remove_dir_all(&dir);
