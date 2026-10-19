@@ -1,208 +1,10 @@
 {
+  "version": "0.1.0",
   "kinds": [
     {
-      "actions": [
-        {
-          "desc": "Copy to paste elsewhere",
-          "icon": "copy",
-          "id": "copy",
-          "label": "Copy",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Copy the full path",
-          "icon": "link",
-          "id": "copy_path",
-          "label": "Copy path",
-          "ring": [
-            "Path",
-            "Name",
-            "Base name",
-            "Extension",
-            "Quoted",
-            "File URL"
-          ],
-          "window": false
-        },
-        {
-          "desc": "New names, one or many",
-          "icon": "rename",
-          "id": "rename",
-          "label": "Rename",
-          "ring": [],
-          "window": true
-        },
-        {
-          "desc": "Move to a folder",
-          "icon": "folder_arrow_right",
-          "id": "move_to",
-          "label": "Move to",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "A copy right next to it",
-          "icon": "document_copy",
-          "id": "duplicate",
-          "label": "Duplicate",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Send with Windows share",
-          "icon": "share",
-          "id": "share",
-          "label": "Share",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Size, real type and details",
-          "icon": "document_search",
-          "id": "info",
-          "label": "File info",
-          "ring": [],
-          "window": true
-        },
-        {
-          "desc": "Keep it handy for later",
-          "icon": "pin",
-          "id": "float",
-          "label": "Float",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Copy a checksum",
-          "icon": "fingerprint",
-          "id": "hash",
-          "label": "Checksum",
-          "ring": [
-            "SHA-256",
-            "MD5",
-            "SHA-1",
-            "Compare"
-          ],
-          "window": false
-        },
-        {
-          "desc": "The Windows properties window",
-          "icon": "wrench",
-          "id": "properties",
-          "label": "Properties",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Pick an app to open it",
-          "icon": "open",
-          "id": "open_with",
-          "label": "Open with",
-          "ring": [],
-          "window": false
-        }
-      ],
-      "convert": [
-        {
-          "desc": "Convert to PNG",
-          "icon": "",
-          "id": "to-png",
-          "label": "PNG",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to JPG",
-          "icon": "",
-          "id": "to-jpg",
-          "label": "JPG",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to WebP",
-          "icon": "",
-          "id": "to-webp",
-          "label": "WebP",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to AVIF",
-          "icon": "",
-          "id": "to-avif",
-          "label": "AVIF",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to GIF",
-          "icon": "",
-          "id": "to-gif",
-          "label": "GIF",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to TIFF",
-          "icon": "",
-          "id": "to-tiff",
-          "label": "TIFF",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to BMP",
-          "icon": "",
-          "id": "to-bmp",
-          "label": "BMP",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to ICO",
-          "icon": "",
-          "id": "to-ico",
-          "label": "ICO",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to TGA",
-          "icon": "",
-          "id": "to-tga",
-          "label": "TGA",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to QOI",
-          "icon": "",
-          "id": "to-qoi",
-          "label": "QOI",
-          "ring": [],
-          "window": false
-        }
-      ],
       "id": "images",
-      "many": [
-        {
-          "desc": "Lay pictures out together",
-          "icon": "grid",
-          "id": "combine",
-          "label": "Combine",
-          "ring": [
-            "Grid",
-            "Side by side",
-            "Stacked",
-            "GIF",
-            "Custom"
-          ],
-          "window": true
-        }
-      ],
       "name": "Images",
+      "sample": "photo.heic",
       "reads": [
         "jpg",
         "jpeg",
@@ -253,29 +55,110 @@
         "mrw",
         "x3f"
       ],
-      "sample": "photo.heic",
+      "convert": [
+        {
+          "id": "to-png",
+          "label": "PNG",
+          "icon": "",
+          "desc": "Convert to PNG",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-jpg",
+          "label": "JPG",
+          "icon": "",
+          "desc": "Convert to JPG",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-webp",
+          "label": "WebP",
+          "icon": "",
+          "desc": "Convert to WebP",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-avif",
+          "label": "AVIF",
+          "icon": "",
+          "desc": "Convert to AVIF",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-gif",
+          "label": "GIF",
+          "icon": "",
+          "desc": "Convert to GIF",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-tiff",
+          "label": "TIFF",
+          "icon": "",
+          "desc": "Convert to TIFF",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-bmp",
+          "label": "BMP",
+          "icon": "",
+          "desc": "Convert to BMP",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-ico",
+          "label": "ICO",
+          "icon": "",
+          "desc": "Convert to ICO",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-tga",
+          "label": "TGA",
+          "icon": "",
+          "desc": "Convert to TGA",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-qoi",
+          "label": "QOI",
+          "icon": "",
+          "desc": "Convert to QOI",
+          "ring": [],
+          "window": false
+        }
+      ],
       "tools": [
         {
-          "desc": "Cut to a size or shape",
-          "icon": "crop",
           "id": "crop",
           "label": "Crop",
+          "icon": "crop",
+          "desc": "Cut to a size or shape",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Put it on a backdrop",
-          "icon": "image_add",
           "id": "add_background",
           "label": "Add BG",
+          "icon": "image_add",
+          "desc": "Put it on a backdrop",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Cut out the subject",
-          "icon": "image_sparkle",
           "id": "remove_background",
           "label": "Remove BG",
+          "icon": "image_sparkle",
+          "desc": "Cut out the subject",
           "ring": [
             "Cut out",
             "Touch up"
@@ -283,10 +166,10 @@
           "window": false
         },
         {
-          "desc": "Make it smaller",
-          "icon": "arrow_minimize",
           "id": "compress",
           "label": "Compress",
+          "icon": "arrow_minimize",
+          "desc": "Make it smaller",
           "ring": [
             "Balanced",
             "Smaller",
@@ -296,10 +179,10 @@
           "window": false
         },
         {
-          "desc": "Change the size",
-          "icon": "resize",
           "id": "resize",
           "label": "Resize",
+          "icon": "resize",
+          "desc": "Change the size",
           "ring": [
             "50%",
             "1920",
@@ -310,34 +193,34 @@
           "window": false
         },
         {
-          "desc": "Light, colour and contrast",
-          "icon": "options",
           "id": "adjust",
           "label": "Adjust",
+          "icon": "options",
+          "desc": "Light, colour and contrast",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Draw, point and write",
-          "icon": "pen",
           "id": "annotate",
           "label": "Annotate",
+          "icon": "pen",
+          "desc": "Draw, point and write",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Hide private parts",
-          "icon": "eye_off",
           "id": "redact",
           "label": "Redact",
+          "icon": "eye_off",
+          "desc": "Hide private parts",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Turn or flip",
-          "icon": "arrow_rotate_clockwise",
           "id": "rotate",
           "label": "Rotate",
+          "icon": "arrow_rotate_clockwise",
+          "desc": "Turn or flip",
           "ring": [
             "Right",
             "Left",
@@ -348,10 +231,10 @@
           "window": false
         },
         {
-          "desc": "See or remove hidden data",
-          "icon": "info",
           "id": "metadata",
           "label": "Metadata",
+          "icon": "info",
+          "desc": "See or remove hidden data",
           "ring": [
             "Remove all",
             "Location",
@@ -360,46 +243,60 @@
           "window": false
         },
         {
-          "desc": "Windows icon with every size",
-          "icon": "app_generic",
           "id": "make_icon",
           "label": "Make icon",
+          "icon": "app_generic",
+          "desc": "Windows icon with every size",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Trace into a vector",
-          "icon": "shape_union",
           "id": "trace",
           "label": "To SVG",
+          "icon": "shape_union",
+          "desc": "Trace into a vector",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pack into one ZIP",
-          "icon": "folder_zip",
           "id": "zip",
           "label": "ZIP",
+          "icon": "folder_zip",
+          "desc": "Pack into one ZIP",
           "ring": [],
           "window": false
         }
-      ]
-    },
-    {
+      ],
+      "many": [
+        {
+          "id": "combine",
+          "label": "Combine",
+          "icon": "grid",
+          "desc": "Lay pictures out together",
+          "ring": [
+            "Grid",
+            "Side by side",
+            "Stacked",
+            "GIF",
+            "Custom"
+          ],
+          "window": true
+        }
+      ],
       "actions": [
         {
-          "desc": "Copy to paste elsewhere",
-          "icon": "copy",
           "id": "copy",
           "label": "Copy",
+          "icon": "copy",
+          "desc": "Copy to paste elsewhere",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy the full path",
-          "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
+          "icon": "link",
+          "desc": "Copy the full path",
           "ring": [
             "Path",
             "Name",
@@ -411,58 +308,58 @@
           "window": false
         },
         {
-          "desc": "New names, one or many",
-          "icon": "rename",
           "id": "rename",
           "label": "Rename",
+          "icon": "rename",
+          "desc": "New names, one or many",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Move to a folder",
-          "icon": "folder_arrow_right",
           "id": "move_to",
           "label": "Move to",
+          "icon": "folder_arrow_right",
+          "desc": "Move to a folder",
           "ring": [],
           "window": false
         },
         {
-          "desc": "A copy right next to it",
-          "icon": "document_copy",
           "id": "duplicate",
           "label": "Duplicate",
+          "icon": "document_copy",
+          "desc": "A copy right next to it",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Send with Windows share",
-          "icon": "share",
           "id": "share",
           "label": "Share",
+          "icon": "share",
+          "desc": "Send with Windows share",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Size, real type and details",
-          "icon": "document_search",
           "id": "info",
           "label": "File info",
+          "icon": "document_search",
+          "desc": "Size, real type and details",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Keep it handy for later",
-          "icon": "pin",
           "id": "float",
           "label": "Float",
+          "icon": "pin",
+          "desc": "Keep it handy for later",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy a checksum",
-          "icon": "fingerprint",
           "id": "hash",
           "label": "Checksum",
+          "icon": "fingerprint",
+          "desc": "Copy a checksum",
           "ring": [
             "SHA-256",
             "MD5",
@@ -472,108 +369,27 @@
           "window": false
         },
         {
-          "desc": "The Windows properties window",
-          "icon": "wrench",
           "id": "properties",
           "label": "Properties",
+          "icon": "wrench",
+          "desc": "The Windows properties window",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pick an app to open it",
-          "icon": "open",
           "id": "open_with",
           "label": "Open with",
+          "icon": "open",
+          "desc": "Pick an app to open it",
           "ring": [],
           "window": false
         }
-      ],
-      "convert": [
-        {
-          "desc": "Convert to MOV",
-          "icon": "",
-          "id": "to-mov",
-          "label": "MOV",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to MKV",
-          "icon": "",
-          "id": "to-mkv",
-          "label": "MKV",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to WebM",
-          "icon": "",
-          "id": "to-webm",
-          "label": "WebM",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to GIF",
-          "icon": "",
-          "id": "to-gif",
-          "label": "GIF",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to MP3",
-          "icon": "",
-          "id": "to-mp3",
-          "label": "MP3",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to AVI",
-          "icon": "",
-          "id": "to-avi",
-          "label": "AVI",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to WMV",
-          "icon": "",
-          "id": "to-wmv",
-          "label": "WMV",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to M4A",
-          "icon": "",
-          "id": "to-m4a",
-          "label": "M4A",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to WAV",
-          "icon": "",
-          "id": "to-wav",
-          "label": "WAV",
-          "ring": [],
-          "window": false
-        }
-      ],
+      ]
+    },
+    {
       "id": "video",
-      "many": [
-        {
-          "desc": "Join into one file",
-          "icon": "arrow_join",
-          "id": "join",
-          "label": "Join",
-          "ring": [],
-          "window": false
-        }
-      ],
       "name": "Video",
+      "sample": "clip.mp4",
       "reads": [
         "mp4",
         "m4v",
@@ -600,21 +416,94 @@
         "rmvb",
         "divx"
       ],
-      "sample": "clip.mp4",
+      "convert": [
+        {
+          "id": "to-mov",
+          "label": "MOV",
+          "icon": "",
+          "desc": "Convert to MOV",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-mkv",
+          "label": "MKV",
+          "icon": "",
+          "desc": "Convert to MKV",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-webm",
+          "label": "WebM",
+          "icon": "",
+          "desc": "Convert to WebM",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-gif",
+          "label": "GIF",
+          "icon": "",
+          "desc": "Convert to GIF",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-mp3",
+          "label": "MP3",
+          "icon": "",
+          "desc": "Convert to MP3",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-avi",
+          "label": "AVI",
+          "icon": "",
+          "desc": "Convert to AVI",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-wmv",
+          "label": "WMV",
+          "icon": "",
+          "desc": "Convert to WMV",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-m4a",
+          "label": "M4A",
+          "icon": "",
+          "desc": "Convert to M4A",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-wav",
+          "label": "WAV",
+          "icon": "",
+          "desc": "Convert to WAV",
+          "ring": [],
+          "window": false
+        }
+      ],
       "tools": [
         {
-          "desc": "Keep or cut a part",
-          "icon": "cut",
           "id": "trim",
           "label": "Trim",
+          "icon": "cut",
+          "desc": "Keep or cut a part",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Make it smaller",
-          "icon": "arrow_minimize",
           "id": "compress",
           "label": "Compress",
+          "icon": "arrow_minimize",
+          "desc": "Make it smaller",
           "ring": [
             "Balanced",
             "Smaller",
@@ -625,18 +514,18 @@
           "window": false
         },
         {
-          "desc": "Turn a part into a GIF",
-          "icon": "gif",
           "id": "make_gif",
           "label": "Make GIF",
+          "icon": "gif",
+          "desc": "Turn a part into a GIF",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Change the resolution",
-          "icon": "resize",
           "id": "resize",
           "label": "Resize",
+          "icon": "resize",
+          "desc": "Change the resolution",
           "ring": [
             "720p",
             "1080p",
@@ -646,18 +535,18 @@
           "window": false
         },
         {
-          "desc": "Cut to a size or shape",
-          "icon": "crop",
           "id": "crop",
           "label": "Crop",
+          "icon": "crop",
+          "desc": "Cut to a size or shape",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Faster or slower",
-          "icon": "top_speed",
           "id": "speed",
           "label": "Speed",
+          "icon": "top_speed",
+          "desc": "Faster or slower",
           "ring": [
             "2×",
             "1.5×",
@@ -667,10 +556,10 @@
           "window": false
         },
         {
-          "desc": "Save a frame as a picture",
-          "icon": "camera",
           "id": "snapshot",
           "label": "Snapshot",
+          "icon": "camera",
+          "desc": "Save a frame as a picture",
           "ring": [
             "Middle",
             "First",
@@ -680,26 +569,26 @@
           "window": false
         },
         {
-          "desc": "Remove the sound",
-          "icon": "speaker_mute",
           "id": "mute",
           "label": "Mute",
+          "icon": "speaker_mute",
+          "desc": "Remove the sound",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Save the sound alone",
-          "icon": "music_note_2",
           "id": "extract_audio",
           "label": "Get audio",
+          "icon": "music_note_2",
+          "desc": "Save the sound alone",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Turn or flip",
-          "icon": "arrow_rotate_clockwise",
           "id": "rotate",
           "label": "Rotate",
+          "icon": "arrow_rotate_clockwise",
+          "desc": "Turn or flip",
           "ring": [
             "Right",
             "Left",
@@ -710,38 +599,46 @@
           "window": false
         },
         {
-          "desc": "Play it backwards",
-          "icon": "arrow_hook_up_left",
           "id": "reverse",
           "label": "Reverse",
+          "icon": "arrow_hook_up_left",
+          "desc": "Play it backwards",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pack into one ZIP",
-          "icon": "folder_zip",
           "id": "zip",
           "label": "ZIP",
+          "icon": "folder_zip",
+          "desc": "Pack into one ZIP",
           "ring": [],
           "window": false
         }
-      ]
-    },
-    {
+      ],
+      "many": [
+        {
+          "id": "join",
+          "label": "Join",
+          "icon": "arrow_join",
+          "desc": "Join into one file",
+          "ring": [],
+          "window": false
+        }
+      ],
       "actions": [
         {
-          "desc": "Copy to paste elsewhere",
-          "icon": "copy",
           "id": "copy",
           "label": "Copy",
+          "icon": "copy",
+          "desc": "Copy to paste elsewhere",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy the full path",
-          "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
+          "icon": "link",
+          "desc": "Copy the full path",
           "ring": [
             "Path",
             "Name",
@@ -753,58 +650,58 @@
           "window": false
         },
         {
-          "desc": "New names, one or many",
-          "icon": "rename",
           "id": "rename",
           "label": "Rename",
+          "icon": "rename",
+          "desc": "New names, one or many",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Move to a folder",
-          "icon": "folder_arrow_right",
           "id": "move_to",
           "label": "Move to",
+          "icon": "folder_arrow_right",
+          "desc": "Move to a folder",
           "ring": [],
           "window": false
         },
         {
-          "desc": "A copy right next to it",
-          "icon": "document_copy",
           "id": "duplicate",
           "label": "Duplicate",
+          "icon": "document_copy",
+          "desc": "A copy right next to it",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Send with Windows share",
-          "icon": "share",
           "id": "share",
           "label": "Share",
+          "icon": "share",
+          "desc": "Send with Windows share",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Size, real type and details",
-          "icon": "document_search",
           "id": "info",
           "label": "File info",
+          "icon": "document_search",
+          "desc": "Size, real type and details",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Keep it handy for later",
-          "icon": "pin",
           "id": "float",
           "label": "Float",
+          "icon": "pin",
+          "desc": "Keep it handy for later",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy a checksum",
-          "icon": "fingerprint",
           "id": "hash",
           "label": "Checksum",
+          "icon": "fingerprint",
+          "desc": "Copy a checksum",
           "ring": [
             "SHA-256",
             "MD5",
@@ -814,100 +711,27 @@
           "window": false
         },
         {
-          "desc": "The Windows properties window",
-          "icon": "wrench",
           "id": "properties",
           "label": "Properties",
+          "icon": "wrench",
+          "desc": "The Windows properties window",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pick an app to open it",
-          "icon": "open",
           "id": "open_with",
           "label": "Open with",
+          "icon": "open",
+          "desc": "Pick an app to open it",
           "ring": [],
           "window": false
         }
-      ],
-      "convert": [
-        {
-          "desc": "Convert to M4A",
-          "icon": "",
-          "id": "to-m4a",
-          "label": "M4A",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to WAV",
-          "icon": "",
-          "id": "to-wav",
-          "label": "WAV",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to FLAC",
-          "icon": "",
-          "id": "to-flac",
-          "label": "FLAC",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to OGG",
-          "icon": "",
-          "id": "to-ogg",
-          "label": "OGG",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to Opus",
-          "icon": "",
-          "id": "to-opus",
-          "label": "Opus",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to AIFF",
-          "icon": "",
-          "id": "to-aiff",
-          "label": "AIFF",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to WMA",
-          "icon": "",
-          "id": "to-wma",
-          "label": "WMA",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Make an iPhone ringtone",
-          "icon": "",
-          "id": "to-m4r",
-          "label": "M4R",
-          "ring": [],
-          "window": false
-        }
-      ],
+      ]
+    },
+    {
       "id": "audio",
-      "many": [
-        {
-          "desc": "Join into one file",
-          "icon": "arrow_join",
-          "id": "join",
-          "label": "Join",
-          "ring": [],
-          "window": false
-        }
-      ],
       "name": "Audio",
+      "sample": "song.mp3",
       "reads": [
         "mp3",
         "m4a",
@@ -941,21 +765,86 @@
         "w64",
         "spx"
       ],
-      "sample": "song.mp3",
+      "convert": [
+        {
+          "id": "to-m4a",
+          "label": "M4A",
+          "icon": "",
+          "desc": "Convert to M4A",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-wav",
+          "label": "WAV",
+          "icon": "",
+          "desc": "Convert to WAV",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-flac",
+          "label": "FLAC",
+          "icon": "",
+          "desc": "Convert to FLAC",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-ogg",
+          "label": "OGG",
+          "icon": "",
+          "desc": "Convert to OGG",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-opus",
+          "label": "Opus",
+          "icon": "",
+          "desc": "Convert to Opus",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-aiff",
+          "label": "AIFF",
+          "icon": "",
+          "desc": "Convert to AIFF",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-wma",
+          "label": "WMA",
+          "icon": "",
+          "desc": "Convert to WMA",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-m4r",
+          "label": "M4R",
+          "icon": "",
+          "desc": "Make an iPhone ringtone",
+          "ring": [],
+          "window": false
+        }
+      ],
       "tools": [
         {
-          "desc": "Keep or cut a part",
-          "icon": "cut",
           "id": "trim",
           "label": "Trim",
+          "icon": "cut",
+          "desc": "Keep or cut a part",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Fade in or out",
-          "icon": "data_area",
           "id": "fade",
           "label": "Fade",
+          "icon": "data_area",
+          "desc": "Fade in or out",
           "ring": [
             "Both",
             "In",
@@ -964,18 +853,18 @@
           "window": false
         },
         {
-          "desc": "Even out the loudness",
-          "icon": "data_bar_vertical",
           "id": "normalize",
           "label": "Normalize",
+          "icon": "data_bar_vertical",
+          "desc": "Even out the loudness",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Make it smaller",
-          "icon": "arrow_minimize",
           "id": "compress",
           "label": "Compress",
+          "icon": "arrow_minimize",
+          "desc": "Make it smaller",
           "ring": [
             "128k",
             "96k",
@@ -985,10 +874,10 @@
           "window": false
         },
         {
-          "desc": "Louder or quieter",
-          "icon": "speaker_2",
           "id": "volume",
           "label": "Volume",
+          "icon": "speaker_2",
+          "desc": "Louder or quieter",
           "ring": [
             "+6 dB",
             "+3 dB",
@@ -998,10 +887,10 @@
           "window": false
         },
         {
-          "desc": "Faster or slower",
-          "icon": "top_speed",
           "id": "speed",
           "label": "Speed",
+          "icon": "top_speed",
+          "desc": "Faster or slower",
           "ring": [
             "2×",
             "1.5×",
@@ -1011,10 +900,10 @@
           "window": false
         },
         {
-          "desc": "Title, artist and cover",
-          "icon": "tag",
           "id": "metadata",
           "label": "Metadata",
+          "icon": "tag",
+          "desc": "Title, artist and cover",
           "ring": [
             "Custom",
             "Remove all"
@@ -1022,18 +911,18 @@
           "window": false
         },
         {
-          "desc": "Make an iPhone ringtone",
-          "icon": "phone",
           "id": "ringtone",
           "label": "Ringtone",
+          "icon": "phone",
+          "desc": "Make an iPhone ringtone",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Mono or stereo",
-          "icon": "headphones",
           "id": "channels",
           "label": "Mono",
+          "icon": "headphones",
+          "desc": "Mono or stereo",
           "ring": [
             "Mono",
             "Stereo"
@@ -1041,46 +930,54 @@
           "window": false
         },
         {
-          "desc": "Cut quiet gaps",
-          "icon": "timer_off",
           "id": "remove_silence",
           "label": "No silence",
+          "icon": "timer_off",
+          "desc": "Cut quiet gaps",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Play it backwards",
-          "icon": "arrow_hook_up_left",
           "id": "reverse",
           "label": "Reverse",
+          "icon": "arrow_hook_up_left",
+          "desc": "Play it backwards",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pack into one ZIP",
-          "icon": "folder_zip",
           "id": "zip",
           "label": "ZIP",
+          "icon": "folder_zip",
+          "desc": "Pack into one ZIP",
           "ring": [],
           "window": false
         }
-      ]
-    },
-    {
+      ],
+      "many": [
+        {
+          "id": "join",
+          "label": "Join",
+          "icon": "arrow_join",
+          "desc": "Join into one file",
+          "ring": [],
+          "window": false
+        }
+      ],
       "actions": [
         {
-          "desc": "Copy to paste elsewhere",
-          "icon": "copy",
           "id": "copy",
           "label": "Copy",
+          "icon": "copy",
+          "desc": "Copy to paste elsewhere",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy the full path",
-          "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
+          "icon": "link",
+          "desc": "Copy the full path",
           "ring": [
             "Path",
             "Name",
@@ -1092,58 +989,58 @@
           "window": false
         },
         {
-          "desc": "New names, one or many",
-          "icon": "rename",
           "id": "rename",
           "label": "Rename",
+          "icon": "rename",
+          "desc": "New names, one or many",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Move to a folder",
-          "icon": "folder_arrow_right",
           "id": "move_to",
           "label": "Move to",
+          "icon": "folder_arrow_right",
+          "desc": "Move to a folder",
           "ring": [],
           "window": false
         },
         {
-          "desc": "A copy right next to it",
-          "icon": "document_copy",
           "id": "duplicate",
           "label": "Duplicate",
+          "icon": "document_copy",
+          "desc": "A copy right next to it",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Send with Windows share",
-          "icon": "share",
           "id": "share",
           "label": "Share",
+          "icon": "share",
+          "desc": "Send with Windows share",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Size, real type and details",
-          "icon": "document_search",
           "id": "info",
           "label": "File info",
+          "icon": "document_search",
+          "desc": "Size, real type and details",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Keep it handy for later",
-          "icon": "pin",
           "id": "float",
           "label": "Float",
+          "icon": "pin",
+          "desc": "Keep it handy for later",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy a checksum",
-          "icon": "fingerprint",
           "id": "hash",
           "label": "Checksum",
+          "icon": "fingerprint",
+          "desc": "Copy a checksum",
           "ring": [
             "SHA-256",
             "MD5",
@@ -1153,67 +1050,27 @@
           "window": false
         },
         {
-          "desc": "The Windows properties window",
-          "icon": "wrench",
           "id": "properties",
           "label": "Properties",
+          "icon": "wrench",
+          "desc": "The Windows properties window",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pick an app to open it",
-          "icon": "open",
           "id": "open_with",
           "label": "Open with",
+          "icon": "open",
+          "desc": "Pick an app to open it",
           "ring": [],
           "window": false
         }
-      ],
-      "convert": [
-        {
-          "desc": "Convert to PNG",
-          "icon": "",
-          "id": "to-png",
-          "label": "PNG",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to ICO",
-          "icon": "",
-          "id": "to-ico",
-          "label": "ICO",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to ICNS",
-          "icon": "",
-          "id": "to-icns",
-          "label": "ICNS",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to WebP",
-          "icon": "",
-          "id": "to-webp",
-          "label": "WebP",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to JPG",
-          "icon": "",
-          "id": "to-jpg",
-          "label": "JPG",
-          "ring": [],
-          "window": false
-        }
-      ],
+      ]
+    },
+    {
       "id": "icons",
-      "many": [],
       "name": "Icons",
+      "sample": "logo.svg",
       "reads": [
         "ico",
         "icns",
@@ -1221,29 +1078,70 @@
         "svg",
         "svgz"
       ],
-      "sample": "logo.svg",
+      "convert": [
+        {
+          "id": "to-png",
+          "label": "PNG",
+          "icon": "",
+          "desc": "Convert to PNG",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-ico",
+          "label": "ICO",
+          "icon": "",
+          "desc": "Convert to ICO",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-icns",
+          "label": "ICNS",
+          "icon": "",
+          "desc": "Convert to ICNS",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-webp",
+          "label": "WebP",
+          "icon": "",
+          "desc": "Convert to WebP",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-jpg",
+          "label": "JPG",
+          "icon": "",
+          "desc": "Convert to JPG",
+          "ring": [],
+          "window": false
+        }
+      ],
       "tools": [
         {
-          "desc": "ICO with every size",
-          "icon": "window",
           "id": "windows_icon",
           "label": "Windows",
+          "icon": "window",
+          "desc": "ICO with every size",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Every website icon",
-          "icon": "globe",
           "id": "favicon",
           "label": "Favicon",
+          "icon": "globe",
+          "desc": "Every website icon",
           "ring": [],
           "window": false
         },
         {
-          "desc": "PNGs from 16 to 1024",
-          "icon": "image_multiple",
           "id": "icon_set",
           "label": "PNG set",
+          "icon": "image_multiple",
+          "desc": "PNGs from 16 to 1024",
           "ring": [
             "All sizes",
             "256",
@@ -1253,46 +1151,45 @@
           "window": false
         },
         {
-          "desc": "ICNS for macOS",
-          "icon": "laptop",
           "id": "mac_icon",
           "label": "macOS",
+          "icon": "laptop",
+          "desc": "ICNS for macOS",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Squeeze out the spaces",
-          "icon": "text_collapse",
           "id": "minify",
           "label": "Minify",
+          "icon": "text_collapse",
+          "desc": "Squeeze out the spaces",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pack into one ZIP",
-          "icon": "folder_zip",
           "id": "zip",
           "label": "ZIP",
+          "icon": "folder_zip",
+          "desc": "Pack into one ZIP",
           "ring": [],
           "window": false
         }
-      ]
-    },
-    {
+      ],
+      "many": [],
       "actions": [
         {
-          "desc": "Copy to paste elsewhere",
-          "icon": "copy",
           "id": "copy",
           "label": "Copy",
+          "icon": "copy",
+          "desc": "Copy to paste elsewhere",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy the full path",
-          "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
+          "icon": "link",
+          "desc": "Copy the full path",
           "ring": [
             "Path",
             "Name",
@@ -1304,58 +1201,58 @@
           "window": false
         },
         {
-          "desc": "New names, one or many",
-          "icon": "rename",
           "id": "rename",
           "label": "Rename",
+          "icon": "rename",
+          "desc": "New names, one or many",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Move to a folder",
-          "icon": "folder_arrow_right",
           "id": "move_to",
           "label": "Move to",
+          "icon": "folder_arrow_right",
+          "desc": "Move to a folder",
           "ring": [],
           "window": false
         },
         {
-          "desc": "A copy right next to it",
-          "icon": "document_copy",
           "id": "duplicate",
           "label": "Duplicate",
+          "icon": "document_copy",
+          "desc": "A copy right next to it",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Send with Windows share",
-          "icon": "share",
           "id": "share",
           "label": "Share",
+          "icon": "share",
+          "desc": "Send with Windows share",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Size, real type and details",
-          "icon": "document_search",
           "id": "info",
           "label": "File info",
+          "icon": "document_search",
+          "desc": "Size, real type and details",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Keep it handy for later",
-          "icon": "pin",
           "id": "float",
           "label": "Float",
+          "icon": "pin",
+          "desc": "Keep it handy for later",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy a checksum",
-          "icon": "fingerprint",
           "id": "hash",
           "label": "Checksum",
+          "icon": "fingerprint",
+          "desc": "Copy a checksum",
           "ring": [
             "SHA-256",
             "MD5",
@@ -1365,52 +1262,27 @@
           "window": false
         },
         {
-          "desc": "The Windows properties window",
-          "icon": "wrench",
           "id": "properties",
           "label": "Properties",
+          "icon": "wrench",
+          "desc": "The Windows properties window",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pick an app to open it",
-          "icon": "open",
           "id": "open_with",
           "label": "Open with",
+          "icon": "open",
+          "desc": "Pick an app to open it",
           "ring": [],
           "window": false
         }
-      ],
-      "convert": [
-        {
-          "desc": "Convert to Markdown",
-          "icon": "",
-          "id": "to-md",
-          "label": "Markdown",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to HTML",
-          "icon": "",
-          "id": "to-html",
-          "label": "HTML",
-          "ring": [],
-          "window": false
-        }
-      ],
+      ]
+    },
+    {
       "id": "text",
-      "many": [
-        {
-          "desc": "Join into one file",
-          "icon": "merge",
-          "id": "merge",
-          "label": "Merge",
-          "ring": [],
-          "window": false
-        }
-      ],
       "name": "Text",
+      "sample": "notes.txt",
       "reads": [
         "txt",
         "text",
@@ -1455,37 +1327,54 @@
         "ics",
         "vcf"
       ],
-      "sample": "notes.txt",
+      "convert": [
+        {
+          "id": "to-md",
+          "label": "Markdown",
+          "icon": "",
+          "desc": "Convert to Markdown",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-html",
+          "label": "HTML",
+          "icon": "",
+          "desc": "Convert to HTML",
+          "ring": [],
+          "window": false
+        }
+      ],
       "tools": [
         {
-          "desc": "Save as speech",
-          "icon": "read_aloud",
           "id": "read_aloud",
           "label": "Read aloud",
+          "icon": "read_aloud",
+          "desc": "Save as speech",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Fix the text encoding",
-          "icon": "text_font",
           "id": "to_utf8",
           "label": "UTF-8",
+          "icon": "text_font",
+          "desc": "Fix the text encoding",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Trim spaces and blank lines",
-          "icon": "eraser",
           "id": "clean_up",
           "label": "Clean up",
+          "icon": "eraser",
+          "desc": "Trim spaces and blank lines",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Sort the lines",
-          "icon": "text_sort_ascending",
           "id": "sort_lines",
           "label": "Sort",
+          "icon": "text_sort_ascending",
+          "desc": "Sort the lines",
           "ring": [
             "A to Z",
             "Z to A",
@@ -1495,18 +1384,18 @@
           "window": false
         },
         {
-          "desc": "Remove repeated lines",
-          "icon": "text_bullet_list_square",
           "id": "dedupe",
           "label": "Dedupe",
+          "icon": "text_bullet_list_square",
+          "desc": "Remove repeated lines",
           "ring": [],
           "window": false
         },
         {
-          "desc": "UPPER, lower or Title",
-          "icon": "text_case_title",
           "id": "change_case",
           "label": "Case",
+          "icon": "text_case_title",
+          "desc": "UPPER, lower or Title",
           "ring": [
             "Title",
             "UPPER",
@@ -1516,10 +1405,10 @@
           "window": false
         },
         {
-          "desc": "Cut into smaller files",
-          "icon": "split_vertical",
           "id": "split",
           "label": "Split",
+          "icon": "split_vertical",
+          "desc": "Cut into smaller files",
           "ring": [
             "1,000 lines",
             "100 lines",
@@ -1528,10 +1417,10 @@
           "window": false
         },
         {
-          "desc": "Windows or Unix line ends",
-          "icon": "text_wrap",
           "id": "line_endings",
           "label": "Line ends",
+          "icon": "text_wrap",
+          "desc": "Windows or Unix line ends",
           "ring": [
             "Windows",
             "Unix"
@@ -1539,38 +1428,46 @@
           "window": false
         },
         {
-          "desc": "Count lines and words",
-          "icon": "number_symbol",
           "id": "stats",
           "label": "Count",
+          "icon": "number_symbol",
+          "desc": "Count lines and words",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pack into one ZIP",
-          "icon": "folder_zip",
           "id": "zip",
           "label": "ZIP",
+          "icon": "folder_zip",
+          "desc": "Pack into one ZIP",
           "ring": [],
           "window": false
         }
-      ]
-    },
-    {
+      ],
+      "many": [
+        {
+          "id": "merge",
+          "label": "Merge",
+          "icon": "merge",
+          "desc": "Join into one file",
+          "ring": [],
+          "window": false
+        }
+      ],
       "actions": [
         {
-          "desc": "Copy to paste elsewhere",
-          "icon": "copy",
           "id": "copy",
           "label": "Copy",
+          "icon": "copy",
+          "desc": "Copy to paste elsewhere",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy the full path",
-          "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
+          "icon": "link",
+          "desc": "Copy the full path",
           "ring": [
             "Path",
             "Name",
@@ -1582,58 +1479,58 @@
           "window": false
         },
         {
-          "desc": "New names, one or many",
-          "icon": "rename",
           "id": "rename",
           "label": "Rename",
+          "icon": "rename",
+          "desc": "New names, one or many",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Move to a folder",
-          "icon": "folder_arrow_right",
           "id": "move_to",
           "label": "Move to",
+          "icon": "folder_arrow_right",
+          "desc": "Move to a folder",
           "ring": [],
           "window": false
         },
         {
-          "desc": "A copy right next to it",
-          "icon": "document_copy",
           "id": "duplicate",
           "label": "Duplicate",
+          "icon": "document_copy",
+          "desc": "A copy right next to it",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Send with Windows share",
-          "icon": "share",
           "id": "share",
           "label": "Share",
+          "icon": "share",
+          "desc": "Send with Windows share",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Size, real type and details",
-          "icon": "document_search",
           "id": "info",
           "label": "File info",
+          "icon": "document_search",
+          "desc": "Size, real type and details",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Keep it handy for later",
-          "icon": "pin",
           "id": "float",
           "label": "Float",
+          "icon": "pin",
+          "desc": "Keep it handy for later",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy a checksum",
-          "icon": "fingerprint",
           "id": "hash",
           "label": "Checksum",
+          "icon": "fingerprint",
+          "desc": "Copy a checksum",
           "ring": [
             "SHA-256",
             "MD5",
@@ -1643,76 +1540,27 @@
           "window": false
         },
         {
-          "desc": "The Windows properties window",
-          "icon": "wrench",
           "id": "properties",
           "label": "Properties",
+          "icon": "wrench",
+          "desc": "The Windows properties window",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pick an app to open it",
-          "icon": "open",
           "id": "open_with",
           "label": "Open with",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Open a terminal here",
-          "icon": "window_console",
-          "id": "terminal",
-          "label": "Terminal",
+          "icon": "open",
+          "desc": "Pick an app to open it",
           "ring": [],
           "window": false
         }
-      ],
-      "convert": [
-        {
-          "desc": "Save as a picture",
-          "icon": "",
-          "id": "to-png",
-          "label": "PNG",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Save as a highlighted page",
-          "icon": "",
-          "id": "to-html",
-          "label": "HTML",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to Markdown",
-          "icon": "",
-          "id": "to-md",
-          "label": "Markdown",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Convert to TXT",
-          "icon": "",
-          "id": "to-txt",
-          "label": "TXT",
-          "ring": [],
-          "window": false
-        }
-      ],
+      ]
+    },
+    {
       "id": "code",
-      "many": [
-        {
-          "desc": "Join into one file",
-          "icon": "merge",
-          "id": "merge",
-          "label": "Merge",
-          "ring": [],
-          "window": false
-        }
-      ],
       "name": "Code",
+      "sample": "app.ts",
       "reads": [
         "rs",
         "py",
@@ -1805,37 +1653,70 @@
         "au3",
         "reg"
       ],
-      "sample": "app.ts",
+      "convert": [
+        {
+          "id": "to-png",
+          "label": "PNG",
+          "icon": "",
+          "desc": "Save as a picture",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-html",
+          "label": "HTML",
+          "icon": "",
+          "desc": "Save as a highlighted page",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-md",
+          "label": "Markdown",
+          "icon": "",
+          "desc": "Convert to Markdown",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-txt",
+          "label": "TXT",
+          "icon": "",
+          "desc": "Convert to TXT",
+          "ring": [],
+          "window": false
+        }
+      ],
       "tools": [
         {
-          "desc": "A picture of your code",
-          "icon": "code_block",
           "id": "code_image",
           "label": "Code shot",
+          "icon": "code_block",
+          "desc": "A picture of your code",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Copy as a code block",
-          "icon": "markdown",
           "id": "copy_markdown",
           "label": "Copy as MD",
+          "icon": "markdown",
+          "desc": "Copy as a code block",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Tidy the layout",
-          "icon": "text_align_left",
           "id": "pretty",
           "label": "Format",
+          "icon": "text_align_left",
+          "desc": "Tidy the layout",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Tabs or spaces",
-          "icon": "text_indent_increase",
           "id": "indent",
           "label": "Indent",
+          "icon": "text_indent_increase",
+          "desc": "Tabs or spaces",
           "ring": [
             "Tabs",
             "2 spaces",
@@ -1844,10 +1725,10 @@
           "window": false
         },
         {
-          "desc": "Windows or Unix line ends",
-          "icon": "text_wrap",
           "id": "line_endings",
           "label": "Line ends",
+          "icon": "text_wrap",
+          "desc": "Windows or Unix line ends",
           "ring": [
             "Windows",
             "Unix"
@@ -1855,46 +1736,54 @@
           "window": false
         },
         {
-          "desc": "Trim spaces and blank lines",
-          "icon": "eraser",
           "id": "clean_up",
           "label": "Clean up",
+          "icon": "eraser",
+          "desc": "Trim spaces and blank lines",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Fix the text encoding",
-          "icon": "text_font",
           "id": "to_utf8",
           "label": "UTF-8",
+          "icon": "text_font",
+          "desc": "Fix the text encoding",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pack into one ZIP",
-          "icon": "folder_zip",
           "id": "zip",
           "label": "ZIP",
+          "icon": "folder_zip",
+          "desc": "Pack into one ZIP",
           "ring": [],
           "window": false
         }
-      ]
-    },
-    {
+      ],
+      "many": [
+        {
+          "id": "merge",
+          "label": "Merge",
+          "icon": "merge",
+          "desc": "Join into one file",
+          "ring": [],
+          "window": false
+        }
+      ],
       "actions": [
         {
-          "desc": "Copy to paste elsewhere",
-          "icon": "copy",
           "id": "copy",
           "label": "Copy",
+          "icon": "copy",
+          "desc": "Copy to paste elsewhere",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy the full path",
-          "icon": "link",
           "id": "copy_path",
           "label": "Copy path",
+          "icon": "link",
+          "desc": "Copy the full path",
           "ring": [
             "Path",
             "Name",
@@ -1906,58 +1795,58 @@
           "window": false
         },
         {
-          "desc": "New names, one or many",
-          "icon": "rename",
           "id": "rename",
           "label": "Rename",
+          "icon": "rename",
+          "desc": "New names, one or many",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Move to a folder",
-          "icon": "folder_arrow_right",
           "id": "move_to",
           "label": "Move to",
+          "icon": "folder_arrow_right",
+          "desc": "Move to a folder",
           "ring": [],
           "window": false
         },
         {
-          "desc": "A copy right next to it",
-          "icon": "document_copy",
           "id": "duplicate",
           "label": "Duplicate",
+          "icon": "document_copy",
+          "desc": "A copy right next to it",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Send with Windows share",
-          "icon": "share",
           "id": "share",
           "label": "Share",
+          "icon": "share",
+          "desc": "Send with Windows share",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Size, real type and details",
-          "icon": "document_search",
           "id": "info",
           "label": "File info",
+          "icon": "document_search",
+          "desc": "Size, real type and details",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Keep it handy for later",
-          "icon": "pin",
           "id": "float",
           "label": "Float",
+          "icon": "pin",
+          "desc": "Keep it handy for later",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Copy a checksum",
-          "icon": "fingerprint",
           "id": "hash",
           "label": "Checksum",
+          "icon": "fingerprint",
+          "desc": "Copy a checksum",
           "ring": [
             "SHA-256",
             "MD5",
@@ -1967,75 +1856,35 @@
           "window": false
         },
         {
-          "desc": "The Windows properties window",
-          "icon": "wrench",
           "id": "properties",
           "label": "Properties",
+          "icon": "wrench",
+          "desc": "The Windows properties window",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pick an app to open it",
-          "icon": "open",
           "id": "open_with",
           "label": "Open with",
+          "icon": "open",
+          "desc": "Pick an app to open it",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "terminal",
+          "label": "Terminal",
+          "icon": "window_console",
+          "desc": "Open a terminal here",
           "ring": [],
           "window": false
         }
-      ],
-      "convert": [
-        {
-          "desc": "Pack into 7Z",
-          "icon": "",
-          "id": "to-7z",
-          "label": "7Z",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Pack into TAR.GZ",
-          "icon": "",
-          "id": "to-tgz",
-          "label": "TAR.GZ",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Pack into TAR.XZ",
-          "icon": "",
-          "id": "to-txz",
-          "label": "TAR.XZ",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Pack into TAR",
-          "icon": "",
-          "id": "to-tar",
-          "label": "TAR",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Pack into TAR.BZ2",
-          "icon": "",
-          "id": "to-tbz2",
-          "label": "TAR.BZ2",
-          "ring": [],
-          "window": false
-        },
-        {
-          "desc": "Pack into TAR.ZST",
-          "icon": "",
-          "id": "to-tzst",
-          "label": "TAR.ZST",
-          "ring": [],
-          "window": false
-        }
-      ],
+      ]
+    },
+    {
       "id": "archives",
-      "many": [],
       "name": "Archives",
+      "sample": "album.zip",
       "reads": [
         "zip",
         "7z",
@@ -2057,45 +1906,94 @@
         "vsix",
         "whl"
       ],
-      "sample": "album.zip",
+      "convert": [
+        {
+          "id": "to-7z",
+          "label": "7Z",
+          "icon": "",
+          "desc": "Pack into 7Z",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-tgz",
+          "label": "TAR.GZ",
+          "icon": "",
+          "desc": "Pack into TAR.GZ",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-txz",
+          "label": "TAR.XZ",
+          "icon": "",
+          "desc": "Pack into TAR.XZ",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-tar",
+          "label": "TAR",
+          "icon": "",
+          "desc": "Pack into TAR",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-tbz2",
+          "label": "TAR.BZ2",
+          "icon": "",
+          "desc": "Pack into TAR.BZ2",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "to-tzst",
+          "label": "TAR.ZST",
+          "icon": "",
+          "desc": "Pack into TAR.ZST",
+          "ring": [],
+          "window": false
+        }
+      ],
       "tools": [
         {
-          "desc": "Unpack here",
-          "icon": "archive_arrow_back",
           "id": "extract",
           "label": "Extract",
+          "icon": "archive_arrow_back",
+          "desc": "Unpack here",
           "ring": [],
           "window": false
         },
         {
-          "desc": "See what's inside",
-          "icon": "list",
           "id": "contents",
           "label": "Contents",
+          "icon": "list",
+          "desc": "See what's inside",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Check it isn't damaged",
-          "icon": "shield_checkmark",
           "id": "test",
           "label": "Test",
+          "icon": "shield_checkmark",
+          "desc": "Check it isn't damaged",
           "ring": [],
           "window": false
         },
         {
-          "desc": "Pack with a password",
-          "icon": "lock_closed",
           "id": "protect",
           "label": "Password",
+          "icon": "lock_closed",
+          "desc": "Pack with a password",
           "ring": [],
           "window": true
         },
         {
-          "desc": "Cut into smaller files",
-          "icon": "split_vertical",
           "id": "split",
           "label": "Split",
+          "icon": "split_vertical",
+          "desc": "Cut into smaller files",
           "ring": [
             "25 MB",
             "100 MB",
@@ -2103,8 +2001,110 @@
           ],
           "window": false
         }
+      ],
+      "many": [],
+      "actions": [
+        {
+          "id": "copy",
+          "label": "Copy",
+          "icon": "copy",
+          "desc": "Copy to paste elsewhere",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "copy_path",
+          "label": "Copy path",
+          "icon": "link",
+          "desc": "Copy the full path",
+          "ring": [
+            "Path",
+            "Name",
+            "Base name",
+            "Extension",
+            "Quoted",
+            "File URL"
+          ],
+          "window": false
+        },
+        {
+          "id": "rename",
+          "label": "Rename",
+          "icon": "rename",
+          "desc": "New names, one or many",
+          "ring": [],
+          "window": true
+        },
+        {
+          "id": "move_to",
+          "label": "Move to",
+          "icon": "folder_arrow_right",
+          "desc": "Move to a folder",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "duplicate",
+          "label": "Duplicate",
+          "icon": "document_copy",
+          "desc": "A copy right next to it",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "share",
+          "label": "Share",
+          "icon": "share",
+          "desc": "Send with Windows share",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "info",
+          "label": "File info",
+          "icon": "document_search",
+          "desc": "Size, real type and details",
+          "ring": [],
+          "window": true
+        },
+        {
+          "id": "float",
+          "label": "Float",
+          "icon": "pin",
+          "desc": "Keep it handy for later",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "hash",
+          "label": "Checksum",
+          "icon": "fingerprint",
+          "desc": "Copy a checksum",
+          "ring": [
+            "SHA-256",
+            "MD5",
+            "SHA-1",
+            "Compare"
+          ],
+          "window": false
+        },
+        {
+          "id": "properties",
+          "label": "Properties",
+          "icon": "wrench",
+          "desc": "The Windows properties window",
+          "ring": [],
+          "window": false
+        },
+        {
+          "id": "open_with",
+          "label": "Open with",
+          "icon": "open",
+          "desc": "Pick an app to open it",
+          "ring": [],
+          "window": false
+        }
       ]
     }
-  ],
-  "version": "0.1.0"
+  ]
 }
