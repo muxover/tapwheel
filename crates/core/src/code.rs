@@ -288,8 +288,35 @@ pub const PRETTY_EXTS: &[&str] = &[
 /// Extensions [`minify`] can squeeze.
 pub const MINIFY_EXTS: &[&str] = &[
 	"json", "geojson", "xml", "plist", "svg", "svgz", "css", "js", "mjs", "cjs", "html", "htm", "xhtml", "yaml", "yml",
-	"toml", "csv", "tsv",
+	"toml",
 ];
+
+/// TOML without blank lines, comment lines and indentation. Lines inside a multi-line string are
+/// part of its value, so they stay exactly as they are.
+fn minify_toml(text: &str) -> String {
+	let mut out = Vec::new();
+	let mut open: Option<&str> = None;
+	for line in text.lines() {
+		if let Some(q) = open {
+			out.push(line);
+			if line.matches(q).count() % 2 == 1 {
+				open = None;
+			}
+			continue;
+		}
+		let l = line.trim();
+		if l.is_empty() || l.starts_with('#') {
+			continue;
+		}
+		out.push(l);
+		for q in ["\"\"\"", "'''"] {
+			if l.matches(q).count() % 2 == 1 {
+				open = Some(q);
+			}
+		}
+	}
+	out.join("\n") + "\n"
+}
 
 /// Squeezes out spaces and comments.
 pub fn minify(text: &str, ext: &str) -> Result<String, Error> {
@@ -305,14 +332,7 @@ pub fn minify(text: &str, ext: &str) -> Result<String, Error> {
 			let v: serde_json::Value = serde_yaml::from_str(text).map_err(engine)?;
 			v.to_string()
 		}
-		"toml" => {
-			text.lines()
-				.map(str::trim)
-				.filter(|l| !l.is_empty() && !l.starts_with('#'))
-				.collect::<Vec<_>>()
-				.join("\n") + "\n"
-		}
-		"csv" | "tsv" => text.lines().map(str::trim_end).collect::<Vec<_>>().join("\n") + "\n",
+		"toml" => minify_toml(text),
 		other => return Err(Error::Engine(format!(".{other} files can't be minified yet"))),
 	})
 }
@@ -483,6 +503,16 @@ mod tests {
 			r#"{"zeta":1,"alpha":[2,{}],"id":12345678901234567890123,"price":0.10000000000000000555,"s":"a\"b, c"}"#
 		);
 		assert!(pretty("{\"a\": }", "json").is_err());
+	}
+
+	#[test]
+	fn minify_toml_keeps_strings_whole() {
+		let toml = "# settings\n[tool]\n  msg = \"\"\"\n# not a comment\n  indented\n\"\"\"\n\n  name = 'x'\n";
+		assert_eq!(
+			minify(toml, "toml").unwrap(),
+			"[tool]\nmsg = \"\"\"\n# not a comment\n  indented\n\"\"\"\nname = 'x'\n"
+		);
+		assert!(minify("a,b \n", "csv").is_err());
 	}
 
 	#[test]
