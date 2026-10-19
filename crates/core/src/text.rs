@@ -46,6 +46,62 @@ fn engine(e: impl std::fmt::Display) -> Error {
 	Error::Engine(e.to_string())
 }
 
+/// How deep nesting may go before a file is refused. Real files stay far below it; deeper ones
+/// are broken or hostile, and the parsers and formatters would run out of stack on them.
+pub const MAX_DEPTH: usize = 512;
+
+pub fn too_deep() -> Error {
+	Error::Engine("This file is nested too deeply to work on".into())
+}
+
+/// The deepest `[`, `{` or `(` nesting in the text. Brackets inside strings count too, which
+/// only matters for files that are refused anyway.
+pub fn bracket_depth(text: &str) -> usize {
+	let (mut depth, mut max) = (0usize, 0usize);
+	for b in text.bytes() {
+		match b {
+			b'[' | b'{' | b'(' => {
+				depth += 1;
+				max = max.max(depth);
+			}
+			b']' | b'}' | b')' => depth = depth.saturating_sub(1),
+			_ => {}
+		}
+	}
+	max
+}
+
+/// The deepest element nesting in HTML, leaving out elements that close themselves.
+pub fn tag_depth(html: &str) -> usize {
+	const OPEN_ENDED: &[&str] = &[
+		"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr", "p",
+		"li", "dt", "dd", "tr", "td", "th", "option", "thead", "tbody", "tfoot", "colgroup", "rt", "rp", "optgroup",
+	];
+	let b = html.as_bytes();
+	let (mut depth, mut max) = (0usize, 0usize);
+	let mut i = 0;
+	while let Some(at) = html[i..].find('<') {
+		i += at + 1;
+		match b.get(i) {
+			Some(b'/') => depth = depth.saturating_sub(1),
+			Some(c) if c.is_ascii_alphabetic() => {
+				let end = html[i..]
+					.find(|c: char| !c.is_ascii_alphanumeric() && c != '-')
+					.map_or(html.len(), |e| i + e);
+				let name = html[i..end].to_ascii_lowercase();
+				let close = html[end..].find('>').map_or(html.len(), |e| end + e);
+				let self_closing = close > 0 && b.get(close - 1) == Some(&b'/');
+				if !OPEN_ENDED.contains(&name.as_str()) && !self_closing {
+					depth += 1;
+					max = max.max(depth);
+				}
+			}
+			_ => {}
+		}
+	}
+	max
+}
+
 /// Line ending the file mostly uses.
 fn crlf(text: &str) -> bool {
 	text.matches("\r\n").count() * 2 > text.matches('\n').count()
@@ -176,6 +232,9 @@ fn parse_xml(text: &str) -> Result<Value, Error> {
 	loop {
 		match reader.read_event().map_err(engine)? {
 			Event::Start(e) => {
+				if stack.len() > MAX_DEPTH {
+					return Err(too_deep());
+				}
 				let name = String::from_utf8_lossy(e.name().as_ref()).into_owned();
 				stack.push((name, attrs(&e), String::new()));
 			}
@@ -276,6 +335,9 @@ pub fn parse_data(text: &str, ext: &str) -> Result<Value, Error> {
 		),
 		"yaml" | "yml" => serde_yaml::from_str(text).map_err(engine)?,
 		"toml" => {
+			if bracket_depth(text) > MAX_DEPTH {
+				return Err(too_deep());
+			}
 			let v: toml::Value = toml::from_str(text).map_err(engine)?;
 			serde_json::to_value(v).map_err(engine)?
 		}
@@ -734,6 +796,9 @@ pub fn convert(input: &Path, to: Format) -> Result<String, Error> {
 	}
 	let md = matches!(ext.as_str(), "md" | "markdown" | "mdown" | "mkd");
 	let html = matches!(ext.as_str(), "html" | "htm" | "xhtml");
+	if html && tag_depth(&text) > MAX_DEPTH {
+		return Err(too_deep());
+	}
 	Ok(match to {
 		Format::Html if md => markdown_to_html(&text, &title),
 		Format::Txt if md => markdown_to_text(&text),
@@ -1064,6 +1129,30 @@ mod tests {
 		assert_eq!(rtf_to_text("{\\rtf1\\ansi Hello \\'1é world\\par}"), "Hello 1é world\n");
 		assert_eq!(rtf_to_text("{\\rtf1\\ansi Hello \\é world\\par}"), "Hello  world\n");
 		assert_eq!(rtf_to_text("C:\\Élèves\\notes"), "C:lèves\n");
+	}
+
+	#[test]
+	fn nesting_past_the_limit_is_refused() {
+		let xml = "<a>".repeat(20_000) + &"</a>".repeat(20_000)[..];
+		assert_eq!(parse_data(&xml, "xml").unwrap_err().to_string(), too_deep().to_string());
+		let toml = format!("x = {}{}", "[".repeat(50_000), "]".repeat(50_000));
+		assert!(parse_data(&toml, "toml").is_err());
+		let dir = std::env::temp_dir().join(format!("tw-deep-{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+		let page = dir.join("deep.html");
+		fs::write(&page, "<div>x".repeat(6_000)).unwrap();
+		assert_eq!(
+			convert(&page, Format::Md).unwrap_err().to_string(),
+			too_deep().to_string()
+		);
+		let _ = fs::remove_dir_all(dir);
+	}
+
+	#[test]
+	fn ordinary_html_isnt_deep() {
+		let list = format!("<ul>{}</ul>", "<li>item<p>text".repeat(2_000));
+		assert!(tag_depth(&list) < 5);
+		assert_eq!(tag_depth("<div><span>a</span><br><img src=x/></div>"), 2);
 	}
 
 	#[test]

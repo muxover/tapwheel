@@ -151,8 +151,19 @@ fn minify_html(text: &str) -> String {
 	String::from_utf8_lossy(&minify_html::minify(text.as_bytes(), &cfg)).into_owned()
 }
 
+/// Refuses nesting the formatters would follow until the stack runs out.
+fn check_depth(text: &str, ext: &str) -> Result<(), Error> {
+	use crate::text::{MAX_DEPTH, bracket_depth, tag_depth, too_deep};
+	let depth = match ext {
+		"html" | "htm" | "xhtml" | "vue" | "svelte" | "astro" | "xml" | "plist" | "svg" | "svgz" => tag_depth(text),
+		_ => bracket_depth(text),
+	};
+	if depth > MAX_DEPTH { Err(too_deep()) } else { Ok(()) }
+}
+
 /// Tidies the layout of a file in a language we can format.
 pub fn pretty(text: &str, ext: &str) -> Result<String, Error> {
+	check_depth(text, ext)?;
 	Ok(match ext {
 		"json" | "geojson" => pretty_json(text)?,
 		"jsonl" | "ndjson" => {
@@ -209,6 +220,7 @@ pub const MINIFY_EXTS: &[&str] = &[
 
 /// Squeezes out spaces and comments.
 pub fn minify(text: &str, ext: &str) -> Result<String, Error> {
+	check_depth(text, ext)?;
 	Ok(match ext {
 		"json" | "geojson" => serde_json::from_str::<serde_json::Value>(text)
 			.map_err(engine)?
@@ -386,6 +398,16 @@ pub fn to_html(text: &str, ext: &str, title: &str) -> Result<String, Error> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn deep_nesting_is_refused_before_formatting() {
+		let yaml = format!("a: {}{}", "[".repeat(3_000), "]".repeat(3_000));
+		assert!(pretty(&yaml, "yaml").is_err());
+		let toml = format!("a = {}{}", "[".repeat(50_000), "]".repeat(50_000));
+		assert!(pretty(&toml, "toml").is_err());
+		assert!(minify(&"<b>".repeat(20_000), "xml").is_err());
+		assert!(pretty("a:\n  b: [1, [2, [3]]]\n", "yaml").is_ok());
+	}
 
 	#[test]
 	fn the_wheel_only_offers_what_works() {
