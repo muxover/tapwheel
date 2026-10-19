@@ -38,6 +38,8 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-19: the full commit history stays as it is; a release only adds one signed `chore: release vX.Y.Z` commit on top and moves nothing else. Nothing is deleted on this project, old Actions runs included (Jax's call after a squash of the 91 commits was undone the same night).
 - 2026-10-19: the plan keeps every feature whatever other tools a PC already has. v0.2.0 also gets a native ARM64 build, a Report a problem button and winget; v0.3.0 also gets translations (Arabic first, right to left). Patch releases fix reported bugs only.
 - 2026-10-19: v0.1.1 fixes what the full audit of v0.1.0 found that crashes the app or writes wrong output, every item with a test that fails before the fix. The UI-thread work (hooks, editors, memory budgets) waits for the test results from Jax's PC, which decide the details of K1 and K2 (Jax's call).
+- 2026-10-19: Minify is gone for CSV and stays gone; it's logged as the T-D9 bug fix, since minifying a CSV could only damage it (Jax's call).
+- 2026-10-19: Extract unpacks a hard link as a copy of the file it names, only when that file was unpacked from the same archive (the zip-slip check applies to the target too), and skips symbolic links (Jax's call).
 
 ## Status
 
@@ -204,7 +206,7 @@ Bug fixes only, from the audit of v0.1.0 (IDs as in the audit). Each fix has a t
 - Size checks before every whole-file read and every large allocation: text tools refuse files they can't hold (T-C5), SVG renders are capped and declared icon and PNG sizes are checked before allocating (I-C3), Remove BG shrinks in 8-bit and checks for its model before decoding (I-C4).
 - Jobs run on a 64 MB stack, and nested XML, HTML, YAML and TOML are refused past a fixed depth (T-C4).
 - RTF with non-ASCII after a backslash (T-C1), subtitle timings with non-ASCII fractions (T-C2) and INI keys that share a later section's name (T-C3) no longer panic.
-- A crash that isn't a panic is still logged: an unhandled-exception filter writes a log line and a minidump to `%LOCALAPPDATA%\TapWheel\crash`, and a failed allocation writes its size to the log before the app ends (K2, A3).
+- A crash that isn't a panic is still logged: an unhandled-exception filter writes a log line naming the exception (0xe0000008 as WebView2 out of memory) and a minidump to `%LOCALAPPDATA%\TapWheel\crash`, and a failed allocation writes its size to the log before the app ends (K2, A3).
 - FFmpeg and FFprobe run inside a Job Object with kill-on-close, so they end with TapWheel (A4).
 
 Done when: each item has a test that fails on v0.1.0 and passes; CI is green on Linux and Windows.
@@ -217,13 +219,21 @@ Done when: each item has a test that fails on v0.1.0 and passes; CI is green on 
 - JSON keeps its key order and its numbers as written when formatted or minified; CSV keeps its column order and duplicate columns (T-D5, T-D6).
 - Animated GIFs stay animated through the picture tools, and Combine keeps every frame of mixed sizes (I-D3, I-D4).
 - Text keeps its encoding and BOM; a UTF-8 file with a few bad bytes stays UTF-8; RTF reads its code page (T-D7, T-D13, T-U5).
-- Indent finds the real indent step (T-D8); Minify keeps TOML strings whole and is gone for CSV (T-D9); batch rename keeps `.tar.gz` (T-D10); Extract skips what Windows can't hold and says what it skipped instead of failing (T-D11); batch rename never replaces a file that appeared after the preview and says what it couldn't undo (T-D12); stripping PNG and WebP details keeps the orientation (I-D6).
+- Indent finds the real indent step (T-D8); Minify keeps TOML strings whole and is gone for CSV (T-D9); batch rename keeps `.tar.gz` (T-D10); Extract copies hard links, skips symbolic links, renames what Windows can't hold and says so on the card instead of failing (T-D11); batch rename never replaces a file that appeared after the preview and says what it couldn't undo (T-D12); stripping PNG and WebP details keeps the orientation (I-D6).
 
 Done when: each item has a test that fails on v0.1.0 and passes; CI is green on Linux and Windows.
 
+### What the PC test found
+
+Jax's PC, 2026-10-19: Intel i7-1165G7, 32 GB RAM, NVMe SSD, the Store build 0.1.0.0.
+
+- Compress, then Custom, on a 2.7 GB video crashes TapWheel with exception 0xe0000008 in KERNELBASE: Chromium's out-of-memory code, raised by WebView2 inside `tapwheel.exe`. Private bytes peaked at 5,462 MB, about twice the file. This confirms K2. It happens with 32 GB in the PC, so the limit is WebView2's, not the PC's: the fix is serving the file in chunks, not a memory check.
+- The filmstrip the editors build now takes 4.72 s warm and 9.2 to 9.8 s cold on that file. The proposed filmstrip from 14 seeks takes 1.34 s.
+- The Store build writes its log to `%LOCALAPPDATA%\TapWheel\tapwheel.log`, the same place as the zip, not under `Packages\...\LocalCache`.
+
 ### Phase 3: the UI thread and editors (after the PC test)
 
-The PC test results decide the details. In scope: the hooks on their own thread and a longer probe (K1), the editor file server off the UI thread in 4 MB chunks (K2), editors that show after the probe with a seek-based filmstrip (K3, K4), no disk work per wheel frame (A1), memory budgets for Make GIF and Reverse (V1, V2), and the editor fixes E2 to E6.
+The PC test results above decide the details. In scope: the hooks on their own thread and a longer probe (K1), the editor file server off the UI thread in 4 MB chunks (K2), editors that show after the probe with a seek-based filmstrip (K3, K4), no disk work per wheel frame (A1), memory budgets for Make GIF and Reverse (V1, V2), and the editor fixes E2 to E6.
 
 Done when: the PC test shows the wheel opening on every Alt tap with the Trim window open on the 2.92 GB file, and no editor waits on a filmstrip it doesn't show.
 
@@ -236,7 +246,7 @@ Done when: the PC test shows the wheel opening on every Alt tap with the Trim wi
 | 3 | The UI thread and editors | The PC test results are in and the phase 3 bar above holds |
 | Release | Notes, CHANGELOG, the signed release commit and tag | `release-notes/v0.1.1.md` and the CHANGELOG entry are written, and the tag builds the zip and checksums |
 
-Progress: phases 1 and 2 are on `build`; phase 3 waits on the PC test.
+Progress: phases 1 and 2 are on `build` with CI green; the PC test results are in; phase 3 hasn't started.
 
 ### Release blockers for v0.1.1
 
@@ -298,4 +308,4 @@ Never: cloud accounts, online conversion, an AI chat window, a plugin marketplac
 
 ## Open questions
 
-None.
+- How often an Alt tap showed Explorer's "Create link" instead of the wheel in the PC test (K1). Settles the hook work in phase 3 of v0.1.1.
