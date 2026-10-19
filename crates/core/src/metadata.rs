@@ -429,6 +429,9 @@ pub fn remove_all(file: &[u8]) -> Option<Vec<u8>> {
 				out.extend_from_slice(&file[c.whole]);
 			}
 		}
+		if turn != 1 {
+			return insert_exif(&out, &orientation_tiff(turn));
+		}
 		Some(out)
 	} else if file.starts_with(b"RIFF") && file.get(8..12) == Some(&b"WEBP"[..]) {
 		let mut body = Vec::new();
@@ -437,14 +440,24 @@ pub fn remove_all(file: &[u8]) -> Option<Vec<u8>> {
 				b"EXIF" | b"XMP " => {}
 				b"VP8X" => {
 					let mut x = file[c.whole].to_vec();
-					// clear the EXIF and XMP flags
+					// clear the EXIF and XMP flags, and set EXIF again when the orientation stays
 					if x.len() > 8 {
 						x[8] &= !0b0000_1100;
+						if turn != 1 {
+							x[8] |= 0b0000_1000;
+						}
 					}
 					body.extend(x);
 				}
 				_ => body.extend_from_slice(&file[c.whole]),
 			}
+		}
+		// only an extended WebP can carry EXIF, and a photo with an orientation already is one
+		if turn != 1 {
+			let tiff = orientation_tiff(turn);
+			body.extend(b"EXIF");
+			body.extend((tiff.len() as u32).to_le_bytes());
+			body.extend(tiff);
 		}
 		let mut out = b"RIFF".to_vec();
 		out.extend(((body.len() + 4) as u32).to_le_bytes());
@@ -456,8 +469,8 @@ pub fn remove_all(file: &[u8]) -> Option<Vec<u8>> {
 	}
 }
 
-/// A minimal EXIF segment holding only an orientation.
-fn jpeg_orientation_app1(o: u16) -> Vec<u8> {
+/// A minimal EXIF block holding only an orientation.
+fn orientation_tiff(o: u16) -> Vec<u8> {
 	let mut tiff = b"MM\0*\0\0\0\x08".to_vec();
 	tiff.extend(1u16.to_be_bytes());
 	tiff.extend(ORIENTATION.to_be_bytes());
@@ -466,6 +479,11 @@ fn jpeg_orientation_app1(o: u16) -> Vec<u8> {
 	tiff.extend(o.to_be_bytes());
 	tiff.extend([0, 0]);
 	tiff.extend(0u32.to_be_bytes());
+	tiff
+}
+
+fn jpeg_orientation_app1(o: u16) -> Vec<u8> {
+	let tiff = orientation_tiff(o);
 	let mut seg = vec![0xff, 0xe1];
 	seg.extend(((tiff.len() + 6 + 2) as u16).to_be_bytes());
 	seg.extend(b"Exif\0\0");
@@ -890,6 +908,63 @@ pub(crate) mod tests {
 		assert!(!out.windows(4).any(|w| w == b"hi!!"));
 		let upright = remove_all(&sample_jpeg(1)).unwrap();
 		assert!(exif_range(&upright).is_none());
+	}
+
+	#[test]
+	fn png_and_webp_portraits_stay_upright_after_a_strip() {
+		let j = sample_jpeg(6);
+		let exif = &j[exif_range(&j).unwrap()];
+		let png_chunk = |kind: &[u8], data: &[u8]| {
+			let mut c = (data.len() as u32).to_be_bytes().to_vec();
+			let mut body = kind.to_vec();
+			body.extend_from_slice(data);
+			c.extend_from_slice(&body);
+			c.extend(crc32(&body).to_be_bytes());
+			c
+		};
+		let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+		png.extend(png_chunk(b"IHDR", &[0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]));
+		png.extend(png_chunk(b"eXIf", exif));
+		png.extend(png_chunk(b"IDAT", &[1, 2, 3]));
+		png.extend(png_chunk(b"IEND", &[]));
+		let out = remove_all(&png).unwrap();
+		assert_eq!(orientation(&out), 6);
+		assert!(!has_location(&out));
+		assert!(out.ends_with(&png_chunk(b"IEND", &[])));
+
+		let webp = |exif: Option<&[u8]>| {
+			let chunk = |kind: &[u8], data: &[u8]| {
+				let mut c = kind.to_vec();
+				c.extend((data.len() as u32).to_le_bytes());
+				c.extend_from_slice(data);
+				if data.len() % 2 == 1 {
+					c.push(0);
+				}
+				c
+			};
+			let flags = if exif.is_some() { 0b0000_1000 } else { 0 };
+			let mut body = chunk(b"VP8X", &[flags, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+			body.extend(chunk(b"VP8L", &[0x2f, 0, 0, 0, 0]));
+			if let Some(e) = exif {
+				body.extend(chunk(b"EXIF", e));
+			}
+			let mut w = b"RIFF".to_vec();
+			w.extend(((body.len() + 4) as u32).to_le_bytes());
+			w.extend(b"WEBP");
+			w.extend(body);
+			w
+		};
+		let out = remove_all(&webp(Some(exif))).unwrap();
+		assert_eq!(orientation(&out), 6);
+		assert!(!has_location(&out));
+		assert_eq!(out[20] & 0b0000_1000, 0b0000_1000);
+		assert_eq!(
+			u32::from_le_bytes(out[4..8].try_into().unwrap()) as usize,
+			out.len() - 8
+		);
+		let upright = remove_all(&webp(None)).unwrap();
+		assert!(exif_range(&upright).is_none());
+		assert_eq!(upright[20] & 0b0000_1000, 0);
 	}
 
 	#[test]
