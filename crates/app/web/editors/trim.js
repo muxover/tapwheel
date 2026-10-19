@@ -2,7 +2,7 @@
 // with in and out points. Keep a part, cut a part out, or split at markers into files.
 // Space plays, I and O set the points, M adds a split marker, arrows step.
 
-import { apply, formatTime, group, h, iconEl, keepMediaExt, outName, prepared, savesAs, segmented, shell, stageLoading, stem, toggle } from "../tw.js";
+import { apply, formatTime, group, h, iconEl, keepMediaExt, mediaFor, on, outName, prepared, savesAs, segmented, shell, stageLoading, stem, toggle } from "../tw.js";
 
 export default async function trim(init) {
 	const gif = init.tool === "make_gif";
@@ -93,13 +93,33 @@ export default async function trim(init) {
 	}
 	name();
 
-	const player = video ? h("video", { src: info.url, preload: "auto", style: { maxWidth: "100%", maxHeight: "100%", borderRadius: "var(--radius-s)", background: "#000" } }) : h("audio", { src: info.url, preload: "auto" });
+	const player = video ? mediaFor(info, { preload: "auto", style: { maxWidth: "100%", maxHeight: "100%", borderRadius: "var(--radius-s)", background: "#000" } }) : mediaFor(info, { preload: "auto" });
 	const playBtn = h("button", { class: "btn icon", type: "button", "aria-label": "Play", onclick: () => toggleplay() }, iconEl("play"));
 	const now = h("span", { style: { fontVariantNumeric: "tabular-nums", minWidth: "120px" } });
 	const track = h("div", { style: { position: "relative", height: video ? "72px" : "96px", borderRadius: "var(--radius-s)", overflow: "hidden", background: "var(--surface)", cursor: "pointer", touchAction: "none" } });
 	const wave = h("canvas", { style: { position: "absolute", inset: "0", width: "100%", height: "100%" } });
-	if (info.filmstrip) track.append(h("div", { style: { position: "absolute", inset: "0", backgroundImage: `url("${info.filmstrip}")`, backgroundSize: "100% 100%", opacity: "0.9" } }));
-	if (info.wave) track.append(wave);
+	// the frame strip and the sound wave usually arrive after the window shows; the track pulses
+	// until then
+	const waiting = h("div", { class: "timeline-wait" });
+	let due = info.timeline ? (video ? 1 : 0) + (info.hasAudio ? 1 : 0) : 0;
+	if (due) track.append(waiting);
+	const arrived = () => --due <= 0 && waiting.remove();
+	const showStrip = (url) => track.prepend(h("div", { style: { position: "absolute", inset: "0", backgroundImage: `url("${url}")`, backgroundSize: "100% 100%", opacity: "0.9" } }));
+	const showWave = (values) => {
+		info.wave = values;
+		track.insertBefore(wave, track.firstChild?.nextSibling || null);
+		paintWave();
+	};
+	on("filmstrip", (m) => {
+		if (m.index !== info.index) return;
+		if (m.url) showStrip(m.url);
+		arrived();
+	});
+	on("wave", (m) => {
+		if (m.index !== info.index) return;
+		if (m.wave) showWave(m.wave);
+		arrived();
+	});
 	const shadeL = h("div", { style: { position: "absolute", top: "0", bottom: "0", left: "0", background: "rgba(0,0,0,.55)" } });
 	const shadeR = h("div", { style: { position: "absolute", top: "0", bottom: "0", right: "0", background: "rgba(0,0,0,.55)" } });
 	const sel = h("div", { style: { position: "absolute", top: "0", bottom: "0", border: "2px solid var(--accent)", borderRadius: "var(--radius-s)", boxSizing: "border-box" } });
@@ -112,6 +132,9 @@ export default async function trim(init) {
 	const head = h("div", { style: { position: "absolute", top: "-4px", bottom: "-4px", width: "2px", marginLeft: "-1px", background: "#fff", boxShadow: "0 0 0 1px rgba(0,0,0,.4)", pointerEvents: "none" } });
 	const marks = h("div", { style: { position: "absolute", inset: "0", pointerEvents: "none" } });
 	track.append(shadeL, shadeR, sel, marks, head);
+	// a page given its timeline up front, like the website's demo
+	if (info.filmstrip) showStrip(info.filmstrip);
+	if (info.wave) track.insertBefore(wave, shadeL);
 	const controls = h("div", { class: "row", style: { width: "100%" } }, playBtn, now, h("div", { style: { flex: "1" } }), h("span", { class: "hint", style: { margin: 0 } }, "Space plays, arrows step, M marks a split"));
 	const visual = video ? player : h("div", { class: "loading" }, iconEl("music_note_2", 48), h("div", {}, file.name), player);
 	ui.stage.style.placeItems = "stretch";

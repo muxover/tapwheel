@@ -50,15 +50,22 @@ pub fn write_png(path: &Path, w: u32, h: u32, rgba: &[u8]) -> Result<(), Error> 
 /// FFmpeg's own ceiling (16384 × 16384); nothing larger is decoded or drawn.
 pub const MAX_PIXELS: u64 = 16384 * 16384;
 
-/// Refuses a picture size before anything that large is allocated.
+/// Bytes a decoded picture costs per pixel while a tool works on it: RGBA, held about three times
+/// (decoded, worked on, encoded).
+const PIXEL_COST: u64 = 12;
+
+/// Refuses a picture size before anything that large is allocated: over FFmpeg's ceiling, or more
+/// than this PC has memory free for now.
 pub fn check_pixels(w: u32, h: u32) -> Result<(), Error> {
-	if w as u64 * h as u64 > MAX_PIXELS {
+	let pixels = w as u64 * h as u64;
+	if pixels > MAX_PIXELS {
 		return Err(Error::Engine(format!(
 			"This picture is too large ({w} × {h}); up to {} megapixels works",
 			MAX_PIXELS / 1_000_000
 		)));
 	}
-	Ok(())
+	crate::budget::fits_now(pixels * PIXEL_COST)
+		.map_err(|e| Error::Engine(format!("This picture is too large to open right now ({w} × {h}): {e}")))
 }
 
 pub fn read_png(path: &Path) -> Result<(u32, u32, Vec<u8>), Error> {

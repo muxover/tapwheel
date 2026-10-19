@@ -134,6 +134,27 @@ pub fn clear_leftovers(e: &Engines) -> usize {
 	n
 }
 
+/// Deletes what an earlier run left in the scratch folder. Everything there is named
+/// `<what>-<process id>-<n>` (frame strips, frames, clips, previews, renders, job scratch), so
+/// anything carrying another process's id is from a run that crashed or lost power; only one
+/// TapWheel runs at a time.
+pub fn clear_scratch(e: &Engines) -> usize {
+	let me = std::process::id().to_string();
+	let mut n = 0;
+	for dir in [e.scratch.join("web"), e.scratch.clone()] {
+		let Ok(entries) = fs::read_dir(&dir) else { continue };
+		for entry in entries.flatten() {
+			let name = entry.file_name().to_string_lossy().into_owned();
+			let owner = name.split('-').nth(1).unwrap_or("");
+			if !owner.is_empty() && owner.bytes().all(|b| b.is_ascii_digit()) && owner != me {
+				remove(&entry.path());
+				n += 1;
+			}
+		}
+	}
+	n
+}
+
 /// Free bytes on the drive holding `dir`, where the system says.
 pub fn free_space(dir: &Path) -> Option<u64> {
 	#[cfg(windows)]
@@ -634,6 +655,30 @@ mod tests {
 				"{tag}: {names:?}"
 			);
 		}
+	}
+
+	#[test]
+	fn a_crashed_runs_scratch_goes_at_the_next_start() {
+		let d = dir("scratch-leftovers");
+		let e = engines(&d);
+		fs::create_dir_all(e.scratch.join("web")).unwrap();
+		let old = [
+			e.scratch.join("strip-1-0.png"),
+			e.scratch.join("clip-1-3.mp4"),
+			e.scratch.join("web").join("render-1-0.png"),
+		];
+		for f in &old {
+			fs::write(f, b"x").unwrap();
+		}
+		fs::create_dir_all(e.scratch.join("repack-1-2").join("inside")).unwrap();
+		let ours = e.scratch_path("still", "jpg");
+		fs::write(&ours, b"x").unwrap();
+		let other = e.scratch.join("notes.txt");
+		fs::write(&other, b"x").unwrap();
+		assert_eq!(clear_scratch(&e), 4);
+		assert!(old.iter().all(|f| !f.exists()));
+		assert!(!e.scratch.join("repack-1-2").exists());
+		assert!(ours.exists() && other.exists() && e.scratch.join("web").exists());
 	}
 
 	#[test]

@@ -77,7 +77,13 @@ impl App {
 				let mut out = String::new();
 				for f in files {
 					// the clipboard isn't a place for more than this
-					if let Ok(text) = tapwheel_core::text::read_within(f, 50 * 1024 * 1024) {
+					if let Ok(text) = tapwheel_core::text::read_within(
+						f,
+						tapwheel_core::text::Limit {
+							ceiling: 50 * 1024 * 1024,
+							copies: 2,
+						},
+					) {
 						if files.len() > 1 {
 							out.push_str(&format!("**{}**\n\n", file_name(f)));
 						}

@@ -297,6 +297,151 @@ export function apply(recipe, extra = {}) {
 	send("apply", { recipe, ...extra });
 }
 
+/**
+ * Stands in for a <video> the page can't play (HEVC, say): the frame at the playhead, and a few
+ * seconds at a time from the app while playing, so nothing decodes the whole file first. It
+ * answers the parts of a media element the editors use.
+ */
+class Stills extends HTMLElement {
+	constructor() {
+		super();
+		this.index = 0;
+		this.duration = NaN;
+		this.hasVideo = true;
+		this.at = 0;
+		this.stopped = true;
+		this.loaded = false;
+		// a frame asked for and not back yet, and the newest one wanted meanwhile
+		this.asked = null;
+		this.wanted = null;
+		this.seq = 0;
+		this.clipSeq = 0;
+		this.clipFrom = 0;
+		this.img = h("img", { alt: "", draggable: "false" });
+		this.video = h("video", { playsinline: true, hidden: true });
+		this.video.addEventListener("timeupdate", () => {
+			if (this.stopped) return;
+			this.at = this.clipFrom + this.video.currentTime;
+			this.dispatchEvent(new Event("timeupdate"));
+		});
+		this.video.addEventListener("ended", () => {
+			if (this.stopped) return;
+			this.at = this.clipFrom + this.video.duration;
+			if (this.at >= this.duration - 0.05) this.pause();
+			else this.clipAt(this.at);
+		});
+	}
+	connectedCallback() {
+		if (!this.contains(this.img)) this.append(this.img, this.video);
+		if (!this.loaded && this.asked === null) this.frame(this.at);
+	}
+	set muted(on) {
+		this.video.muted = on;
+	}
+	get muted() {
+		return this.video.muted;
+	}
+	get paused() {
+		return this.stopped;
+	}
+	get currentTime() {
+		return this.at;
+	}
+	set currentTime(t) {
+		this.at = Math.min(Math.max(0, t), Number.isFinite(this.duration) ? this.duration : t);
+		if (this.stopped) this.frame(this.at);
+		else this.clipAt(this.at);
+	}
+	decode() {
+		return this.img.decode();
+	}
+	frame(t) {
+		if (!this.hasVideo) {
+			this.settled();
+			return;
+		}
+		if (this.asked !== null) {
+			this.wanted = t;
+			return;
+		}
+		this.asked = t;
+		send("still", { index: this.index, t, seq: ++this.seq });
+	}
+	async gotStill(m) {
+		if (m.error) {
+			if (!this.loaded) this.dispatchEvent(new Event("error"));
+		} else {
+			this.img.src = m.url;
+			await this.img.decode().catch(() => {});
+		}
+		this.asked = null;
+		const next = this.wanted;
+		this.wanted = null;
+		if (next !== null && next !== m.t) this.frame(next);
+		else if (!m.error) this.settled();
+	}
+	settled() {
+		if (!this.loaded) {
+			this.loaded = true;
+			this.dispatchEvent(new Event("loadeddata"));
+		}
+		this.dispatchEvent(new Event("seeked"));
+		this.dispatchEvent(new Event("timeupdate"));
+	}
+	play() {
+		if (this.stopped) {
+			this.stopped = false;
+			this.dispatchEvent(new Event("play"));
+			this.clipAt(this.at);
+		}
+		return Promise.resolve();
+	}
+	pause() {
+		if (this.stopped) return;
+		this.stopped = true;
+		this.video.pause();
+		this.video.hidden = true;
+		this.img.hidden = false;
+		this.dispatchEvent(new Event("pause"));
+		this.frame(this.at);
+	}
+	clipAt(t) {
+		this.clipFrom = t;
+		this.video.pause();
+		this.clipSeq = ++this.seq;
+		send("clip", { index: this.index, t, seq: this.clipSeq });
+	}
+	gotClip(m) {
+		if (this.stopped || m.seq !== this.clipSeq) return;
+		if (m.error) {
+			toast(m.error, true);
+			this.pause();
+			return;
+		}
+		this.video.src = m.url;
+		this.video.hidden = false;
+		this.img.hidden = this.hasVideo;
+		this.video.play().catch(() => this.pause());
+	}
+}
+customElements.define("tw-stills", Stills);
+const stills = [];
+on("still", (m) => stills.filter((s) => s.index === m.index).forEach((s) => s.gotStill(m)));
+on("clip", (m) => stills.filter((s) => s.index === m.index).forEach((s) => s.gotClip(m)));
+
+/** The element that shows a prepared video or sound: the file itself when the page can play it. */
+export function mediaFor(info, attrs = {}) {
+	if (info.url) return h(info.hasVideo ? "video" : "audio", { src: info.url, ...attrs });
+	const el = document.createElement("tw-stills");
+	el.index = info.index;
+	el.duration = info.duration;
+	el.hasVideo = !!info.hasVideo;
+	el.muted = !!attrs.muted;
+	if (attrs.style) Object.assign(el.style, attrs.style);
+	stills.push(el);
+	return el;
+}
+
 export function stageLoading(stage, text = "Getting it ready") {
 	stage.replaceChildren(h("div", { class: "loading" }, h("div", { class: "spinner" }), h("div", {}, text)));
 }

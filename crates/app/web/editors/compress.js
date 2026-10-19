@@ -1,6 +1,6 @@
 // Compress with full control: a quality, an exact target size, and a size limit.
 
-import { apply, formatSize, group, h, keepImageExt, numberInput, outName, prepared, savesAs, segmented, shell, slider, stageLoading, loadImage, fit } from "../tw.js";
+import { apply, fit, formatSize, group, h, keepImageExt, loadImage, mediaFor, numberInput, outName, prepared, savesAs, segmented, shell, slider, stageLoading } from "../tw.js";
 
 export default async function compress(init) {
 	const file = init.files[0];
@@ -53,7 +53,7 @@ export default async function compress(init) {
 	stageLoading(ui.stage);
 	const [info] = await prepared();
 	if (info.error) throw new Error(info.error);
-	const media = video ? h("video", { src: info.url, controls: true, muted: true }) : await loadImage(info.url);
+	const media = video ? mediaFor(info, { controls: true, muted: true }) : await loadImage(info.url);
 	const s = fit(ui.stage, info.width || 800, info.height || 450);
 	media.style.width = `${(info.width || 800) * s}px`;
 	ui.stage.replaceChildren(h("div", { class: "canvas-wrap" }, media));

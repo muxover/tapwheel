@@ -5,7 +5,6 @@ use serde_json::{Value, json};
 use tapwheel_core::files::{self, RenameRule};
 use tapwheel_core::kind::ext_of;
 use tapwheel_core::ops::selection_kind;
-use tapwheel_core::run::Engines;
 use tapwheel_core::{Kind, Op, Recipe, Settings, ff, media};
 use windows_sys::Win32::Foundation::HWND;
 
@@ -32,12 +31,8 @@ fn size_for(op: Op) -> (f32, f32) {
 	}
 }
 
-fn scratch_file(e: &Engines, tag: &str, ext: &str) -> PathBuf {
-	static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-	let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-	let _ = std::fs::create_dir_all(&e.scratch);
-	e.scratch.join(format!("{tag}-{}-{n}.{ext}", std::process::id()))
-}
+/// How much of a video the page plays at a time when it can't play the file itself.
+const CLIP_SECS: f64 = 8.0;
 
 impl App {
 	pub fn settings_payload(&self) -> Value {
@@ -96,10 +91,14 @@ impl App {
 		let files_map = self.web.files.clone();
 		let hosts = self.web.get(hwnd).map(|w| w.hosts.clone()).unwrap_or_default();
 		let share = move |path: &Path| -> String { web::url_for(&hosts, &files_map, path) };
+		let temps = self.web.get(hwnd).map(|w| w.temps.clone()).unwrap_or_default();
+		// only Trim and Make GIF show a timeline
+		let timeline = matches!(op, Op::Trim | Op::MakeGif);
 		let worker = std::thread::Builder::new().stack_size(tapwheel_core::run::JOB_STACK);
 		let spawned = worker.spawn(move || {
 			let started = std::time::Instant::now();
-			let never = AtomicBool::new(false);
+			let mut steps: Vec<(String, u128)> = Vec::new();
+			let mut timelines = Vec::new();
 			let mut out = Vec::new();
 			for (i, f) in files.iter().enumerate() {
 				let mut info = json!({ "index": i });
@@ -151,44 +150,25 @@ impl App {
 							info["url"] = json!(share(&preview));
 						}
 						(_, Some(Kind::Video | Kind::Audio)) => {
+							// the window needs only the probe to show; the timeline follows
+							let t = std::time::Instant::now();
 							let p = ff::probe(&engines.ffprobe, f)?;
+							steps.push(("probe".into(), t.elapsed().as_millis()));
 							info["duration"] = json!(p.duration);
 							info["width"] = json!(p.shown_size().0);
 							info["height"] = json!(p.shown_size().1);
 							info["hasVideo"] = json!(p.has_video());
 							info["hasAudio"] = json!(p.has_audio());
 							info["fps"] = json!(p.fps);
-							// the playable copy, the frame strip and the sound wave each run FFmpeg on
-							// their own, so they run side by side
-							let (playable, strip, wave) = std::thread::scope(|sc| {
-								let playable = sc.spawn(|| {
-									if media::plays_in_browser(f, &p) {
-										Ok(f.clone())
-									} else {
-										let copy =
-											scratch_file(&engines, "play", if p.has_video() { "mp4" } else { "m4a" });
-										media::preview_copy(&engines, f, &p, &copy, &never).map(|_| copy)
-									}
-								});
-								let strip = sc.spawn(|| {
-									p.has_video().then(|| {
-										let strip = scratch_file(&engines, "strip", "png");
-										media::filmstrip(&engines, f, p.duration, 14, 72, &strip)
-											.ok()
-											.map(|_| strip)
-									})
-								});
-								let wave = sc.spawn(|| p.has_audio().then(|| media::waveform(&engines, f, 900)));
-								(playable.join(), strip.join(), wave.join())
-							});
-							let gone =
-								|| tapwheel_core::Error::Engine("getting the clip ready stopped unexpectedly".into());
-							info["url"] = json!(share(&playable.map_err(|_| gone())??));
-							if let Some(Some(strip)) = strip.map_err(|_| gone())? {
-								info["filmstrip"] = json!(share(&strip));
+							if media::plays_in_browser(f, &p) {
+								info["url"] = json!(share(f));
+							} else {
+								// frames and short clips on request, never a copy of the whole file
+								info["stills"] = json!(true);
 							}
-							if let Some(wave) = wave.map_err(|_| gone())? {
-								info["wave"] = json!(wave?);
+							if timeline {
+								info["timeline"] = json!(true);
+								timelines.push((i, f.clone(), p));
 							}
 						}
 						_ => {
@@ -212,14 +192,108 @@ impl App {
 				}
 				out.push(info);
 			}
-			let took = started.elapsed().as_millis();
-			if took > 500 {
-				super::log::write(&format!("slow: {op:?} took {took} ms to get its files ready"));
-			}
 			send(json!({ "type": "prepared", "files": out }));
+			steps.push(("window ready".into(), started.elapsed().as_millis()));
+			for (i, f, p) in timelines {
+				// the frame strip and the sound wave each run FFmpeg on their own, side by side
+				std::thread::scope(|sc| {
+					let strip = p.has_video().then(|| {
+						sc.spawn(|| {
+							let t = std::time::Instant::now();
+							let strip = engines.scratch_path("strip", "png");
+							temps.lock().unwrap().push(strip.clone());
+							let made = tapwheel_core::caught("The timeline couldn't be made", || {
+								media::filmstrip(&engines, &f, p.duration, 14, 72, &strip)
+							});
+							(made.map(|()| strip), t.elapsed().as_millis())
+						})
+					});
+					let wave = p.has_audio().then(|| {
+						sc.spawn(|| {
+							let t = std::time::Instant::now();
+							let wave = tapwheel_core::caught("The sound wave couldn't be made", || {
+								media::waveform(&engines, &f, p.duration, 900)
+							});
+							(wave, t.elapsed().as_millis())
+						})
+					});
+					if let Some(Ok((made, ms))) = strip.map(|h| h.join()) {
+						steps.push(("filmstrip".into(), ms));
+						match made {
+							Ok(strip) => send(json!({ "type": "filmstrip", "index": i, "url": share(&strip) })),
+							Err(e) => {
+								super::log::write(&format!("{op:?} filmstrip for {}: {e}", file_name(&f)));
+								send(json!({ "type": "filmstrip", "index": i, "error": e.to_string() }));
+							}
+						}
+					}
+					if let Some(Ok((wave, ms))) = wave.map(|h| h.join()) {
+						steps.push(("waveform".into(), ms));
+						match wave {
+							Ok(wave) => send(json!({ "type": "wave", "index": i, "wave": wave })),
+							Err(e) => {
+								super::log::write(&format!("{op:?} waveform for {}: {e}", file_name(&f)));
+								send(json!({ "type": "wave", "index": i, "error": e.to_string() }));
+							}
+						}
+					}
+				});
+			}
+			let names: Vec<String> = files.iter().map(|f| file_name(f)).collect();
+			super::log::write(&format!(
+				"{op:?} on {}: {}",
+				names.join(", "),
+				steps
+					.iter()
+					.map(|(what, ms)| format!("{what} {ms} ms"))
+					.collect::<Vec<_>>()
+					.join(", ")
+			));
 		});
 		if let Err(e) = spawned {
 			super::log::write(&format!("{op:?}: couldn't start getting the files ready: {e}"));
+		}
+	}
+
+	/// A frame, or a few seconds the page can play, of a video the editor's browser can't play.
+	fn preview_part(&mut self, hwnd: HWND, cmd: &str, msg: &Value) {
+		let Some(w) = self.web.get(hwnd) else { return };
+		let index = msg["index"].as_u64().unwrap_or(0) as usize;
+		let Some(input) = w.inputs.get(index).cloned() else {
+			return;
+		};
+		let t = msg["t"].as_f64().unwrap_or(0.0).max(0.0);
+		let (hosts, temps, files_map) = (w.hosts.clone(), w.temps.clone(), self.web.files.clone());
+		let send = self.web.later(hwnd);
+		let engines = self.jobs.engines.clone();
+		let clip = cmd == "clip";
+		let reply = json!({ "type": cmd, "index": index, "t": t, "seq": msg["seq"] });
+		let spawned = std::thread::Builder::new()
+			.stack_size(tapwheel_core::run::JOB_STACK)
+			.spawn(move || {
+				let out = engines.scratch_path(if clip { "clip" } else { "still" }, if clip { "mp4" } else { "jpg" });
+				temps.lock().unwrap().push(out.clone());
+				let made = tapwheel_core::caught("This part of the video couldn't be shown", || {
+					if clip {
+						let p = ff::probe(&engines.ffprobe, &input)?;
+						media::clip(&engines, &input, &p, t, CLIP_SECS, &out, &AtomicBool::new(false))
+					} else {
+						media::still(&engines, &input, t, &out)
+					}
+				});
+				let mut reply = reply;
+				match made {
+					Ok(()) => reply["url"] = json!(web::url_for(&hosts, &files_map, &out)),
+					Err(e) => {
+						let _ = std::fs::remove_file(&out);
+						super::log::write(&format!("preview of {} at {t:.1} s: {e}", file_name(&input)));
+						reply["error"] = json!(e.to_string());
+					}
+				}
+				send(reply);
+			});
+		if let Err(e) = spawned {
+			super::log::write(&format!("a video preview couldn't start: {e}"));
 		}
 	}
 
@@ -269,6 +343,7 @@ impl App {
 				}
 			}
 			"close" => web::close(self, hwnd),
+			"still" | "clip" => self.preview_part(hwnd, cmd, &msg),
 			// errors inside a page, which would otherwise vanish with it
 			"log" => super::log::write(&format!(
 				"page: {}",

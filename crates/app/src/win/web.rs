@@ -40,6 +40,8 @@ pub struct WebWin {
 	pub init: Value,
 	pub inputs: Vec<PathBuf>,
 	pub hosts: Hosts,
+	/// Files made for this window (frame strips, frames, clips), deleted when it closes.
+	pub temps: Arc<Mutex<Vec<PathBuf>>>,
 	/// Set once the page has its first message; anything sent before then waits in `held`, since
 	/// a script run before the page has loaded is simply lost.
 	ready: bool,
@@ -435,6 +437,7 @@ pub fn open_sized(a: &mut App, page: Page, mut init: Value, inputs: Vec<PathBuf>
 		init,
 		inputs,
 		hosts,
+		temps: Arc::default(),
 		ready: false,
 		held: Vec::new(),
 	});
@@ -489,6 +492,11 @@ fn build(
 }
 
 pub fn close(a: &mut App, hwnd: HWND) {
+	for w in a.web.windows.iter().filter(|w| w.hwnd == hwnd) {
+		for f in w.temps.lock().unwrap().drain(..) {
+			let _ = std::fs::remove_file(f);
+		}
+	}
 	a.web.windows.retain(|w| w.hwnd != hwnd);
 	unsafe { DestroyWindow(hwnd) };
 }

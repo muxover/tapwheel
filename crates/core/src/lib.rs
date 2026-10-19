@@ -1,5 +1,6 @@
 pub mod archive;
 pub mod bg;
+pub mod budget;
 pub mod code;
 pub mod codeshot;
 pub mod ff;

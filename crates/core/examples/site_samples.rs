@@ -163,11 +163,11 @@ fn main() {
 			"clip": {
 				"url": "clip.mp4", "duration": clip.duration, "width": clip.shown_size().0, "height": clip.shown_size().1,
 				"fps": clip.fps, "hasVideo": true, "hasAudio": true, "filmstrip": "strip.png",
-				"wave": round(media::waveform(&e, &p("clip.mp4"), 900).unwrap()),
+				"wave": round(media::waveform(&e, &p("clip.mp4"), clip.duration, 900).unwrap()),
 			},
 			"song": {
 				"url": "song.m4a", "duration": song.duration, "hasVideo": false, "hasAudio": true,
-				"wave": round(media::waveform(&e, &p("song.m4a"), 900).unwrap()),
+				"wave": round(media::waveform(&e, &p("song.m4a"), song.duration, 900).unwrap()),
 				"tags": tags.into_iter().collect::<std::collections::BTreeMap<_, _>>(), "hasCover": cover,
 			},
 			"code": { "dark": spans(true), "light": spans(false), "language": code::language("ts") },
