@@ -4,18 +4,20 @@
 
 use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use include_dir::{Dir, include_dir};
 use raw_window_handle::{HandleError, HasWindowHandle, RawWindowHandle, Win32WindowHandle, WindowHandle};
 use serde_json::{Value, json};
+use webview2_com::Microsoft::Web::WebView2::Win32::{COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW, ICoreWebView2_3};
+use windows::core::{HSTRING, Interface};
 use windows_sys::Win32::Foundation::*;
 use windows_sys::Win32::Graphics::Dwm::DwmSetWindowAttribute;
 use windows_sys::Win32::UI::HiDpi::{AdjustWindowRectExForDpi, GetDpiForWindow};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 use wry::http::{Request, Response, StatusCode, header};
-use wry::{WebContext, WebView, WebViewBuilder, WebViewBuilderExtWindows};
+use wry::{WebContext, WebView, WebViewBuilder, WebViewBuilderExtWindows, WebViewExtWindows};
 
 use super::WM_APP_WEB;
 use super::app::{App, with};
@@ -37,6 +39,7 @@ pub struct WebWin {
 	/// What the page needs first; sent when it says it's ready.
 	pub init: Value,
 	pub inputs: Vec<PathBuf>,
+	pub hosts: Hosts,
 	/// Set once the page has its first message; anything sent before then waits in `held`, since
 	/// a script run before the page has loaded is simply lost.
 	ready: bool,
@@ -108,6 +111,65 @@ impl Web {
 			unsafe { PostMessageW(main as HWND, WM_APP_WEB, 0, 0) };
 		}
 	}
+}
+
+/// Folders a page may read, each under a host name of its own. WebView2 serves their files
+/// itself, straight from disk and by byte ranges, so a video of any size never passes through
+/// TapWheel's memory or its UI thread.
+pub type Hosts = Vec<(String, PathBuf)>;
+
+pub fn hosts_for(folders: impl IntoIterator<Item = PathBuf>) -> Hosts {
+	let mut hosts: Hosts = Vec::new();
+	for f in folders {
+		if !hosts.iter().any(|(_, g)| *g == f) {
+			hosts.push((format!("f{}.tapwheel.example", hosts.len()), f));
+		}
+	}
+	hosts
+}
+
+fn map_hosts(view: &WebView, hosts: &Hosts) {
+	let mapped = view.webview().cast::<ICoreWebView2_3>().and_then(|wv| {
+		for (host, folder) in hosts {
+			unsafe {
+				wv.SetVirtualHostNameToFolderMapping(
+					&HSTRING::from(host.as_str()),
+					&HSTRING::from(folder.as_os_str()),
+					// as if the files came with Access-Control-Allow-Origin: *, so pictures drawn on
+					// a canvas can still be read back
+					COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW,
+				)?;
+			}
+		}
+		Ok(())
+	});
+	if let Err(e) = mapped {
+		super::log::write(&format!("pages can't read files from their folders: {e}"));
+	}
+}
+
+/// The address a page reads a file at: under its folder's host when it has one, otherwise
+/// through TapWheel, a chunk at a time.
+pub fn url_for(hosts: &Hosts, files: &Mutex<HashMap<String, PathBuf>>, path: &Path) -> String {
+	for (host, folder) in hosts {
+		if let Ok(rel) = path.strip_prefix(folder) {
+			let parts: Vec<String> = rel
+				.components()
+				.map(|c| urlencode(&c.as_os_str().to_string_lossy()))
+				.collect();
+			return format!("http://{host}/{}", parts.join("/"));
+		}
+	}
+	static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1_000_000);
+	let token = format!("p{}", NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+	files.lock().unwrap().insert(token.clone(), path.to_path_buf());
+	let name = path
+		.file_name()
+		.map(|n| n.to_string_lossy().into_owned())
+		.unwrap_or_default();
+	// a same-site path: WebView2 serves the pages from http://tapwheel.localhost, where a
+	// tapwheel:// address would never load
+	format!("/file/{token}/{}", urlencode(&name))
 }
 
 /// Percent-encodes a file name for the last part of a page URL.
@@ -206,55 +268,19 @@ fn serve(
 		let Some(file) = files.lock().unwrap().get(token).cloned() else {
 			return respond(StatusCode::NOT_FOUND, "text/plain", Vec::new());
 		};
-		let ctype = mime(&file.to_string_lossy());
-		let Ok(meta) = std::fs::metadata(&file) else {
-			return respond(StatusCode::NOT_FOUND, "text/plain", Vec::new());
-		};
-		let len = meta.len();
-		let range = req
-			.headers()
-			.get(header::RANGE)
-			.and_then(|v| v.to_str().ok())
-			.and_then(|v| v.strip_prefix("bytes="))
-			.and_then(|v| v.split_once('-'))
-			.map(|(a, b)| {
-				let start: u64 = a.parse().unwrap_or(0);
-				// chunks of at most 4 MB keep memory flat for big videos
-				let end: u64 = b
-					.parse()
-					.unwrap_or(len.saturating_sub(1))
-					.min(start + 4 * 1024 * 1024 - 1)
-					.min(len.saturating_sub(1));
-				(start, end)
-			});
-		use std::io::{Read, Seek, SeekFrom};
-		let Ok(mut f) = std::fs::File::open(&file) else {
-			return respond(StatusCode::NOT_FOUND, "text/plain", Vec::new());
-		};
-		return match range {
-			Some((start, end)) if start <= end && start < len => {
-				let mut buf = vec![0u8; (end - start + 1) as usize];
-				if f.seek(SeekFrom::Start(start)).is_err() || f.read_exact(&mut buf).is_err() {
-					return respond(StatusCode::INTERNAL_SERVER_ERROR, "text/plain", Vec::new());
+		let range = req.headers().get(header::RANGE).and_then(|v| v.to_str().ok());
+		return match crate::served::read(&file, range) {
+			Ok(part) => {
+				let mut r = Response::builder()
+					.status(part.status)
+					.header(header::CONTENT_TYPE, mime(&file.to_string_lossy()))
+					.header(header::ACCEPT_RANGES, "bytes");
+				if let Some(cr) = part.content_range {
+					r = r.header(header::CONTENT_RANGE, cr);
 				}
-				Response::builder()
-					.status(StatusCode::PARTIAL_CONTENT)
-					.header(header::CONTENT_TYPE, ctype)
-					.header(header::ACCEPT_RANGES, "bytes")
-					.header(header::CONTENT_RANGE, format!("bytes {start}-{end}/{len}"))
-					.body(Cow::Owned(buf))
-					.expect("valid response")
+				r.body(Cow::Owned(part.body)).expect("valid response")
 			}
-			_ => {
-				let mut buf = Vec::with_capacity(len as usize);
-				let _ = f.read_to_end(&mut buf);
-				Response::builder()
-					.status(StatusCode::OK)
-					.header(header::CONTENT_TYPE, ctype)
-					.header(header::ACCEPT_RANGES, "bytes")
-					.body(Cow::Owned(buf))
-					.expect("valid response")
-			}
+			Err(_) => respond(StatusCode::NOT_FOUND, "text/plain", Vec::new()),
 		};
 	}
 	let path = if path.is_empty() {
@@ -363,34 +389,30 @@ pub fn open_sized(a: &mut App, page: Page, mut init: Value, inputs: Vec<PathBuf>
 		return None;
 	}
 	style_window(a, hwnd);
-	let files = a.web.files.clone();
-	let scratch = a.web.scratch.clone();
 	let mail = a.web.mail.clone();
 	let main = a.main as usize;
 	let id = hwnd as usize;
-	let dark = a.theme.dark;
-	let built = WebViewBuilder::new_with_web_context(&mut a.web.context)
-		.with_url("tapwheel://localhost/index.html")
-		// opaque, in the page's own colour, so no white shows while it loads or resizes
-		.with_background_color(if dark { (32, 32, 32, 255) } else { (243, 243, 243, 255) })
-		.with_devtools(cfg!(debug_assertions))
-		.with_default_context_menus(cfg!(debug_assertions))
-		.with_browser_accelerator_keys(false)
-		.with_theme(if dark { wry::Theme::Dark } else { wry::Theme::Light })
-		.with_custom_protocol("tapwheel".into(), move |_, req| serve(&files, &scratch, req))
-		.with_ipc_handler(move |req| {
-			mail.lock().unwrap().inbox.push_back((id, req.into_body()));
+	let hosts = match page {
+		Page::Editor => hosts_for(
+			inputs
+				.iter()
+				.filter_map(|f| f.parent().map(Path::to_path_buf))
+				.chain([a.jobs.engines.scratch.clone(), a.jobs.engines.cache.clone()]),
+		),
+		Page::Settings => Vec::new(),
+	};
+	let built = build(
+		&mut a.web.context,
+		hwnd,
+		a.theme.dark,
+		a.web.files.clone(),
+		a.web.scratch.clone(),
+		&hosts,
+		move |body| {
+			mail.lock().unwrap().inbox.push_back((id, body));
 			unsafe { PostMessageW(main as HWND, WM_APP_WEB, 0, 0) };
-		})
-		.with_navigation_handler(|url| url.starts_with("tapwheel:") || url.starts_with("http://tapwheel.localhost"))
-		.with_new_window_req_handler(|url, _| {
-			// links in pages open in the browser instead of a new WebView
-			if url.starts_with("https://") {
-				super::shell::open_url(&url);
-			}
-			wry::NewWindowResponse::Deny
-		})
-		.build_as_child(&Handle(hwnd));
+		},
+	);
 	let view = match built {
 		Ok(v) => v,
 		Err(e) => {
@@ -412,6 +434,7 @@ pub fn open_sized(a: &mut App, page: Page, mut init: Value, inputs: Vec<PathBuf>
 		page,
 		init,
 		inputs,
+		hosts,
 		ready: false,
 		held: Vec::new(),
 	});
@@ -420,6 +443,49 @@ pub fn open_sized(a: &mut App, page: Page, mut init: Value, inputs: Vec<PathBuf>
 		SetForegroundWindow(hwnd);
 	}
 	Some(hwnd)
+}
+
+/// A page's WebView in `parent`, reading pages from TapWheel and shared files from `hosts`.
+fn build(
+	context: &mut WebContext,
+	parent: HWND,
+	dark: bool,
+	files: Arc<Mutex<HashMap<String, PathBuf>>>,
+	scratch: PathBuf,
+	hosts: &Hosts,
+	ipc: impl Fn(String) + 'static,
+) -> wry::Result<WebView> {
+	let view = WebViewBuilder::new_with_web_context(context)
+		.with_url("tapwheel://localhost/index.html")
+		// opaque, in the page's own colour, so no white shows while it loads or resizes
+		.with_background_color(if dark { (32, 32, 32, 255) } else { (243, 243, 243, 255) })
+		.with_devtools(cfg!(debug_assertions))
+		.with_default_context_menus(cfg!(debug_assertions))
+		.with_browser_accelerator_keys(false)
+		.with_theme(if dark { wry::Theme::Dark } else { wry::Theme::Light })
+		.with_asynchronous_custom_protocol("tapwheel".into(), move |_, req, responder| {
+			let (files, scratch) = (files.clone(), scratch.clone());
+			// files are read on a thread of their own, never on the UI thread
+			let spawned = std::thread::Builder::new()
+				.name("serve".into())
+				.spawn(move || responder.respond(serve(&files, &scratch, req)));
+			if let Err(e) = spawned {
+				super::log::write(&format!("a page's file couldn't be read: {e}"));
+			}
+		})
+		.with_ipc_handler(move |req| ipc(req.into_body()))
+		.with_navigation_handler(|url| url.starts_with("tapwheel:") || url.starts_with("http://tapwheel.localhost"))
+		.with_new_window_req_handler(|url, _| {
+			// links in pages open in the browser instead of a new WebView
+			if url.starts_with("https://") {
+				super::shell::open_url(&url);
+			}
+			wry::NewWindowResponse::Deny
+		})
+		.build_as_child(&Handle(parent))?;
+	map_hosts(&view, hosts);
+	super::crash::keep();
+	Ok(view)
 }
 
 pub fn close(a: &mut App, hwnd: HWND) {
@@ -504,5 +570,189 @@ unsafe extern "system" fn proc_(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> L
 	match handled {
 		Some(()) => 0,
 		None => unsafe { DefWindowProcW(hwnd, msg, w, l) },
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::cell::RefCell;
+	use std::os::windows::io::AsRawHandle;
+	use std::rc::Rc;
+	use std::time::{Duration, Instant};
+
+	use windows_sys::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
+	use windows_sys::Win32::System::IO::DeviceIoControl;
+	use windows_sys::Win32::System::Ioctl::FSCTL_SET_SPARSE;
+	use windows_sys::Win32::System::ProcessStatus::{
+		GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
+	};
+	use windows_sys::Win32::System::Threading::GetCurrentProcess;
+
+	use super::*;
+
+	const MB: u64 = 1024 * 1024;
+
+	fn private_mb() -> u64 {
+		let mut c: PROCESS_MEMORY_COUNTERS_EX = unsafe { std::mem::zeroed() };
+		c.cb = size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32;
+		unsafe {
+			GetProcessMemoryInfo(
+				GetCurrentProcess(),
+				&mut c as *mut PROCESS_MEMORY_COUNTERS_EX as *mut PROCESS_MEMORY_COUNTERS,
+				c.cb,
+			)
+		};
+		c.PrivateUsage as u64 / MB
+	}
+
+	/// A file that says it's `len` bytes and takes no space.
+	fn sparse(path: &Path, len: u64) {
+		let f = std::fs::File::create(path).unwrap();
+		let mut ret = 0;
+		let ok = unsafe {
+			DeviceIoControl(
+				f.as_raw_handle() as HANDLE,
+				FSCTL_SET_SPARSE,
+				std::ptr::null(),
+				0,
+				std::ptr::null_mut(),
+				0,
+				&mut ret,
+				std::ptr::null_mut(),
+			)
+		};
+		assert_ne!(ok, 0, "couldn't make the file sparse");
+		f.set_len(len).unwrap();
+	}
+
+	/// Runs this thread's messages, as the UI thread would, until `done` or the time runs out.
+	fn pump(limit: Duration, mut each: impl FnMut() -> bool) {
+		let end = Instant::now() + limit;
+		let mut msg: MSG = unsafe { std::mem::zeroed() };
+		while Instant::now() < end {
+			while unsafe { PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) } != 0 {
+				unsafe {
+					TranslateMessage(&msg);
+					DispatchMessageW(&msg);
+				}
+			}
+			if each() {
+				return;
+			}
+			std::thread::sleep(Duration::from_millis(10));
+		}
+	}
+
+	const PROBE: &str = r#"(async () => {
+		const say = (m) => window.ipc.postMessage(JSON.stringify({ probe: m }));
+		const video = document.createElement("video");
+		video.preload = "auto";
+		video.src = HOST;
+		document.body.append(video);
+		for (const url of [HOST, TOKEN]) {
+			try {
+				const r = await fetch(url);
+				const reader = r.body.getReader();
+				let n = 0;
+				while (n < 64 * 1024 * 1024) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					n += value.length;
+				}
+				await reader.cancel();
+				say(`${r.status} ${n}`);
+			} catch (e) {
+				say(`error ${e}`);
+			}
+		}
+		say("done");
+	})();"#;
+
+	#[test]
+	fn a_video_over_4_gb_loads_without_tapwheel_holding_it() {
+		let dir = std::env::temp_dir().join(format!("tw-web-{}", std::process::id()));
+		let _ = std::fs::remove_dir_all(&dir);
+		std::fs::create_dir_all(&dir).unwrap();
+		let video = dir.join("big video.mp4");
+		sparse(&video, 5 * 1024 * MB);
+		let parent = unsafe {
+			CreateWindowExW(
+				0,
+				wide("STATIC").as_ptr(),
+				std::ptr::null(),
+				WS_OVERLAPPEDWINDOW,
+				0,
+				0,
+				800,
+				600,
+				std::ptr::null_mut(),
+				std::ptr::null_mut(),
+				std::ptr::null_mut(),
+				std::ptr::null(),
+			)
+		};
+		assert!(!parent.is_null());
+		let files = Arc::new(Mutex::new(HashMap::new()));
+		let hosts = hosts_for([dir.clone()]);
+		let host_url = url_for(&hosts, &files, &video);
+		let token_url = url_for(&Vec::new(), &files, &video);
+		let heard = Rc::new(RefCell::new(Vec::<Value>::new()));
+		let ear = heard.clone();
+		unsafe { CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32) };
+		let mut context = WebContext::new(Some(dir.join("profile")));
+		let view = build(
+			&mut context,
+			parent,
+			false,
+			files,
+			dir.join("scratch"),
+			&hosts,
+			move |body| {
+				if let Ok(v) = serde_json::from_str(&body) {
+					ear.borrow_mut().push(v);
+				}
+			},
+		)
+		.expect("WebView2 didn't start");
+		// the first webview is when WebView2 would put its own crash filter in
+		assert!(
+			super::super::crash::ours(),
+			"the crash filter isn't ours after making a webview"
+		);
+
+		pump(Duration::from_secs(60), || {
+			heard.borrow().iter().any(|m| m["cmd"] == "ready")
+		});
+		assert!(
+			heard.borrow().iter().any(|m| m["cmd"] == "ready"),
+			"the page never loaded"
+		);
+		assert!(
+			super::super::crash::ours(),
+			"the crash filter isn't ours after the page loaded"
+		);
+		let script = PROBE
+			.replace("HOST", &serde_json::to_string(&host_url).unwrap())
+			.replace("TOKEN", &serde_json::to_string(&token_url).unwrap());
+		view.evaluate_script(&script).unwrap();
+		let mut peak = private_mb();
+		pump(Duration::from_secs(90), || {
+			peak = peak.max(private_mb());
+			heard.borrow().iter().any(|m| m["probe"] == "done")
+		});
+		let said: Vec<String> = heard
+			.borrow()
+			.iter()
+			.filter_map(|m| m["probe"].as_str().map(str::to_string))
+			.collect();
+		drop(view);
+		unsafe { DestroyWindow(parent) };
+		let _ = std::fs::remove_dir_all(&dir);
+		assert_eq!(said.last().map(String::as_str), Some("done"), "{said:?}");
+		// from its folder's host: read on and on, as a stream
+		assert_eq!(said[0], format!("200 {}", 64 * MB), "{said:?}");
+		// through TapWheel without a range: one chunk, marked as a range
+		assert_eq!(said[1], format!("206 {}", crate::served::CHUNK), "{said:?}");
+		assert!(peak < 300, "TapWheel's own memory reached {peak} MB");
 	}
 }

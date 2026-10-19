@@ -2,6 +2,8 @@
 
 #[cfg(any(windows, test))]
 mod gesture;
+#[cfg(any(windows, test))]
+mod served;
 #[cfg(windows)]
 mod win;
 

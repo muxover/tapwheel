@@ -94,14 +94,8 @@ impl App {
 		let send = self.web.later(hwnd);
 		let engines = self.jobs.engines.clone();
 		let files_map = self.web.files.clone();
-		let share = move |path: &Path| -> String {
-			static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1_000_000);
-			let token = format!("p{}", NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
-			files_map.lock().unwrap().insert(token.clone(), path.to_path_buf());
-			// a same-site path: WebView2 serves the pages from http://tapwheel.localhost, where a
-			// tapwheel:// address would never load
-			format!("/file/{token}/{}", web::urlencode(&file_name(path)))
-		};
+		let hosts = self.web.get(hwnd).map(|w| w.hosts.clone()).unwrap_or_default();
+		let share = move |path: &Path| -> String { web::url_for(&hosts, &files_map, path) };
 		let worker = std::thread::Builder::new().stack_size(tapwheel_core::run::JOB_STACK);
 		let spawned = worker.spawn(move || {
 			let started = std::time::Instant::now();

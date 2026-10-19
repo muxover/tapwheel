@@ -8,6 +8,7 @@ use std::fmt::Write;
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_WRITE, INVALID_HANDLE_VALUE};
 use windows_sys::Win32::Storage::FileSystem::{
@@ -26,6 +27,10 @@ struct Paths {
 }
 
 static PATHS: OnceLock<Paths> = OnceLock::new();
+/// The filter someone else set before ours, called after ours has written its line.
+static PREVIOUS: AtomicUsize = AtomicUsize::new(0);
+
+type Filter = unsafe extern "system" fn(*const EXCEPTION_POINTERS) -> i32;
 
 fn wide(p: &Path) -> Vec<u16> {
 	p.as_os_str().encode_wide().chain([0]).collect()
@@ -45,7 +50,28 @@ pub fn install() {
 		&super::log::path(),
 		&dir.join(format!("tapwheel-{}.dmp", std::process::id())),
 	);
-	unsafe { SetUnhandledExceptionFilter(Some(on_fault)) };
+	keep();
+}
+
+/// Sets our filter again if something replaced it. WebView2 loads Chromium code into this
+/// process, which may set its own, and then a crash would never reach the log; so this runs after
+/// every webview is made. Theirs is still called, after ours.
+pub fn keep() {
+	let before = unsafe { SetUnhandledExceptionFilter(Some(on_fault)) };
+	if let Some(f) = before
+		&& f as usize != on_fault as Filter as usize
+	{
+		PREVIOUS.store(f as usize, Ordering::Relaxed);
+		super::log::write("another unhandled-exception filter replaced TapWheel's; set it back");
+	}
+}
+
+/// Whether the filter Windows calls now is ours.
+#[cfg(test)]
+pub fn ours() -> bool {
+	let now = unsafe { SetUnhandledExceptionFilter(None) };
+	unsafe { SetUnhandledExceptionFilter(now) };
+	now.is_some_and(|f| f as usize == on_fault as Filter as usize)
 }
 
 /// A log line built on the stack.
@@ -146,7 +172,8 @@ fn meaning(code: u32) -> &'static str {
 	}
 }
 
-unsafe extern "system" fn on_fault(info: *const EXCEPTION_POINTERS) -> i32 {
+/// The log line and the minidump.
+fn report(info: *const EXCEPTION_POINTERS) {
 	let (code, at) = unsafe { info.as_ref().and_then(|i| i.ExceptionRecord.as_ref()) }
 		.map_or((0, 0), |r| (r.ExceptionCode as u32, r.ExceptionAddress as usize));
 	let dumped = dump(info);
@@ -155,8 +182,15 @@ unsafe extern "system" fn on_fault(info: *const EXCEPTION_POINTERS) -> i32 {
 		meaning(code),
 		if dumped { ", minidump in the crash folder" } else { "" }
 	)));
-	// keep searching, so Windows still reports the crash the usual way
-	0
+}
+
+unsafe extern "system" fn on_fault(info: *const EXCEPTION_POINTERS) -> i32 {
+	report(info);
+	// 0 keeps searching, so Windows still reports the crash the usual way
+	match PREVIOUS.load(Ordering::Relaxed) {
+		0 => 0,
+		f => unsafe { std::mem::transmute::<usize, Filter>(f)(info) },
+	}
 }
 
 fn out_of_memory(size: usize) {
@@ -208,7 +242,7 @@ mod tests {
 		std::fs::create_dir_all(&dir).unwrap();
 		let (log, dmp) = (dir.join("tapwheel.log"), dir.join("tapwheel.dmp"));
 		set_paths(&log, &dmp);
-		assert_eq!(unsafe { on_fault(std::ptr::null()) }, 0);
+		report(std::ptr::null());
 		let mut record = EXCEPTION_RECORD {
 			ExceptionCode: 0xe000_0008_u32 as i32,
 			..Default::default()
@@ -218,7 +252,7 @@ mod tests {
 			ExceptionRecord: &mut record,
 			ContextRecord: &mut context,
 		};
-		assert_eq!(unsafe { on_fault(&pointers) }, 0);
+		report(&pointers);
 		let huge = Layout::from_size_align(1 << 60, 8).unwrap();
 		assert!(unsafe { Logged.alloc(huge) }.is_null());
 		let text = std::fs::read_to_string(&log).unwrap();
