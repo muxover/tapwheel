@@ -305,10 +305,9 @@ impl App {
 						self.jobs.note(Op::Rename, kind, &renamed, text);
 						self.refresh_hud();
 					}
-					Err(e) => self.web.send(
-						hwnd,
-						&json!({ "type": "error", "message": format!("Nothing was renamed: {e}") }),
-					),
+					Err(e) => self
+						.web
+						.send(hwnd, &json!({ "type": "error", "message": e.to_string() })),
 				}
 			}
 			"copyText" => {

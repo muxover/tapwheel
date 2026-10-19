@@ -122,12 +122,18 @@ pub fn rename_plan(paths: &[PathBuf], rule: &RenameRule) -> Vec<Renamed> {
 				let n = rule.start as usize + i;
 				stem = format!("{stem} {n:0width$}");
 			}
-			// keep the original extension's spelling, not the lower-cased one
-			let ext = p
-				.extension()
-				.map(|e| e.to_string_lossy().into_owned())
-				.filter(|_| !ext.is_empty())
-				.unwrap_or_default();
+			// everything after the stem, as it was spelled: "tar.gz" stays whole
+			let ext = if ext.is_empty() {
+				String::new()
+			} else {
+				let name = p
+					.file_name()
+					.map(|n| n.to_string_lossy().into_owned())
+					.unwrap_or_default();
+				name.strip_prefix(&stem_of(p))
+					.map(|rest| rest.trim_start_matches('.').to_string())
+					.unwrap_or_default()
+			};
 			let name = if ext.is_empty() { stem } else { format!("{stem}.{ext}") };
 			Renamed {
 				from: p.clone(),
@@ -201,33 +207,68 @@ pub fn rename_all(plan: &[Renamed]) -> Result<Vec<(PathBuf, PathBuf)>, Error> {
 		)));
 	}
 	let moving: Vec<&Renamed> = plan.iter().filter(|r| r.from != r.to).collect();
+	let sources: HashSet<String> = moving.iter().map(|r| key(&r.from)).collect();
+	// a file may have appeared under a new name since the preview; renaming over it would replace it
+	if let Some(r) = moving.iter().find(|r| r.to.exists() && !sources.contains(&key(&r.to))) {
+		return Err(Error::Engine(format!(
+			"{} appeared since the preview, so nothing was renamed",
+			name_of(&r.to)
+		)));
+	}
 	let mut parked: Vec<(PathBuf, PathBuf, PathBuf)> = Vec::new();
 	for (i, r) in moving.iter().enumerate() {
 		let tmp = r.from.with_file_name(format!(".tw-rename-{}-{i}", std::process::id()));
 		if let Err(e) = fs::rename(&r.from, &tmp) {
-			for (from, tmp, _) in parked.iter().rev() {
-				let _ = fs::rename(tmp, from);
-			}
-			return Err(e.into());
+			let lost = put_back(&[], &parked);
+			return Err(failed(&r.from, &e, lost));
 		}
 		parked.push((r.from.clone(), tmp, r.to.clone()));
 	}
 	let mut done: Vec<(PathBuf, PathBuf)> = Vec::new();
 	for (from, tmp, to) in &parked {
-		if let Err(e) = fs::rename(tmp, to) {
-			for (f, t) in done.iter().rev() {
-				let _ = fs::rename(t, f);
-			}
-			for (f, tmp, _) in parked.iter() {
-				if tmp.exists() {
-					let _ = fs::rename(tmp, f);
-				}
-			}
-			return Err(e.into());
+		// every source is parked by now, so anything at `to` belongs to someone else
+		let result = if to.exists() {
+			Err(std::io::Error::new(
+				std::io::ErrorKind::AlreadyExists,
+				"a file with that name appeared",
+			))
+		} else {
+			fs::rename(tmp, to)
+		};
+		if let Err(e) = result {
+			let lost = put_back(&done, &parked);
+			return Err(failed(from, &e, lost));
 		}
 		done.push((from.clone(), to.clone()));
 	}
 	Ok(done)
+}
+
+/// Undoes a rename halfway through. Returns the files that couldn't go back, by the name they
+/// were left with.
+fn put_back(done: &[(PathBuf, PathBuf)], parked: &[(PathBuf, PathBuf, PathBuf)]) -> Vec<String> {
+	let mut lost = Vec::new();
+	for (from, to) in done.iter().rev() {
+		if fs::rename(to, from).is_err() {
+			lost.push(name_of(to));
+		}
+	}
+	for (from, tmp, _) in parked {
+		if tmp.exists() && fs::rename(tmp, from).is_err() {
+			lost.push(name_of(tmp));
+		}
+	}
+	lost
+}
+
+fn failed(file: &Path, e: &std::io::Error, lost: Vec<String>) -> Error {
+	let mut text = format!("{} couldn't be renamed: {e}", name_of(file));
+	if lost.is_empty() {
+		text.push_str("; every other name was put back");
+	} else {
+		text.push_str(&format!("; these couldn't be put back: {}", lost.join(", ")));
+	}
+	Error::Engine(text)
 }
 
 /// What the File info window shows.
@@ -441,6 +482,36 @@ mod tests {
 		let _ = fs::remove_dir_all(&d);
 		fs::create_dir_all(&d).unwrap();
 		d
+	}
+
+	#[test]
+	fn rename_keeps_a_double_extension() {
+		let d = dir("tgz");
+		let p = d.join("backup.tar.gz");
+		fs::write(&p, "x").unwrap();
+		let rule = RenameRule {
+			prefix: "x-".into(),
+			..RenameRule::default()
+		};
+		assert_eq!(rename_plan(&[p], &rule)[0].to, d.join("x-backup.tar.gz"));
+	}
+
+	#[test]
+	fn rename_never_replaces_a_file_that_appeared_after_the_preview() {
+		let d = dir("appeared");
+		let a = d.join("a.txt");
+		fs::write(&a, "mine").unwrap();
+		let rule = RenameRule {
+			base: Some("b".into()),
+			..RenameRule::default()
+		};
+		let plan = rename_plan(std::slice::from_ref(&a), &rule);
+		assert_eq!(plan[0].to, d.join("b.txt"));
+		fs::write(d.join("b.txt"), "someone else's").unwrap();
+		let err = rename_all(&plan).unwrap_err().to_string();
+		assert!(err.contains("b.txt appeared"), "{err}");
+		assert_eq!(fs::read_to_string(d.join("b.txt")).unwrap(), "someone else's");
+		assert_eq!(fs::read_to_string(&a).unwrap(), "mine");
 	}
 
 	#[test]
