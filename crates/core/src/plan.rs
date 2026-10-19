@@ -52,19 +52,19 @@ pub fn unique_path(dir: &Path, stem: &str, ext: &str) -> PathBuf {
 			dir.join(format!("{base}.{ext}"))
 		}
 	};
-	(0..)
-		.map(make)
-		.find(|p| !p.exists() && !part_path(p).exists())
-		.expect("unbounded range")
+	(0..).map(make).find(|p| !p.exists()).expect("unbounded range")
 }
 
-/// Where a job writes until it finishes, so a half-done file never has the final name.
+/// Where a job writes until it finishes, so a half-done file never has the final name. Each call
+/// gives a new name, so two jobs aiming at the same output never share one.
 pub fn part_path(output: &Path) -> PathBuf {
+	static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+	let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 	let name = output
 		.file_name()
 		.map(|n| n.to_string_lossy().into_owned())
 		.unwrap_or_default();
-	output.with_file_name(format!("{name}.tw-part"))
+	output.with_file_name(format!("{name}.{n}.tw-part"))
 }
 
 pub fn parent(path: &Path) -> PathBuf {
@@ -376,6 +376,14 @@ mod tests {
 
 	fn one(op: Op, r: Recipe, path: &str) -> Job {
 		plan(op, &r, &[PathBuf::from(path)]).remove(0)
+	}
+
+	#[test]
+	fn part_files_are_never_shared() {
+		let out = Path::new("/x/a.csv");
+		let (a, b) = (part_path(out), part_path(out));
+		assert_ne!(a, b);
+		assert!(a.to_string_lossy().ends_with(".tw-part"));
 	}
 
 	#[test]

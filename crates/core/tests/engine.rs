@@ -422,7 +422,11 @@ fn cancel_stops_and_leaves_nothing() {
 	.unwrap_err();
 	assert!(matches!(err, tapwheel_core::Error::Cancelled), "{err}");
 	assert!(!job.output.exists());
-	assert!(!tapwheel_core::plan::part_path(&job.output).exists());
+	let left = fs::read_dir(&dir)
+		.unwrap()
+		.flatten()
+		.filter(|f| f.path().to_string_lossy().ends_with(".tw-part"));
+	assert_eq!(left.count(), 0);
 }
 
 #[test]
@@ -536,4 +540,53 @@ fn a_redacted_photo_keeps_neither_location_nor_the_old_thumbnail() {
 		!bytes.windows(thumb.len()).any(|w| w == thumb),
 		"the unredacted thumbnail is still inside"
 	);
+}
+
+#[test]
+fn icons_made_at_the_same_time_keep_their_own_picture() {
+	let Some((e, dir)) = engines("icons-together") else {
+		return;
+	};
+	let mut icos = Vec::new();
+	for colour in ["red", "blue"] {
+		let ico = dir.join(format!("{colour}.ico"));
+		make(
+			&e.ffmpeg,
+			&[
+				"-f",
+				"lavfi",
+				"-i",
+				&format!("color={colour}:s=64x64:d=1"),
+				"-frames:v",
+				"1",
+			],
+			&ico,
+		);
+		icos.push(ico);
+	}
+	let red = |px: &[u8]| px[0] > 200 && px[2] < 60;
+	for round in 0..4 {
+		let jobs: Vec<_> = icos
+			.iter()
+			.map(|i| plan(Op::WindowsIcon, &Recipe::WindowsIcon, std::slice::from_ref(i)).remove(0))
+			.collect();
+		let outs: Vec<_> = std::thread::scope(|s| {
+			let handles: Vec<_> = jobs
+				.iter()
+				.map(|job| s.spawn(|| run(job, &e, &Defaults::default(), &mut |_| {}, &AtomicBool::new(false))))
+				.collect();
+			handles.into_iter().map(|h| h.join().unwrap()).collect()
+		});
+		for (out, want_red) in outs.into_iter().zip([true, false]) {
+			let out = out.unwrap_or_else(|err| panic!("round {round}: {err}"));
+			for (w, _, px) in tapwheel_core::icons::read_icon_file(&out.output).unwrap() {
+				assert_eq!(
+					red(&px[..4]),
+					want_red,
+					"round {round}, {w} px came from the other icon"
+				);
+			}
+			fs::remove_file(&out.output).unwrap();
+		}
+	}
 }

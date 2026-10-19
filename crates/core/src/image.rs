@@ -62,7 +62,11 @@ pub fn check_pixels(w: u32, h: u32) -> Result<(), Error> {
 }
 
 pub fn read_png(path: &Path) -> Result<(u32, u32, Vec<u8>), Error> {
-	let mut d = png::Decoder::new(std::io::BufReader::new(fs::File::open(path)?));
+	decode_png(std::io::BufReader::new(fs::File::open(path)?))
+}
+
+pub fn decode_png(r: impl std::io::BufRead + std::io::Seek) -> Result<(u32, u32, Vec<u8>), Error> {
+	let mut d = png::Decoder::new(r);
 	d.set_transformations(png::Transformations::normalize_to_color8() | png::Transformations::ALPHA);
 	let mut r = d.read_info().map_err(|e| Error::Engine(e.to_string()))?;
 	let (w, h) = (r.info().width, r.info().height);
@@ -727,7 +731,7 @@ pub fn parse_colour(s: &str) -> Option<tiny_skia::Color> {
 }
 
 fn gif_from(e: &Engines, pics: &[(u32, u32, Vec<u8>)], part: &Path, c: &AtomicBool) -> Result<(), Error> {
-	let dir = e.scratch.join(format!("gif-{}", std::process::id()));
+	let dir = e.scratch_path("gif", "");
 	fs::create_dir_all(&dir)?;
 	let (w, h) = (pics[0].0.min(960), pics[0].1 * pics[0].0.min(960) / pics[0].0.max(1));
 	for (i, (pw, ph, rgba)) in pics.iter().enumerate() {
