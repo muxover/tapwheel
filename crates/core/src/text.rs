@@ -1045,13 +1045,28 @@ fn indent_unit(lines: &[&str]) -> usize {
 	if lines.iter().filter(|l| l.starts_with('\t')).count() > lines.iter().filter(|l| l.starts_with("  ")).count() {
 		return 0;
 	}
-	let mut steps = lines
+	// the step the indentation most often goes up by; block-comment lines like " * text" sit one
+	// space in and say nothing about it
+	let mut steps: std::collections::BTreeMap<usize, usize> = std::collections::BTreeMap::new();
+	let mut prev = 0;
+	for l in lines {
+		let body = l.trim_start_matches(' ');
+		if body.is_empty() || body.starts_with('*') {
+			continue;
+		}
+		let width = l.len() - body.len();
+		if width > prev {
+			*steps.entry(width - prev).or_default() += 1;
+		}
+		prev = width;
+	}
+	// the most common step wins, the smaller one on a tie
+	steps
 		.iter()
-		.map(|l| l.len() - l.trim_start_matches(' ').len())
-		.filter(|n| *n > 0)
-		.collect::<Vec<_>>();
-	steps.sort();
-	steps.first().copied().unwrap_or(4).clamp(1, 8)
+		.max_by_key(|(step, n)| (**n, std::cmp::Reverse(**step)))
+		.map(|(step, _)| *step)
+		.unwrap_or(4)
+		.clamp(1, 8)
 }
 
 fn reindent(text: &str, spaces: u8) -> String {
@@ -1442,6 +1457,15 @@ mod tests {
 		);
 		assert_eq!(rtf_to_text("{\\rtf1\\ansi\\ansicpg932 \\'93\\'fa\\'96\\'7b}"), "日本\n");
 		assert_eq!(rtf_to_text("{\\rtf1\\ansi Caf\\'e9}"), "Café\n");
+	}
+
+	#[test]
+	fn indent_isnt_fooled_by_comment_lines() {
+		let js = "/**\n * doc\n */\nfunction f() {\n    if (x) {\n        y();\n    }\n}\n";
+		assert_eq!(
+			reindent(js, 2),
+			"/**\n * doc\n */\nfunction f() {\n  if (x) {\n    y();\n  }\n}\n"
+		);
 	}
 
 	#[test]
