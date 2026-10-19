@@ -202,12 +202,21 @@ export function outName(file, suffix, ext) {
 }
 
 export function loadImage(url) {
-	return new Promise((resolve, reject) => {
-		const img = new Image();
-		img.onload = () => resolve(img);
-		img.onerror = () => reject(new Error("The picture couldn't be read"));
-		img.src = url;
-	});
+	// files come from their folder's own host; asking for them with CORS keeps a canvas they're
+	// drawn on readable, and a plain load is the fallback should that ever be refused
+	const load = (cors) =>
+		new Promise((resolve, reject) => {
+			const img = new Image();
+			if (cors) img.crossOrigin = "anonymous";
+			img.onload = () => resolve(img);
+			img.onerror = reject;
+			img.src = url;
+		});
+	return load(true)
+		.catch(() => load(false))
+		.catch(() => {
+			throw new Error("The picture couldn't be read");
+		});
 }
 
 /** Saves a canvas to a file the app can pick up, and returns its path. */

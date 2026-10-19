@@ -27,10 +27,12 @@ windows-sys = { version = "0.61", features = [
 	"Win32_System_DataExchange",
 	"Win32_System_Diagnostics_Debug",
 	"Win32_System_IO",
+	"Win32_System_Ioctl",
 	"Win32_System_Kernel",
 	"Win32_System_LibraryLoader",
 	"Win32_System_Memory",
 	"Win32_System_Ole",
+	"Win32_System_ProcessStatus",
 	"Win32_System_Registry",
 	"Win32_System_SystemInformation",
 	"Win32_System_Threading",
@@ -58,6 +60,7 @@ windows = { version = "0.62", features = [
 windows-collections = "0.3"
 include_dir = "0.7"
 raw-window-handle = "0.6"
+webview2-com = "0.39"
 wry = { version = "0.57", default-features = false }
 
 [build-dependencies]

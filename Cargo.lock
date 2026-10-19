@@ -4685,6 +4685,7 @@ dependencies = [
  "tapwheel-core",
  "tapwheel-ui",
  "tiny-skia 0.12.0",
+ "webview2-com",
  "windows",
  "windows-collections",
  "windows-sys 0.61.2",
