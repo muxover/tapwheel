@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -24,6 +24,85 @@ pub fn command(exe: &Path) -> Command {
 		cmd.creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS);
 	}
 	cmd
+}
+
+/// Starts a converter. On Windows it joins a job that ends with TapWheel, so a crash or Quit
+/// never leaves FFmpeg running on its own.
+pub fn spawn(cmd: &mut Command) -> std::io::Result<Child> {
+	let child = cmd.spawn()?;
+	#[cfg(windows)]
+	job::add(&child);
+	Ok(child)
+}
+
+/// [`spawn`], then everything it prints.
+pub fn output(cmd: &mut Command) -> std::io::Result<Output> {
+	spawn(cmd.stdout(Stdio::piped()).stderr(Stdio::piped()))?.wait_with_output()
+}
+
+#[cfg(windows)]
+pub mod job {
+	use std::os::windows::io::AsRawHandle;
+	use std::process::Child;
+	use std::sync::OnceLock;
+
+	use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+	use windows_sys::Win32::System::JobObjects::{
+		AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+		JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation, SetInformationJobObject,
+	};
+
+	/// The job's handle, kept open until the process ends; closing it ends every process in it.
+	static JOB: OnceLock<Option<usize>> = OnceLock::new();
+
+	pub fn handle() -> Option<HANDLE> {
+		let h = JOB.get_or_init(|| unsafe {
+			let h = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+			if h.is_null() {
+				return None;
+			}
+			let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+			let ok = SetInformationJobObject(
+				h,
+				JobObjectExtendedLimitInformation,
+				&info as *const _ as *const core::ffi::c_void,
+				std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+			);
+			if ok == 0 {
+				CloseHandle(h);
+				return None;
+			}
+			Some(h as usize)
+		});
+		h.map(|h| h as HANDLE)
+	}
+
+	pub fn add(child: &Child) {
+		if let Some(job) = handle() {
+			unsafe { AssignProcessToJobObject(job, child.as_raw_handle() as HANDLE) };
+		}
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use super::*;
+		use windows_sys::Win32::System::JobObjects::IsProcessInJob;
+
+		#[test]
+		fn converters_end_with_the_app() {
+			let mut child = super::super::spawn(
+				std::process::Command::new("cmd")
+					.args(["/c", "ping", "-n", "5", "127.0.0.1"])
+					.stdout(std::process::Stdio::null()),
+			)
+			.unwrap();
+			let mut inside = 0;
+			unsafe { IsProcessInJob(child.as_raw_handle() as HANDLE, handle().unwrap(), &mut inside) };
+			let _ = child.kill();
+			assert_ne!(inside, 0);
+		}
+	}
 }
 
 fn missing(e: std::io::Error) -> Error {
@@ -161,12 +240,13 @@ pub fn parse_probe(json: &str) -> Option<Probe> {
 }
 
 pub fn probe(ffprobe: &Path, input: &Path) -> Result<Probe, Error> {
-	let out = command(ffprobe)
-		.args(["-v", "error", "-print_format", "json", "-show_format", "-show_streams"])
-		.arg(input)
-		.stdin(Stdio::null())
-		.output()
-		.map_err(missing)?;
+	let out = output(
+		command(ffprobe)
+			.args(["-v", "error", "-print_format", "json", "-show_format", "-show_streams"])
+			.arg(input)
+			.stdin(Stdio::null()),
+	)
+	.map_err(missing)?;
 	if !out.status.success() {
 		let why = String::from_utf8_lossy(&out.stderr);
 		let line = why.lines().last().unwrap_or("this file can't be read").trim();
@@ -177,12 +257,13 @@ pub fn probe(ffprobe: &Path, input: &Path) -> Result<Probe, Error> {
 
 /// A file's tags (title, artist and so on) as FFprobe reads them, plus whether it has cover art.
 pub fn tags(ffprobe: &Path, input: &Path) -> Result<(Vec<(String, String)>, bool), Error> {
-	let out = command(ffprobe)
-		.args(["-v", "error", "-print_format", "json", "-show_format", "-show_streams"])
-		.arg(input)
-		.stdin(Stdio::null())
-		.output()
-		.map_err(missing)?;
+	let out = output(
+		command(ffprobe)
+			.args(["-v", "error", "-print_format", "json", "-show_format", "-show_streams"])
+			.arg(input)
+			.stdin(Stdio::null()),
+	)
+	.map_err(missing)?;
 	let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_or_default();
 	let tags = v["format"]["tags"]
 		.as_object()
@@ -303,7 +384,7 @@ impl<'a> Run<'a> {
 			.stdin(Stdio::null())
 			.stdout(Stdio::piped())
 			.stderr(Stdio::piped());
-		let mut child = cmd.spawn().map_err(missing)?;
+		let mut child = spawn(&mut cmd).map_err(missing)?;
 
 		let (tx, rx) = mpsc::channel();
 		let out = child.stdout.take().expect("piped");
@@ -392,13 +473,13 @@ pub fn decode_rgba(ffmpeg: &Path, input: &Path, size: (u32, u32), filter: &str) 
 	if !filter.is_empty() {
 		cmd.args(["-vf", filter]);
 	}
-	let mut child = cmd
-		.args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"])
-		.stdin(Stdio::null())
-		.stdout(Stdio::piped())
-		.stderr(Stdio::piped())
-		.spawn()
-		.map_err(missing)?;
+	let mut child = spawn(
+		cmd.args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"])
+			.stdin(Stdio::null())
+			.stdout(Stdio::piped())
+			.stderr(Stdio::piped()),
+	)
+	.map_err(missing)?;
 	let mut buf = Vec::with_capacity((size.0 * size.1 * 4) as usize);
 	child.stdout.take().expect("piped").read_to_end(&mut buf)?;
 	let mut err = String::new();

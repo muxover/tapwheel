@@ -856,14 +856,15 @@ pub fn preview_copy(e: &Engines, input: &Path, p: &Probe, out_file: &Path, c: &A
 /// Peaks for drawing a waveform, `buckets` values from 0 to 1.
 pub fn waveform(e: &Engines, input: &Path, buckets: usize) -> Result<Vec<f32>, Error> {
 	use std::io::Read;
-	let mut child = ff::command(&e.ffmpeg)
-		.args(["-hide_banner", "-nostdin", "-loglevel", "error", "-i"])
-		.arg(input)
-		.args(["-map", "0:a:0", "-ac", "1", "-ar", "4000", "-f", "s16le", "-"])
-		.stdin(std::process::Stdio::null())
-		.stdout(std::process::Stdio::piped())
-		.stderr(std::process::Stdio::null())
-		.spawn()?;
+	let mut child = ff::spawn(
+		ff::command(&e.ffmpeg)
+			.args(["-hide_banner", "-nostdin", "-loglevel", "error", "-i"])
+			.arg(input)
+			.args(["-map", "0:a:0", "-ac", "1", "-ar", "4000", "-f", "s16le", "-"])
+			.stdin(std::process::Stdio::null())
+			.stdout(std::process::Stdio::piped())
+			.stderr(std::process::Stdio::null()),
+	)?;
 	let mut raw = Vec::new();
 	child.stdout.take().expect("piped").read_to_end(&mut raw)?;
 	let _ = child.wait();
