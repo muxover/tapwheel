@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Write};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::Error;
@@ -175,19 +175,18 @@ impl<'a> Landing<'a> {
 
 	/// The path for an entry, or `None` when it would land outside `dest`.
 	fn place(&mut self, name: &str, dir: bool) -> Option<PathBuf> {
-		let rel = Path::new(name.trim_start_matches(['/', '\\']));
 		let mut out = self.dest.to_path_buf();
 		let mut changed = false;
-		for c in rel.components() {
-			match c {
-				Component::Normal(p) => {
-					let p = p.to_string_lossy();
-					let fit = windows_name(&p);
-					changed |= fit != p;
+		// split by hand: on Windows, Path reads a name like `a:b.txt` as a drive
+		for part in name.split(['/', '\\']) {
+			match part {
+				"" | "." => {}
+				".." => return None,
+				_ => {
+					let fit = windows_name(part);
+					changed |= fit != part;
 					out.push(fit);
 				}
-				Component::CurDir => {}
-				_ => return None,
 			}
 		}
 		if out == self.dest {
@@ -369,7 +368,7 @@ fn untar<R: Read>(r: R, land: &mut Landing, wanted: &dyn Fn(&str) -> bool, cance
 	for entry in tar.entries()? {
 		check(cancel)?;
 		let mut entry = entry?;
-		let name = entry.path()?.to_string_lossy().into_owned();
+		let name = String::from_utf8_lossy(&entry.path_bytes()).into_owned();
 		if !wanted(&name) {
 			continue;
 		}
@@ -724,6 +723,8 @@ mod tests {
 			Some(PathBuf::from("/safe/out/abs/ok.txt"))
 		);
 		assert_eq!(land.place("./x/y", false), Some(PathBuf::from("/safe/out/x/y")));
+		assert_eq!(land.place("..\\evil", false), None);
+		assert_eq!(land.place("C:\\evil", false), Some(PathBuf::from("/safe/out/C_/evil")));
 	}
 
 	#[test]
@@ -745,11 +746,13 @@ mod tests {
 				("README", "d"),
 				("readme", "e"),
 			] {
+				// written raw, since the tar crate on Windows refuses `a:b.txt` as a path
 				let mut h = tar::Header::new_gnu();
+				h.as_mut_bytes()[..name.len()].copy_from_slice(name.as_bytes());
 				h.set_size(body.len() as u64);
 				h.set_mode(0o644);
 				h.set_cksum();
-				b.append_data(&mut h, name, body.as_bytes()).unwrap();
+				b.append(&h, body.as_bytes()).unwrap();
 			}
 			b.finish().unwrap();
 		}
