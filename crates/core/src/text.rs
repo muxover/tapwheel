@@ -8,10 +8,65 @@ use crate::format::Format;
 use crate::kind::ext_of;
 use crate::recipe::{Case, Recipe, SortBy};
 
-/// Reads a text file in whatever encoding it uses. Returns the text and whether it had a BOM.
+const MB: u64 = 1024 * 1024;
+
+/// The largest files the text tools take. They hold a few copies of the text while they work
+/// (measured: about 2× for counting, 4× for the line tools, 30× for data conversions), so these
+/// keep a 4 GB PC from running out of memory halfway.
+pub const READ_LIMIT: u64 = 700 * MB;
+pub const LINE_LIMIT: u64 = 400 * MB;
+pub const DATA_LIMIT: u64 = 64 * MB;
+pub const CSV_LIMIT: u64 = 32 * MB;
+/// SQL formatting slows down with the square of the size.
+pub const SQL_LIMIT: u64 = 2 * MB;
+/// Read aloud keeps the whole recording in memory, about 3 KB per character.
+pub const SPEECH_LIMIT: u64 = 300 * 1024;
+
+/// Refuses a file before reading it when it's over `limit` bytes.
+pub fn check_size(path: &Path, limit: u64) -> Result<(), Error> {
+	let len = fs::metadata(path)?.len();
+	if len > limit {
+		let mb = |b: u64| (b as f64 / MB as f64).ceil() as u64;
+		let size = |b: u64| {
+			if b < MB {
+				format!("{} KB", b.div_ceil(1024))
+			} else {
+				format!("{} MB", mb(b))
+			}
+		};
+		return Err(Error::Engine(format!(
+			"This file is too big for this tool ({}; it works up to {})",
+			size(len),
+			size(limit)
+		)));
+	}
+	Ok(())
+}
+
+/// Reads a text file in whatever encoding it uses.
 pub fn read(path: &Path) -> Result<String, Error> {
+	read_within(path, READ_LIMIT)
+}
+
+/// Like [`read`], refusing files over `limit` bytes before reading them.
+pub fn read_within(path: &Path, limit: u64) -> Result<String, Error> {
+	check_size(path, limit)?;
 	let bytes = fs::read(path)?;
-	Ok(decode(&bytes))
+	// valid UTF-8 becomes the String without a second copy
+	match String::from_utf8(bytes) {
+		Ok(s) if !s.starts_with('\u{feff}') => Ok(s),
+		Ok(s) => Ok(decode(s.as_bytes())),
+		Err(e) => Ok(decode(e.as_bytes())),
+	}
+}
+
+/// How much of a file the formatter for `ext` can take.
+pub fn format_limit(ext: &str) -> u64 {
+	match ext {
+		"sql" => SQL_LIMIT,
+		"csv" | "tsv" => CSV_LIMIT,
+		_ => DATA_LIMIT,
+	}
 }
 
 pub fn decode(bytes: &[u8]) -> String {
@@ -386,52 +441,59 @@ fn scalar(v: &Value) -> String {
 
 /// The rows a table should hold: a list stays a list, a single object is one row, and an object
 /// holding exactly one list of rows (like `{"users": [...]}`) uses that list.
-fn rows(v: &Value) -> Vec<Value> {
+fn rows(v: &Value) -> Vec<&Value> {
 	match v {
-		Value::Array(a) => a.clone(),
+		Value::Array(a) => a.iter().collect(),
 		Value::Object(m) => {
 			let lists: Vec<&Value> = m.values().filter(|x| x.is_array()).collect();
 			if m.len() == 1
 				&& let [Value::Array(a)] = lists[..]
 			{
-				return a.clone();
+				return a.iter().collect();
 			}
-			vec![v.clone()]
+			vec![v]
 		}
-		other => vec![other.clone()],
+		other => vec![other],
 	}
 }
 
 fn write_csv(v: &Value, delim: u8) -> Result<String, Error> {
 	let mut cols: Vec<String> = Vec::new();
-	let mut table: Vec<Vec<(String, String)>> = Vec::new();
+	let mut index: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+	// each row as (column, value) pairs, columns numbered in the order they first appear
+	let mut table: Vec<Vec<(usize, String)>> = Vec::new();
 	for row in rows(v) {
 		let mut cells = Vec::new();
 		if row.is_object() {
-			flatten(&row, "", &mut cells);
+			flatten(row, "", &mut cells);
 		} else {
-			cells.push(("value".into(), scalar(&row)));
+			cells.push(("value".into(), scalar(row)));
 		}
-		for (k, _) in &cells {
-			if !cols.contains(k) {
-				cols.push(k.clone());
-			}
-		}
-		table.push(cells);
-	}
-	let mut w = csv::WriterBuilder::new().delimiter(delim).from_writer(Vec::new());
-	w.write_record(&cols).map_err(engine)?;
-	for cells in table {
-		let rec: Vec<String> = cols
-			.iter()
-			.map(|c| {
-				cells
-					.iter()
-					.find(|(k, _)| k == c)
-					.map(|(_, v)| v.clone())
-					.unwrap_or_default()
+		let numbered = cells
+			.into_iter()
+			.map(|(k, v)| {
+				let n = match index.get(&k) {
+					Some(&n) => n,
+					None => {
+						index.insert(k.clone(), cols.len());
+						cols.push(k);
+						cols.len() - 1
+					}
+				};
+				(n, v)
 			})
 			.collect();
+		table.push(numbered);
+	}
+	drop(index);
+	let mut w = csv::WriterBuilder::new().delimiter(delim).from_writer(Vec::new());
+	w.write_record(&cols).map_err(engine)?;
+	let mut rec = vec![String::new(); cols.len()];
+	for cells in table {
+		rec.iter_mut().for_each(String::clear);
+		for (n, v) in cells {
+			rec[n] = v;
+		}
 		w.write_record(&rec).map_err(engine)?;
 	}
 	String::from_utf8(w.into_inner().map_err(engine)?).map_err(engine)
@@ -539,7 +601,7 @@ pub fn write_data(v: &Value, to: Format) -> Result<String, Error> {
 		Format::Jsonl => {
 			let mut s = String::new();
 			for row in rows(v) {
-				s.push_str(&serde_json::to_string(&row).map_err(engine)?);
+				s.push_str(&serde_json::to_string(row).map_err(engine)?);
 				s.push('\n');
 			}
 			s
@@ -771,8 +833,14 @@ fn text_to_html(text: &str, title: &str) -> String {
 }
 
 pub fn convert(input: &Path, to: Format) -> Result<String, Error> {
-	let text = read(input)?;
 	let ext = ext_of(input);
+	let limit = match ext.as_str() {
+		"csv" | "tsv" | "psv" => CSV_LIMIT,
+		"json" | "jsonl" | "ndjson" | "geojson" | "json5" | "yaml" | "yml" | "toml" | "xml" | "plist" | "html"
+		| "htm" | "xhtml" => DATA_LIMIT,
+		_ => READ_LIMIT,
+	};
+	let text = read_within(input, limit)?;
 	let title = crate::plan::stem_of(input);
 	let data_in = matches!(
 		ext.as_str(),
@@ -907,10 +975,13 @@ fn reindent(text: &str, spaces: u8) -> String {
 
 /// Line and text tools that read one file and write one file.
 pub fn tool(input: &Path, r: &Recipe) -> Result<Vec<u8>, Error> {
-	let bytes = fs::read(input)?;
-	let text = decode(&bytes);
-	let nl = crlf(&text);
 	let ext = ext_of(input);
+	let limit = match r {
+		Recipe::Pretty | Recipe::Minify => format_limit(&ext),
+		_ => LINE_LIMIT,
+	};
+	let text = read_within(input, limit)?;
+	let nl = crlf(&text);
 	let s = match r {
 		Recipe::ToUtf8 => text,
 		Recipe::LineEndings { crlf } => join(&lines(&text), *crlf),
@@ -995,6 +1066,18 @@ pub fn tool(input: &Path, r: &Recipe) -> Result<Vec<u8>, Error> {
 /// Joins text files. CSV and TSV keep one header; JSON lists become one list.
 pub fn merge(inputs: &[PathBuf]) -> Result<String, Error> {
 	let ext = ext_of(&inputs[0]);
+	let total: u64 = inputs
+		.iter()
+		.map(|i| fs::metadata(i).map(|m| m.len()).unwrap_or(0))
+		.sum();
+	let limit = if ext == "json" { DATA_LIMIT } else { READ_LIMIT };
+	if total > limit {
+		return Err(Error::Engine(format!(
+			"These files are too big to merge together ({} MB; it works up to {} MB)",
+			total.div_ceil(MB),
+			limit / MB
+		)));
+	}
 	if matches!(ext.as_str(), "json") {
 		let mut all = Vec::new();
 		for i in inputs {
@@ -1129,6 +1212,30 @@ mod tests {
 		assert_eq!(rtf_to_text("{\\rtf1\\ansi Hello \\'1é world\\par}"), "Hello 1é world\n");
 		assert_eq!(rtf_to_text("{\\rtf1\\ansi Hello \\é world\\par}"), "Hello  world\n");
 		assert_eq!(rtf_to_text("C:\\Élèves\\notes"), "C:lèves\n");
+	}
+
+	#[test]
+	fn files_past_a_tool_limit_are_refused_before_reading() {
+		let dir = std::env::temp_dir().join(format!("tw-size-{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+		// sparse files: the size is there without the disk use
+		let log = dir.join("big.log");
+		fs::File::create(&log).unwrap().set_len(LINE_LIMIT + 1).unwrap();
+		let err = tool(&log, &Recipe::SortLines { by: SortBy::Az })
+			.unwrap_err()
+			.to_string();
+		assert!(err.starts_with("This file is too big for this tool"), "{err}");
+		let json = dir.join("big.json");
+		fs::File::create(&json).unwrap().set_len(DATA_LIMIT + 1).unwrap();
+		let err = convert(&json, Format::Yaml).unwrap_err().to_string();
+		assert!(err.starts_with("This file is too big"), "{err}");
+		let _ = fs::remove_dir_all(dir);
+	}
+
+	#[test]
+	fn csv_from_uneven_rows_fills_every_column() {
+		let v: Value = serde_json::from_str(r#"[{"b":1,"a":2},{"c":3,"b":4}]"#).unwrap();
+		assert_eq!(write_csv(&v, b',').unwrap(), "a,b,c\n2,1,\n,4,3\n");
 	}
 
 	#[test]

@@ -125,7 +125,7 @@ impl App {
 							info["items"] = json!(tapwheel_core::archive::list(f)?);
 						}
 						(Op::CodeImage, _) => {
-							let text = tapwheel_core::text::read(f)?;
+							let text = tapwheel_core::text::read_within(f, tapwheel_core::text::DATA_LIMIT)?;
 							let ext = ext_of(f);
 							let spans = |dark| {
 								tapwheel_core::code::highlight(&text, &ext, dark)

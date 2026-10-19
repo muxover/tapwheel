@@ -76,7 +76,8 @@ impl App {
 			Op::CopyMarkdown => {
 				let mut out = String::new();
 				for f in files {
-					if let Ok(text) = tapwheel_core::text::read(f) {
+					// the clipboard isn't a place for more than this
+					if let Ok(text) = tapwheel_core::text::read_within(f, 50 * 1024 * 1024) {
 						if files.len() > 1 {
 							out.push_str(&format!("**{}**\n\n", file_name(f)));
 						}

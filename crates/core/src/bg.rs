@@ -53,11 +53,7 @@ fn session(e: &Engines) -> Result<std::sync::MutexGuard<'static, Option<ort::ses
 		.lock()
 		.map_err(|_| Error::Engine("the background model failed earlier".into()))?;
 	if guard.is_none() {
-		if !e.model.exists() || !e.model.with_extension("f16").exists() || !e.onnxruntime.exists() {
-			return Err(Error::Engine(
-				"the background model is missing; reinstall TapWheel".into(),
-			));
-		}
+		model_present(e)?;
 		fn fail(w: &'static str) -> impl Fn(ort::Error) -> Error {
 			move |x| Error::Engine(format!("background model {w}: {x}"))
 		}
@@ -112,33 +108,43 @@ fn resize(src: &[f32], sw: u32, sh: u32, ch: usize, w: u32, h: u32) -> Vec<f32> 
 	out
 }
 
-/// Averages down big pictures before the bilinear step, so fine detail doesn't alias.
+/// Averages big pictures down in halves before the bilinear step, so fine detail doesn't alias.
+/// The halving stays 8-bit; only the last picture, at most twice the model's side, becomes float.
 fn shrink_rgba(rgba: &[u8], w: u32, h: u32) -> (Vec<f32>, u32, u32) {
-	let mut f: Vec<f32> = rgba.iter().map(|&v| v as f32 / 255.0).collect();
-	let (mut w, mut h) = (w, h);
-	while w >= SIDE * 2 && h >= SIDE * 2 {
+	let mut halved: Option<Vec<u8>> = None;
+	let (mut w, mut h) = (w as usize, h as usize);
+	let side = SIDE as usize;
+	while w >= side * 2 && h >= side * 2 {
+		let src = halved.as_deref().unwrap_or(rgba);
 		let (nw, nh) = (w / 2, h / 2);
-		let mut half = vec![0.0; (nw * nh * 4) as usize];
+		let mut half = vec![0u8; nw * nh * 4];
 		for y in 0..nh {
 			for x in 0..nw {
 				for c in 0..4 {
-					let p = |xx: u32, yy: u32| f[((yy * w + xx) * 4) as usize + c];
-					half[((y * nw + x) * 4) as usize + c] =
-						(p(2 * x, 2 * y) + p(2 * x + 1, 2 * y) + p(2 * x, 2 * y + 1) + p(2 * x + 1, 2 * y + 1)) / 4.0;
+					let p = |xx: usize, yy: usize| src[(yy * w + xx) * 4 + c] as u32;
+					let sum = p(2 * x, 2 * y) + p(2 * x + 1, 2 * y) + p(2 * x, 2 * y + 1) + p(2 * x + 1, 2 * y + 1);
+					half[(y * nw + x) * 4 + c] = ((sum + 2) / 4) as u8;
 				}
 			}
 		}
-		f = half;
+		halved = Some(half);
 		w = nw;
 		h = nh;
 	}
-	(f, w, h)
+	let f = halved
+		.as_deref()
+		.unwrap_or(rgba)
+		.iter()
+		.map(|&v| v as f32 / 255.0)
+		.collect();
+	(f, w as u32, h as u32)
 }
 
-/// The subject's mask at the picture's own size, 0 to 1.
+/// The subject's mask at the model's size, `SIDE` × `SIDE`, 0 to 1.
 pub fn mask(e: &Engines, rgba: &[u8], w: u32, h: u32) -> Result<Vec<f32>, Error> {
 	let (small, sw, sh) = shrink_rgba(rgba, w, h);
 	let input = resize(&small, sw, sh, 4, SIDE, SIDE);
+	drop(small);
 	let plane = (SIDE * SIDE) as usize;
 	let mut chw = vec![0.0f32; 3 * plane];
 	for i in 0..plane {
@@ -168,45 +174,64 @@ pub fn mask(e: &Engines, rgba: &[u8], w: u32, h: u32) -> Result<Vec<f32>, Error>
 			*v = (*v - lo) / (hi - lo);
 		}
 	}
-	Ok(resize(&m, SIDE, SIDE, 1, w, h))
+	Ok(m)
 }
 
-/// Applies a mask as transparency, with a gentle curve so edges stay soft but the background goes fully clear.
-pub fn cut_out(rgba: &[u8], mask: &[f32]) -> Vec<u8> {
-	rgba.as_chunks::<4>()
-		.0
-		.iter()
-		.zip(mask)
-		.flat_map(|(p, &m)| {
-			let a = ((m - 0.06) / 0.88).clamp(0.0, 1.0);
-			let a = a * a * (3.0 - 2.0 * a);
-			[p[0], p[1], p[2], (p[3] as f32 * a).round() as u8]
-		})
-		.collect()
+/// A gentle curve, so edges stay soft but the background goes fully clear.
+fn alpha(m: f32) -> f32 {
+	let a = ((m - 0.06) / 0.88).clamp(0.0, 1.0);
+	a * a * (3.0 - 2.0 * a)
+}
+
+/// Applies a `SIDE` × `SIDE` mask as transparency, scaling it up row by row instead of making a
+/// full-size copy of it.
+pub fn cut_out(rgba: &mut [u8], w: u32, h: u32, mask: &[f32]) {
+	let fx = SIDE as f32 / w as f32;
+	let fy = SIDE as f32 / h as f32;
+	let last = SIDE - 1;
+	for y in 0..h {
+		let sy = ((y as f32 + 0.5) * fy - 0.5).clamp(0.0, last as f32);
+		let (y0, ty) = (sy.floor() as u32, sy.fract());
+		let y1 = (y0 + 1).min(last);
+		for x in 0..w {
+			let sx = ((x as f32 + 0.5) * fx - 0.5).clamp(0.0, last as f32);
+			let (x0, tx) = (sx.floor() as u32, sx.fract());
+			let x1 = (x0 + 1).min(last);
+			let p = |xx: u32, yy: u32| mask[(yy * SIDE + xx) as usize];
+			let top = p(x0, y0) * (1.0 - tx) + p(x1, y0) * tx;
+			let bottom = p(x0, y1) * (1.0 - tx) + p(x1, y1) * tx;
+			let i = (y as usize * w as usize + x as usize) * 4 + 3;
+			rgba[i] = (rgba[i] as f32 * alpha(top * (1.0 - ty) + bottom * ty)).round() as u8;
+		}
+	}
+}
+
+/// The model files, checked before a picture is decoded for nothing.
+fn model_present(e: &Engines) -> Result<(), Error> {
+	if !e.model.exists() || !e.model.with_extension("f16").exists() || !e.onnxruntime.exists() {
+		return Err(Error::Engine(
+			"the background model is missing; reinstall TapWheel".into(),
+		));
+	}
+	Ok(())
 }
 
 pub fn remove(e: &Engines, src: &Source, part: &Path, c: &AtomicBool) -> Result<(), Error> {
+	model_present(e)?;
 	let (w, h) = size_of(e, src)?;
-	let upright_src = if src.upright.is_empty() {
-		decode_rgba(&e.ffmpeg, &src.path, (w, h))?
-	} else {
-		// decode through a PNG so the EXIF turn is applied
-		let tmp = e.scratch.join(format!("bg-{}.png", std::process::id()));
-		crate::image::write(e, src, "", crate::format::Format::Png, 100, true, &tmp, c)?;
-		let (_, _, px) = crate::image::read_png(&tmp)?;
-		let _ = std::fs::remove_file(&tmp);
-		px
-	};
+	let mut px = decode_rgba(&e.ffmpeg, &src.path, (w, h), src.upright)?;
 	if c.load(std::sync::atomic::Ordering::Relaxed) {
 		return Err(Error::Cancelled);
 	}
-	let m = mask(e, &upright_src, w, h)?;
-	write_png(part, w, h, &cut_out(&upright_src, &m))
+	let m = mask(e, &px, w, h)?;
+	cut_out(&mut px, w, h, &m);
+	write_png(part, w, h, &px)
 }
 
 /// The cut-out of `input` as a PNG in the scratch folder, upright and at full size, for the
 /// touch-up window to edit. Its alpha is the mask the window starts from.
 pub fn cutout_file(e: &Engines, input: &Path) -> Result<std::path::PathBuf, Error> {
+	model_present(e)?;
 	let src = crate::image::source(e, input)?;
 	let _ = std::fs::create_dir_all(&e.scratch);
 	static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
@@ -229,10 +254,33 @@ mod tests {
 
 	#[test]
 	fn cut_out_clears_the_background() {
-		let px = [10, 20, 30, 255, 10, 20, 30, 255, 10, 20, 30, 255];
-		let out = cut_out(&px, &[0.0, 0.5, 1.0]);
-		assert_eq!(out[3], 0);
-		assert!(out[7] > 100 && out[7] < 160);
-		assert_eq!(out[11], 255);
+		let side = SIDE as usize;
+		let mut px = [10, 20, 30, 255].repeat(3);
+		cut_out(&mut px, 3, 1, &vec![0.0; side * side]);
+		assert_eq!(px[3], 0);
+		let mut px = [10, 20, 30, 255].repeat(3);
+		cut_out(&mut px, 3, 1, &vec![1.0; side * side]);
+		assert_eq!((px[3], px[7], px[11]), (255, 255, 255));
+		let mid = (255.0 * alpha(0.5)).round() as u8;
+		assert!(mid > 100 && mid < 160);
+	}
+
+	#[test]
+	fn shrinking_stays_close_to_float_averaging() {
+		let (w, h) = (SIDE * 4 + 6, SIDE * 2 + 2);
+		let px: Vec<u8> = (0..w * h * 4).map(|i| (i * 37 % 251) as u8).collect();
+		let (small, sw, sh) = shrink_rgba(&px, w, h);
+		assert_eq!((sw, sh), (w / 2, h / 2));
+		let first =
+			(px[0] as f32 + px[4] as f32 + px[(w * 4) as usize] as f32 + px[(w * 4 + 4) as usize] as f32) / 4.0 / 255.0;
+		assert!((small[0] - first).abs() <= 1.0 / 255.0);
+	}
+
+	#[test]
+	fn a_missing_model_is_reported_before_any_decoding() {
+		let dir = std::env::temp_dir().join(format!("tw-bg-{}", std::process::id()));
+		let e = Engines::in_dir(&dir.join("no-engines"), dir.join("scratch"));
+		let err = cutout_file(&e, &dir.join("not-there.jpg")).unwrap_err();
+		assert!(err.to_string().contains("model is missing"), "{err}");
 	}
 }
