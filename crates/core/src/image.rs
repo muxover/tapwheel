@@ -442,7 +442,7 @@ pub fn run(
 		}
 		Recipe::RemoveBackground => crate::bg::remove(e, &src, part, c),
 		Recipe::Trace => trace(e, &src, part),
-		Recipe::Rendered { file, to, .. } => {
+		Recipe::Rendered { file, to, suffix } => {
 			let to = to.unwrap_or_else(|| keep(input));
 			if to == Format::Png {
 				fs::copy(file, part)?;
@@ -452,7 +452,11 @@ pub fn run(
 					path: file.clone(),
 					temp: false,
 					upright: "",
-					exif: src.exif.clone(),
+					// a redacted picture shouldn't say where it was taken either
+					exif: match suffix.as_str() {
+						"redacted" => src.exif.as_deref().map(|x| metadata::tidy_exif(x, true)),
+						_ => src.exif.clone(),
+					},
 				};
 				write(e, &rendered, "", to, d.image_quality, strip, part, c)
 			}
