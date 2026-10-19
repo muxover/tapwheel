@@ -68,6 +68,8 @@ pub struct Outcome {
 	pub bytes_out: u64,
 	/// A short report shown on the card instead of sizes.
 	pub note: Option<String>,
+	/// Something the card says next to the sizes, like what an extraction had to skip.
+	pub warning: Option<String>,
 	/// How the output looked when the job finished, so Undo can tell if it changed since.
 	pub stamp: Option<Stamp>,
 }
@@ -232,6 +234,7 @@ pub fn run(
 			bytes_in,
 			bytes_out: 0,
 			note: Some(note),
+			warning: None,
 			stamp: None,
 		});
 	}
@@ -239,11 +242,14 @@ pub fn run(
 	let part = part_path(&job.output);
 	note_part(engines, &part, true);
 	let done = crate::caught(BUG, || execute(job, &part, engines, defaults, progress, cancel));
-	if let Err(e) = done {
-		remove(&part);
-		note_part(engines, &part, false);
-		return Err(e);
-	}
+	let warning = match done {
+		Ok(w) => w,
+		Err(e) => {
+			remove(&part);
+			note_part(engines, &part, false);
+			return Err(e);
+		}
+	};
 	// the check and the rename happen together, so a job finishing at the same moment with the
 	// same name can't slip in between and be replaced
 	static NAMING: Mutex<()> = Mutex::new(());
@@ -281,6 +287,7 @@ pub fn run(
 		output,
 		bytes_in,
 		note: None,
+		warning,
 	})
 }
 
@@ -335,12 +342,15 @@ fn execute(
 	d: &Defaults,
 	progress: &mut dyn FnMut(f32),
 	cancel: &AtomicBool,
-) -> Result<(), Error> {
+) -> Result<Option<String>, Error> {
 	let input = &job.inputs[0];
+	if let Recipe::Extract { only } = &job.recipe {
+		return archive::extract(input, part, only, cancel);
+	}
 	let kind = kind_of(input);
 	let ext = ext_of(input);
 	let write = |s: String| -> Result<(), Error> { Ok(fs::write(part, s)?) };
-	match &job.recipe {
+	let done = match &job.recipe {
 		Recipe::Duplicate => copy_all(input, part),
 		// whole-selection recipes
 		Recipe::Pack { format } => archive::pack(&job.inputs, *format, part, cancel),
@@ -363,7 +373,6 @@ fn execute(
 			let _ = fs::remove_dir_all(&scratch);
 			result
 		}
-		Recipe::Extract { only } => archive::extract(input, part, only, cancel),
 		Recipe::SplitArchive { part_mb } => archive::split(input, *part_mb, part, cancel).map(drop),
 
 		// icons, from icon files, pictures or programs
@@ -453,7 +462,8 @@ fn execute(
 		Recipe::Convert { to } => media::convert(e, d, input, *to, part, progress, cancel),
 		Recipe::CompressImage { quality, .. } if ext == "png" => pngquant::compress(input, part, *quality),
 		_ => media::run(e, d, &job.recipe, input, part, progress, cancel),
-	}
+	};
+	done.map(|()| None)
 }
 
 #[cfg(test)]
