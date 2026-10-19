@@ -36,6 +36,7 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-18: the zip stays unsigned (no code-signing certificate). It's for developers and technical users, who can get past Chrome's and SmartScreen's warnings; the site always sends people to the Microsoft Store version, which Microsoft signs.
 - 2026-10-18: the Store package can't write classic shell keys, so its right-click entry waits for the Explorer command handler in v0.2.0; the portable build adds a classic one.
 - 2026-10-19: the full commit history stays as it is; a release only adds one signed `chore: release vX.Y.Z` commit on top and moves nothing else. Nothing is deleted on this project, old Actions runs included (Jax's call after a squash of the 91 commits was undone the same night).
+- 2026-10-19: the plan keeps every feature whatever other tools a PC already has. v0.2.0 also gets a native ARM64 build, a Report a problem button and winget; v0.3.0 also gets translations (Arabic first, right to left). Patch releases fix reported bugs only.
 
 ## Status
 
@@ -194,6 +195,8 @@ Rebuilt after the app's look is settled. Windows blue accent, dark page. Section
 
 ## v0.2.0: Copy anything, capture, your own wheels and screen readers
 
+One version with everything below, not split (Jax, 2026-10-19).
+
 - Capture, from the same shortcut and the tray: a screenshot of an area, a window or the whole screen, opened straight in the Annotate window or copied; a screen recording of an area, a window or a screen to MP4 or GIF, with or without sound and the pointer, a countdown, and Stop from the tray or the shortcut again. Both save next to each other in a folder you choose, and every result gets a card with the same tools as any file.
 - Your own wheels: hide, pin and reorder slices on each wheel; save a tool's settings as your own ring choice (for example "Compress to 2 MB"); pick which wheel each key opens; wheel size and the accent colour. Everything is in Settings, with a reset.
 - Copy anything: a shortcut (and a tray item) freezes the screen; drag over any area (a paused video, a picture, a PDF page, an app that won't let you select) and its text is copied with the offline Windows OCR, in the languages Windows has installed. Tables come out as tab-separated rows.
@@ -202,14 +205,18 @@ Rebuilt after the app's look is settled. Windows blue accent, dark page. Section
 - Make QR: any text or link file, or the clipboard, into a QR PNG or SVG.
 - Screen readers: UI Automation for the wheel, cards, editors and settings, with announcements for wheel changes, hover and results; full keyboard use everywhere.
 - Store right-click: an Explorer command handler, which also puts TapWheel in the top-level Windows 11 menu, for both the Store and portable builds.
+- Windows on Arm: a native ARM64 build next to x64, built and tested in CI, in the same Store listing and as its own portable zip, so Snapdragon PCs don't run TapWheel through emulation.
+- Report a problem: a button in TapWheel's window opens a filled-in GitHub issue in the browser with the app version, the Windows version and display setup, and the end of the log. Nothing is sent until the user posts it, so TapWheel still makes no network connections of its own.
+- winget: the README and the site's download section show `winget install 9MW1GB4106VS` (winget installs Store apps from the `msstore` source).
 
-## v0.3.0: documents
+## v0.3.0: documents and languages
 
 - PDF: merge, split, reorder, rotate and delete pages (thumbnails window), compress, to images (PNG, JPG at 150 or 300 DPI), images to PDF, extract text, extract images, add page numbers and watermarks, password protect and remove a known password, fill and flatten forms, sign with a drawn or typed signature. Engine: a bundled PDFium.
 - Microsoft Office, every version: DOC, DOCX, DOCM, DOT, DOTX, RTF, XLS, XLSX, XLSM, XLSB, CSV, PPT, PPTX, PPSX, POT, POTX, and OpenDocument (ODT, ODS, ODP). Convert to PDF, to each other's newer or older format, DOCX to Markdown, HTML and TXT, XLSX to CSV and JSON per sheet, PPTX to images per slide. Tools: compress embedded pictures, remove personal details, extract images, count words.
 - Google Docs, Sheets and Slides: their downloaded formats (DOCX, XLSX, PPTX, ODT, PDF) get everything above; `.gdoc`, `.gsheet` and `.gslides` shortcuts open the file in the browser, since the document itself lives online.
 - EPUB: to PDF and TXT, cover extraction, metadata.
-- Engine choice, checked on first use: Microsoft Office when installed (exact layouts), otherwise an optional one-click LibreOffice download. That is TapWheel's first network call, so the privacy page and the settings explain it and it never happens without a click.
+- Engine choice, checked on first use: Microsoft Office when installed (exact layouts), otherwise LibreOffice, downloaded with one click from its official site. Asking users to fetch a library from its official source is fine (Jax, 2026-10-19). That download is TapWheel's first network call, so the privacy page, the Store listing and the settings say so, and it never happens without a click.
+- Languages: every string in the app, the tool windows and the cards comes from translation files. Arabic first, right to left throughout (wheel labels, windows, cards); then the languages users ask for. Anyone can add a language with one file and a pull request.
 
 ## v0.4.0: local AI
 
@@ -220,20 +227,23 @@ Rebuilt after the app's look is settled. Windows blue accent, dark page. Section
 
 ## Later
 
-From the roadmap review, reordered so each version builds on the last. Plans, not promises.
+Details are written when v0.4.0 is finished. Each version builds on the last; patch releases (v0.x.1 and up) fix reported bugs in between and never carry new features.
 
-| Version | Theme | Main work |
+| Version | Theme | Scope |
 | --- | --- | --- |
-| v0.2.0 | Copy anything, capture, your own wheels | Screenshots and screen recording; hide, pin and reorder slices; saved tool settings as ring choices |
-| v0.5.0 | Automation | Multi-step recipes with preview, mixed-file batches that skip what doesn't fit, naming templates; recipes stay declarative, never shell commands |
-| v0.6.0 | File intelligence | Compare text, pictures and binaries; duplicate finder with review and no automatic deletes; folder summaries; similar pictures later |
-| v0.7.0 | Desktop layer | Command palette, quick preview, saved Float shelves, job history, per-monitor and per-device input settings |
-| v0.8.0 | Sharing and extensions | Shareable recipe files inspected on import, community presets and themes; extensions only for trusted local tools, with permissions shown |
-| v0.9.0 | Hardening | Compatibility matrix, fuzzing of parsers and archives, speed and memory on a low-end PC, upgrade and uninstall tests; fixes only |
-| v1.0.0 | Stable | Stable recipe format, documented behaviour and limits, no known data-loss, security or accessibility bugs |
+| v0.1.0 | Seven kinds of files | Released 2026-10-18, on the Microsoft Store since 2026-10-19 |
+| v0.2.0 | Capture, your own wheels, Copy anything | Detailed above, with Windows on Arm, Report a problem and winget |
+| v0.3.0 | Documents and languages | Detailed above |
+| v0.4.0 | Local AI | Detailed above |
+| v0.5.0 | Automation | Multi-step recipes with preview, mixed-file batches, naming templates |
+| v0.6.0 | File intelligence | Compare text, pictures and binaries, a duplicate finder that never deletes on its own, folder summaries |
+| v0.7.0 | Desktop layer | Command palette, quick preview, saved Float shelves, job history, per-monitor and per-device settings |
+| v0.8.0 | Sharing and extensions | Shareable recipe files, community presets and themes, extensions for trusted local tools |
+| v0.9.0 | Hardening | Compatibility, fuzzing, speed on a low-end PC, upgrade and uninstall tests; fixes only |
+| v1.0.0 | Stable | Stable recipe format, documented limits, no known data-loss, security or accessibility bugs |
 
 Never: cloud accounts, online conversion, an AI chat window, a plugin marketplace.
 
 ## Open questions
 
-- Launch video: made later with Remotion and sound written in code, from real captures on a Windows 11 PC, when Jax says to make it.
+None.
