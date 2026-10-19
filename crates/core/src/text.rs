@@ -249,11 +249,14 @@ fn parse_ini(text: &str) -> Value {
 		};
 		let v = v.trim().trim_matches('"').trim_matches('\'');
 		let target = match &section {
-			Some(s) => root
-				.entry(s.clone())
-				.or_insert_with(|| Value::Object(Map::new()))
-				.as_object_mut()
-				.expect("sections are objects"),
+			Some(s) => {
+				let entry = root.entry(s.clone()).or_insert_with(|| Value::Object(Map::new()));
+				// a key named like a later section gives way to the section
+				if !entry.is_object() {
+					*entry = Value::Object(Map::new());
+				}
+				entry.as_object_mut().expect("just made an object")
+			}
 			None => &mut root,
 		};
 		target.insert(k.trim().to_string(), cell(v));
@@ -599,10 +602,15 @@ pub fn rtf_to_text(rtf: &str) -> String {
 					break;
 				}
 				let c = b[i];
-				if c == b'\'' && i + 2 < b.len() {
-					if let Ok(v) = u8::from_str_radix(&rtf[i + 1..i + 3], 16)
-						&& !hidden && skip_next_chars == 0
-					{
+				if c == b'\'' {
+					// two hex digits; anything else is a stray quote and its bytes stay text
+					let hex = b.get(i + 1..i + 3).filter(|h| h.iter().all(u8::is_ascii_hexdigit));
+					let Some(hex) = hex else {
+						i += 1;
+						continue;
+					};
+					let v = u8::from_str_radix(std::str::from_utf8(hex).unwrap_or("0"), 16).unwrap_or(0);
+					if !hidden && skip_next_chars == 0 {
 						out.push_str(&encoding_rs::WINDOWS_1252.decode(&[v]).0);
 					}
 					skip_next_chars = skip_next_chars.saturating_sub(1);
@@ -668,7 +676,8 @@ pub fn rtf_to_text(rtf: &str) -> String {
 							_ => {}
 						}
 					}
-					i += 1;
+					// a control symbol can be any character, so step over all of it
+					i += rtf[i..].chars().next().map_or(1, char::len_utf8);
 				}
 			}
 			b'\r' | b'\n' => i += 1,
@@ -1048,6 +1057,19 @@ mod tests {
 		assert_eq!(v["top"], 1);
 		assert_eq!(v["db"]["host"], "x");
 		assert_eq!(v["db"]["port"], 5432);
+	}
+
+	#[test]
+	fn rtf_with_non_ascii_after_a_backslash() {
+		assert_eq!(rtf_to_text("{\\rtf1\\ansi Hello \\'1é world\\par}"), "Hello 1é world\n");
+		assert_eq!(rtf_to_text("{\\rtf1\\ansi Hello \\é world\\par}"), "Hello  world\n");
+		assert_eq!(rtf_to_text("C:\\Élèves\\notes"), "C:lèves\n");
+	}
+
+	#[test]
+	fn ini_key_named_like_a_later_section() {
+		let v = parse_ini("db=1\n[db]\nhost=x\n");
+		assert_eq!(v["db"]["host"], "x");
 	}
 
 	#[test]
