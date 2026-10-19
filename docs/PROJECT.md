@@ -37,10 +37,11 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-18: the Store package can't write classic shell keys, so its right-click entry waits for the Explorer command handler in v0.2.0; the portable build adds a classic one.
 - 2026-10-19: the full commit history stays as it is; a release only adds one signed `chore: release vX.Y.Z` commit on top and moves nothing else. Nothing is deleted on this project, old Actions runs included (Jax's call after a squash of the 91 commits was undone the same night).
 - 2026-10-19: the plan keeps every feature whatever other tools a PC already has. v0.2.0 also gets a native ARM64 build, a Report a problem button and winget; v0.3.0 also gets translations (Arabic first, right to left). Patch releases fix reported bugs only.
+- 2026-10-19: v0.1.1 fixes what the full audit of v0.1.0 found that crashes the app or writes wrong output, every item with a test that fails before the fix. The UI-thread work (hooks, editors, memory budgets) waits for the test results from Jax's PC, which decide the details of K1 and K2 (Jax's call).
 
 ## Status
 
-v0.1.0 is out: released on GitHub on 2026-10-18 (the zip and checksums), the site live at https://tapwheel.muxover.com, and the app public on the Microsoft Store (https://apps.microsoft.com/detail/9MW1GB4106VS) since 2026-10-19. Every tool and window was tried on Jax's Windows 11 PC; Windows 10, 125 to 200% scaling and two monitors are still untried. v0.2.0 is next (below).
+v0.1.0 is out: released on GitHub on 2026-10-18 (the zip and checksums), the site live at https://tapwheel.muxover.com, and the app public on the Microsoft Store (https://apps.microsoft.com/detail/9MW1GB4106VS) since 2026-10-19. Every tool and window was tried on Jax's Windows 11 PC; Windows 10, 125 to 200% scaling and two monitors are still untried. v0.1.1, the audit fixes below, is being built on `build`; v0.2.0 follows it.
 
 ## How the wheel works (all versions)
 
@@ -193,6 +194,45 @@ Release blockers: a lost or replaced file, a claim the app can't back, a wheel t
 
 Rebuilt after the app's look is settled. Windows blue accent, dark page. Sections spaced at about 64 px, words and a visual side by side so no screen is a heading alone. A playable hero: a large wheel on a strip of Windows desktop where visitors drag the sample file and tap Shift, Ctrl or Alt (key buttons on phones), with picture tools running in the browser. Order: hero, the three wheels, the tool windows to try, every kind of file, the safety promises, the Windows looks, coming next, questions, download. Short silent clips from a Windows PC per tool once the app runs. The tool list is generated from the app (`site/public/data/wheel.json`, checked in CI).
 
+## v0.1.1: fixes from the audit
+
+Bug fixes only, from the audit of v0.1.0 (IDs as in the audit). Each fix has a test that fails without it.
+
+### Phase 1: stop the crashes
+
+- Release builds unwind instead of aborting. Every job body and every outside decoder (PSD, camera raw, JPEG XL, SVG, ICNS, tracing, the text and code formatters) runs under `catch_unwind`, so a panic becomes a failed card instead of a closed app (I-C1, I-C2).
+- Size checks before every whole-file read and every large allocation: text tools refuse files they can't hold (T-C5), SVG renders are capped and declared icon and PNG sizes are checked before allocating (I-C3), Remove BG shrinks in 8-bit and checks for its model before decoding (I-C4).
+- Jobs run on a 64 MB stack, and nested XML, HTML, YAML and TOML are refused past a fixed depth (T-C4).
+- RTF with non-ASCII after a backslash (T-C1), subtitle timings with non-ASCII fractions (T-C2) and INI keys that share a later section's name (T-C3) no longer panic.
+- A crash that isn't a panic is still logged: an unhandled-exception filter writes a log line and a minidump to `%LOCALAPPDATA%\TapWheel\crash`, and a failed allocation writes its size to the log before the app ends (K2, A3).
+- FFmpeg and FFprobe run inside a Job Object with kill-on-close, so they end with TapWheel (A4).
+
+Done when: each item has a test that fails on v0.1.0 and passes; CI is green on Linux and Windows.
+
+### Phase 2: stop the wrong output
+
+- Edited pictures (Redact, Crop, Resize, Rotate, Annotate, Adjust) drop the original's EXIF thumbnail, and Redact drops the location; "Remove location" also clears GPS in XMP and finds it there (I-D1, I-D2).
+- Every temporary file and part file is unique per job, the two-pass log included, so two jobs at once never share one (A2, V3, T-D3, T-D4, I-D5).
+- Multi-member `.gz` and `.bz2` and multi-stream `.xz` extract and test in full (T-D1, T-D2).
+- JSON keeps its key order and its numbers as written when formatted or minified; CSV keeps its column order and duplicate columns (T-D5, T-D6).
+- Animated GIFs stay animated through the picture tools, and Combine keeps every frame of mixed sizes (I-D3, I-D4).
+- Text keeps its encoding and BOM; a UTF-8 file with a few bad bytes stays UTF-8; RTF reads its code page (T-D7, T-D13, T-U5).
+- Indent finds the real indent step (T-D8); Minify keeps TOML strings whole and is gone for CSV (T-D9); batch rename keeps `.tar.gz` (T-D10); Extract skips what Windows can't hold and says what it skipped instead of failing (T-D11); batch rename never replaces a file that appeared after the preview and says what it couldn't undo (T-D12); stripping PNG and WebP details keeps the orientation (I-D6).
+
+Done when: each item has a test that fails on v0.1.0 and passes; CI is green on Linux and Windows.
+
+### Phase 3: the UI thread and editors (after the PC test)
+
+The PC test results decide the details. In scope: the hooks on their own thread and a longer probe (K1), the editor file server off the UI thread in 4 MB chunks (K2), editors that show after the probe with a seek-based filmstrip (K3, K4), no disk work per wheel frame (A1), memory budgets for Make GIF and Reverse (V1, V2), and the editor fixes E2 to E6.
+
+Done when: the PC test shows the wheel opening on every Alt tap with the Trim window open on the 2.92 GB file, and no editor waits on a filmstrip it doesn't show.
+
+### Release blockers for v0.1.1
+
+- Any test from phase 1 or 2 failing on Linux or Windows.
+- A crash in the PC test that leaves no line in the log or the crash folder.
+- A behaviour change that isn't a bug fix (patch rule).
+
 ## v0.2.0: Copy anything, capture, your own wheels and screen readers
 
 One version with everything below, not split (Jax, 2026-10-19).
@@ -232,6 +272,7 @@ Details are written when v0.4.0 is finished. Each version builds on the last; pa
 | Version | Theme | Scope |
 | --- | --- | --- |
 | v0.1.0 | Seven kinds of files | Released 2026-10-18, on the Microsoft Store since 2026-10-19 |
+| v0.1.1 | Fixes from the audit | Detailed above |
 | v0.2.0 | Capture, your own wheels, Copy anything | Detailed above, with Windows on Arm, Report a problem and winget |
 | v0.3.0 | Documents and languages | Detailed above |
 | v0.4.0 | Local AI | Detailed above |
