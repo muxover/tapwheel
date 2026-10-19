@@ -24,6 +24,9 @@ pub const WM_APP_TRAY: u32 = WM_APP + 5;
 pub const WM_APP_PAGE: u32 = WM_APP + 6;
 /// Messages for or from a page are waiting.
 pub const WM_APP_WEB: u32 = WM_APP + 7;
+/// A trigger key went down during a drag; `WM_APP_TAP` or `WM_APP_NOTAP` follows.
+pub const WM_APP_PRESS: u32 = WM_APP + 8;
+pub const WM_APP_NOTAP: u32 = WM_APP + 9;
 
 pub use crash::Logged;
 

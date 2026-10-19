@@ -28,7 +28,8 @@ use super::jobs::Jobs;
 use super::util::*;
 use super::web::Web;
 use super::{
-	WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_JOBS, WM_APP_PAGE, WM_APP_TAP, WM_APP_TRAY, WM_APP_WEB, shell, system,
+	WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_JOBS, WM_APP_NOTAP, WM_APP_PAGE, WM_APP_PRESS, WM_APP_TAP, WM_APP_TRAY,
+	WM_APP_WEB, shell, system,
 };
 
 const MAIN_CLASS: &str = "TapWheel.Main";
@@ -56,8 +57,10 @@ const CARD_OUT_MS: f32 = 167.0;
 const EXPAND_MS: f32 = 167.0;
 /// How long the pointer rests on More before the page turns.
 const MORE_DWELL_MS: u128 = 380;
-/// How long to wait for a drag to reach the wheel before deciding it carries no files.
-const PROBE_MS: u32 = 380;
+/// How long to wait for a drag to reach the wheel before deciding it carries no files. The wheel
+/// shows as soon as files arrive, so this only ends a probe that will never see any; a busy
+/// Explorer can take longer than the old 380 ms, which looked like a tap that did nothing.
+const PROBE_MS: u32 = 1000;
 
 const MENU_OPEN: usize = 1;
 const MENU_PAUSE: usize = 2;
@@ -107,6 +110,11 @@ pub struct WheelState {
 	ring_amt: f32,
 	page_turned: Option<Instant>,
 	tick: Instant,
+	/// The tap is confirmed. A probe starts when the key goes down, so the drag can reach the
+	/// wheel while the key is still held, and the wheel shows the moment the key comes up.
+	armed: bool,
+	/// Files that reached the probe before the tap was confirmed.
+	early: Option<Vec<PathBuf>>,
 }
 
 impl WheelState {
@@ -137,6 +145,8 @@ impl WheelState {
 			ring_amt: 0.0,
 			page_turned: None,
 			tick: now,
+			armed: true,
+			early: None,
 		}
 	}
 
@@ -458,7 +468,7 @@ impl App {
 
 	/// During a drag: an invisible wheel catches the drag to see what it carries. It only becomes
 	/// visible when files arrive, so dragging a window, text or nothing opens no wheel.
-	fn probe(&mut self, wh: Wheel) {
+	fn probe(&mut self, wh: Wheel, armed: bool) {
 		if self.wheel.closing.take().is_some() {
 			self.wheel_click_through(false);
 		}
@@ -467,6 +477,7 @@ impl App {
 		self.wheel.last_tap = last_tap;
 		self.wheel.wheel = wh;
 		self.wheel.phase = Phase::Probe;
+		self.wheel.armed = armed;
 		self.place_wheel();
 		hooks::WHEEL_OPEN.store(true, std::sync::atomic::Ordering::Relaxed);
 		self.draw_wheel();
@@ -644,10 +655,21 @@ impl App {
 		match self.wheel.phase {
 			Phase::Hidden | Phase::Closing => {
 				if hooks::dragging() {
-					self.probe(wh);
+					self.probe(wh, true);
 				}
 			}
-			Phase::Probe => self.wheel.wheel = wh,
+			Phase::Probe => {
+				self.wheel.wheel = wh;
+				self.wheel.armed = true;
+				if let Some(files) = self.wheel.early.take() {
+					self.open(Mode::Drag, wh, files);
+					let h = self.hover_at(cursor());
+					self.set_hover(h);
+					self.draw_wheel();
+					// the drag only asks the wheel again when the pointer moves
+					hooks::nudge();
+				}
+			}
 			Phase::Open => {
 				if double && self.last.is_some() && self.wheel.wheel == wh {
 					self.wheel.again = !self.wheel.again;
@@ -665,6 +687,23 @@ impl App {
 				self.draw_wheel();
 				self.animate();
 			}
+		}
+	}
+
+	/// A trigger key went down during a drag: start looking at what it carries.
+	fn press(&mut self, key: usize) {
+		let Some(wh) = self.settings.keys.wheel_for(key_from(key)) else {
+			return;
+		};
+		if matches!(self.wheel.phase, Phase::Hidden | Phase::Closing) && hooks::dragging() {
+			self.probe(wh, false);
+		}
+	}
+
+	/// The key went down but wasn't a tap: held, or part of a shortcut.
+	fn no_tap(&mut self) {
+		if self.wheel.phase == Phase::Probe && !self.wheel.armed {
+			self.close(None);
 		}
 	}
 
@@ -1063,6 +1102,11 @@ impl Target for WheelTarget {
 			match a.wheel.phase {
 				Phase::Probe => match files.filter(|f| !f.is_empty()) {
 					Some(files) => {
+						hooks::FILES.store(true, std::sync::atomic::Ordering::Relaxed);
+						if !a.wheel.armed {
+							a.wheel.early = Some(files);
+							return false;
+						}
 						let wh = a.wheel.wheel;
 						a.open(Mode::Drag, wh, files);
 					}
@@ -1074,6 +1118,7 @@ impl Target for WheelTarget {
 				},
 				Phase::Open if a.wheel.mode == Mode::Drag => {
 					if let Some(f) = files.filter(|f| !f.is_empty()) {
+						hooks::FILES.store(true, std::sync::atomic::Ordering::Relaxed);
 						a.wheel.files = Some(f);
 					}
 				}
@@ -1127,6 +1172,8 @@ impl Target for WheelTarget {
 unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
 	let handled = match msg {
 		WM_APP_TAP => with(|a| a.tap(w)),
+		WM_APP_PRESS => with(|a| a.press(w)),
+		WM_APP_NOTAP => with(|a| a.no_tap()),
 		WM_APP_ESCAPE => with(|a| a.close(None)),
 		WM_APP_PAGE => with(|a| {
 			if a.wheel.phase == Phase::Open {
