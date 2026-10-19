@@ -508,7 +508,7 @@ fn compress_video(
 		vf.push(format!("scale=-2:{nh}:flags=lanczos"));
 	}
 	vf.push(ff::EVEN.into());
-	let passlog = e.scratch.join(format!("pass-{}", std::process::id()));
+	let passlog = e.scratch_path("pass", "");
 	fs::create_dir_all(&e.scratch)?;
 	let vb = format!("{video_kbps}k");
 	let common = |pass: &str| {

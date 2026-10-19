@@ -7,7 +7,7 @@ use std::sync::atomic::AtomicBool;
 
 use crate::Error;
 use crate::ff::{Run, out, strs};
-use crate::image::{read_png, render_svg_bytes, source, write_png};
+use crate::image::{decode_png, render_svg_bytes, source, write_png};
 use crate::kind::ext_of;
 use crate::plan::stem_of;
 use crate::run::Engines;
@@ -38,7 +38,7 @@ fn square_png(e: &Engines, input: &Path, n: u32) -> Result<Vec<u8>, Error> {
 			.into_iter()
 			.max_by_key(|p| p.0)
 			.ok_or_else(|| Error::Engine("this icon file is empty".into()))?;
-		big = e.scratch.join(format!("icon-{}-{n}.png", std::process::id()));
+		big = e.scratch_path("icon", "png");
 		fs::create_dir_all(&e.scratch)?;
 		write_png(&big, w, h, &rgba)?;
 		big.clone()
@@ -47,9 +47,7 @@ fn square_png(e: &Engines, input: &Path, n: u32) -> Result<Vec<u8>, Error> {
 		input.to_path_buf()
 	};
 	let src = source(e, &from)?;
-	let tmp = e
-		.scratch
-		.join(format!("sq-{}-{n}-{}.png", std::process::id(), stem_of(input).len()));
+	let tmp = e.scratch_path("square", "png");
 	fs::create_dir_all(&e.scratch)?;
 	let vf = format!(
 		"{}scale={n}:{n}:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,pad={n}:{n}:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
@@ -241,12 +239,9 @@ fn read_ico(b: &[u8]) -> Result<Vec<(u32, u32, Vec<u8>)>, Error> {
 		let at = u32::from_le_bytes([entry[12], entry[13], entry[14], entry[15]]) as usize;
 		let Some(data) = b.get(at..at + size) else { continue };
 		if data.starts_with(b"\x89PNG") {
-			let dir = std::env::temp_dir().join(format!("tw-ico-{}-{i}.png", std::process::id()));
-			fs::write(&dir, data)?;
-			if let Ok(px) = read_png(&dir) {
+			if let Ok(px) = decode_png(std::io::Cursor::new(data)) {
 				out.push(px);
 			}
-			let _ = fs::remove_file(&dir);
 		} else if let Some(px) = read_dib(data) {
 			out.push(px);
 		}

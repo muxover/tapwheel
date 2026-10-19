@@ -27,6 +27,15 @@ pub struct Engines {
 }
 
 impl Engines {
+	/// A path in the scratch folder that no other job, in this run of the app, is given.
+	pub fn scratch_path(&self, tag: &str, ext: &str) -> PathBuf {
+		static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+		let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		let name = format!("{tag}-{}-{n}", std::process::id());
+		self.scratch
+			.join(if ext.is_empty() { name } else { format!("{name}.{ext}") })
+	}
+
 	/// Engines in a folder laid out like the app's `engines/`.
 	pub fn in_dir(dir: &Path, scratch: PathBuf) -> Engines {
 		let exe = |n: &str| {
@@ -235,6 +244,10 @@ pub fn run(
 		note_part(engines, &part, false);
 		return Err(e);
 	}
+	// the check and the rename happen together, so a job finishing at the same moment with the
+	// same name can't slip in between and be replaced
+	static NAMING: Mutex<()> = Mutex::new(());
+	let naming = NAMING.lock().unwrap_or_else(|p| p.into_inner());
 	let output = if job.output.exists() {
 		let dir = job.output.parent().unwrap_or(Path::new(""));
 		let ext = if part.is_dir() {
@@ -253,7 +266,9 @@ pub fn run(
 	} else {
 		job.output.clone()
 	};
-	if let Err(e) = fs::rename(&part, &output) {
+	let renamed = fs::rename(&part, &output);
+	drop(naming);
+	if let Err(e) = renamed {
 		remove(&part);
 		note_part(engines, &part, false);
 		return Err(e.into());
@@ -343,9 +358,7 @@ fn execute(
 
 		// archives
 		Recipe::Convert { to } if kind == Kind::Archive => {
-			let scratch = e
-				.scratch
-				.join(format!("repack-{}-{}", std::process::id(), stem_of(part).len()));
+			let scratch = e.scratch_path("repack", "");
 			let result = archive::repack(input, *to, part, &scratch, cancel);
 			let _ = fs::remove_dir_all(&scratch);
 			result
@@ -409,7 +422,7 @@ fn execute(
 				"md" | "markdown" | "html" | "htm" | "rtf" => text::convert(input, Format::Txt)?,
 				_ => body,
 			};
-			let wav = e.scratch.join(format!("speech-{}.wav", std::process::id()));
+			let wav = e.scratch_path("speech", "wav");
 			fs::create_dir_all(&e.scratch)?;
 			speech::speak(&body, voice.as_deref(), *rate, &wav)?;
 			let r = media::wav_to_mp3(e, &wav, part, progress, cancel);
@@ -535,5 +548,87 @@ mod tests {
 		)
 		.unwrap_err();
 		assert!(err.to_string().starts_with("This file is too big"), "{err}");
+	}
+
+	/// Runs both jobs at the same moment and returns what each made.
+	fn side_by_side(a: Job, b: Job, e: &Engines) -> (Result<Outcome, Error>, Result<Outcome, Error>) {
+		let go = std::sync::Barrier::new(2);
+		std::thread::scope(|s| {
+			let one = |job: Job| {
+				let go = &go;
+				s.spawn(move || {
+					go.wait();
+					run(&job, e, &Defaults::default(), &mut |_| {}, &AtomicBool::new(false))
+				})
+			};
+			let (x, y) = (one(a), one(b));
+			(x.join().unwrap(), y.join().unwrap())
+		})
+	}
+
+	#[test]
+	fn two_jobs_aiming_at_one_name_each_keep_their_own() {
+		for round in 0..4 {
+			let d = dir(&format!("same-name-{round}"));
+			let e = engines(&d);
+			let rows = |tag: &str| {
+				(0..20_000)
+					.map(|i| format!("{{\"{tag}\":{i}}}"))
+					.collect::<Vec<_>>()
+					.join(",")
+			};
+			let (a, b) = (d.join("a.json"), d.join("a.jsonl"));
+			fs::write(&a, format!("[{}]", rows("from_json"))).unwrap();
+			fs::write(&b, rows("from_lines").replace(',', "\n")).unwrap();
+			let to = Recipe::Convert { to: Format::Csv };
+			let ja = crate::plan(Op::Convert(Format::Csv), &to, std::slice::from_ref(&a)).remove(0);
+			let jb = crate::plan(Op::Convert(Format::Csv), &to, std::slice::from_ref(&b)).remove(0);
+			assert_eq!(ja.output, jb.output, "both aim at a.csv");
+			let (ra, rb) = side_by_side(ja, jb, &e);
+			let (oa, ob) = (ra.unwrap().output, rb.unwrap().output);
+			assert_ne!(oa, ob);
+			assert!(fs::read_to_string(&oa).unwrap().starts_with("from_json"));
+			assert!(fs::read_to_string(&ob).unwrap().starts_with("from_lines"));
+		}
+	}
+
+	#[test]
+	fn two_archive_conversions_at_once_stay_apart() {
+		let d = dir("repack");
+		let e = engines(&d);
+		let mut zips = Vec::new();
+		for tag in ["x", "y"] {
+			let src = d.join(format!("{tag}-files"));
+			fs::create_dir_all(&src).unwrap();
+			for i in 0..200 {
+				fs::write(src.join(format!("{tag}{i}.txt")), tag.repeat(20_000)).unwrap();
+			}
+			let zip = d.join(format!("{tag}.zip"));
+			archive::pack(&[src], Format::Zip, &zip, &AtomicBool::new(false)).unwrap();
+			zips.push(zip);
+		}
+		let to = Recipe::Convert { to: Format::Tar };
+		let mut jobs = crate::plan(Op::Convert(Format::Tar), &to, &zips);
+		let (rx, ry) = side_by_side(jobs.remove(0), jobs.remove(0), &e);
+		for (out, tag) in [(rx.unwrap().output, "x"), (ry.unwrap().output, "y")] {
+			let names: Vec<String> = archive::list(&out).unwrap().into_iter().map(|i| i.name).collect();
+			assert_eq!(
+				names.iter().filter(|n| n.ends_with(".txt")).count(),
+				200,
+				"{tag}: {names:?}"
+			);
+			assert!(
+				names
+					.iter()
+					.all(|n| !n.ends_with(".txt") || n.contains(&format!("{tag}-files/{tag}"))),
+				"{tag}: {names:?}"
+			);
+		}
+	}
+
+	#[test]
+	fn scratch_names_are_never_shared() {
+		let e = engines(Path::new("/x"));
+		assert_ne!(e.scratch_path("pass", ""), e.scratch_path("pass", ""));
 	}
 }
