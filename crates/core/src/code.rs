@@ -64,8 +64,75 @@ fn format_markup(text: &str, ext: &str) -> Result<String, Error> {
 }
 
 fn pretty_json(text: &str) -> Result<String, Error> {
-	let v: serde_json::Value = serde_json::from_str(text).map_err(engine)?;
-	Ok(serde_json::to_string_pretty(&v).map_err(engine)? + "\n")
+	Ok(relay_json(text, true)? + "\n")
+}
+
+/// Prints JSON again from its own tokens, two spaces per level or with no spaces at all, so keys
+/// stay in their order and numbers stay exactly as written (a 23-digit ID isn't rounded).
+fn relay_json(text: &str, pretty: bool) -> Result<String, Error> {
+	serde_json::from_str::<serde::de::IgnoredAny>(text).map_err(engine)?;
+	let b = text.as_bytes();
+	let mut out = String::with_capacity(text.len());
+	let mut depth = 0usize;
+	let mut fresh = false;
+	let newline = |out: &mut String, depth: usize| {
+		out.push('\n');
+		out.push_str(&"  ".repeat(depth));
+	};
+	let mut i = 0;
+	while i < b.len() {
+		let c = b[i];
+		if c.is_ascii_whitespace() {
+			i += 1;
+			continue;
+		}
+		if fresh && pretty && !matches!(c, b']' | b'}') {
+			newline(&mut out, depth);
+		}
+		fresh = false;
+		match c {
+			b'"' => {
+				let start = i;
+				i += 1;
+				while i < b.len() && b[i] != b'"' {
+					i += if b[i] == b'\\' { 2 } else { 1 };
+				}
+				i += 1;
+				out.push_str(&text[start..i.min(b.len())]);
+				continue;
+			}
+			b'{' | b'[' => {
+				out.push(c as char);
+				depth += 1;
+				fresh = true;
+			}
+			b'}' | b']' => {
+				depth = depth.saturating_sub(1);
+				let empty = out.ends_with(['{', '[']);
+				if pretty && !empty {
+					newline(&mut out, depth);
+				}
+				out.push(c as char);
+			}
+			b',' => {
+				out.push(',');
+				if pretty {
+					newline(&mut out, depth);
+				}
+			}
+			b':' => out.push_str(if pretty { ": " } else { ":" }),
+			_ => {
+				let start = i;
+				while i < b.len() && !matches!(b[i], b',' | b'}' | b']' | b':') && !b[i].is_ascii_whitespace() {
+					i += 1;
+				}
+				out.push_str(&text[start..i]);
+				continue;
+			}
+		}
+		i += 1;
+	}
+	Ok(out)
 }
 
 /// Re-indents XML two spaces per level, keeping text, comments and declarations.
@@ -191,15 +258,21 @@ pub fn pretty(text: &str, ext: &str) -> Result<String, Error> {
 			},
 		)),
 		"csv" | "tsv" => {
-			let v = crate::text::parse_data(text, ext)?;
-			crate::text::write_data(
-				&v,
-				if ext == "tsv" {
-					crate::Format::Tsv
-				} else {
-					crate::Format::Csv
-				},
-			)?
+			// row for row, so columns keep their order, their names and every value as written
+			let delim = if ext == "tsv" { b'\t' } else { b',' };
+			let mut r = csv::ReaderBuilder::new()
+				.delimiter(delim)
+				.has_headers(false)
+				.flexible(true)
+				.from_reader(text.as_bytes());
+			let mut w = csv::WriterBuilder::new()
+				.delimiter(delim)
+				.flexible(true)
+				.from_writer(Vec::new());
+			for rec in r.records() {
+				w.write_record(&rec.map_err(engine)?).map_err(engine)?;
+			}
+			String::from_utf8(w.into_inner().map_err(engine)?).map_err(engine)?
 		}
 		other => return Err(Error::Engine(format!(".{other} files can't be formatted yet"))),
 	})
@@ -222,9 +295,7 @@ pub const MINIFY_EXTS: &[&str] = &[
 pub fn minify(text: &str, ext: &str) -> Result<String, Error> {
 	check_depth(text, ext)?;
 	Ok(match ext {
-		"json" | "geojson" => serde_json::from_str::<serde_json::Value>(text)
-			.map_err(engine)?
-			.to_string(),
+		"json" | "geojson" => relay_json(text, false)?,
 		"xml" | "plist" => minify_xml(text)?,
 		"svg" | "svgz" => minify_svg(text)?,
 		"css" => minify_css(text)?,
@@ -398,6 +469,29 @@ pub fn to_html(text: &str, ext: &str, title: &str) -> Result<String, Error> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn json_keeps_its_order_and_its_numbers() {
+		let src =
+			r#"{"zeta":1,"alpha":[2, {}],"id":12345678901234567890123,"price":0.10000000000000000555,"s":"a\"b, c"}"#;
+		assert_eq!(
+			pretty(src, "json").unwrap(),
+			"{\n  \"zeta\": 1,\n  \"alpha\": [\n    2,\n    {}\n  ],\n  \"id\": 12345678901234567890123,\n  \"price\": 0.10000000000000000555,\n  \"s\": \"a\\\"b, c\"\n}\n"
+		);
+		assert_eq!(
+			minify(&pretty(src, "json").unwrap(), "json").unwrap(),
+			r#"{"zeta":1,"alpha":[2,{}],"id":12345678901234567890123,"price":0.10000000000000000555,"s":"a\"b, c"}"#
+		);
+		assert!(pretty("{\"a\": }", "json").is_err());
+	}
+
+	#[test]
+	fn csv_keeps_its_columns() {
+		assert_eq!(
+			pretty("id,name,city,name\n1,Ann,Cairo,Sue\n", "csv").unwrap(),
+			"id,name,city,name\n1,Ann,Cairo,Sue\n"
+		);
+	}
 
 	#[test]
 	fn deep_nesting_is_refused_before_formatting() {

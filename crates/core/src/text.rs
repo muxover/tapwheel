@@ -228,8 +228,22 @@ fn parse_csv(text: &str, delim: u8) -> Result<Value, Error> {
 		.delimiter(delim)
 		.flexible(true)
 		.from_reader(text.as_bytes());
-	let headers: Vec<String> = r.headers().map_err(engine)?.iter().map(str::to_string).collect();
-	let dotted = headers.iter().any(|h| h.contains('.'));
+	let mut headers: Vec<String> = Vec::new();
+	for h in r.headers().map_err(engine)?.iter() {
+		// a repeated column keeps its values under name_2, name_3 and so on
+		let mut name = h.to_string();
+		let mut n = 1;
+		while headers.contains(&name) {
+			n += 1;
+			name = format!("{h}_{n}");
+		}
+		headers.push(name);
+	}
+	// "a.b" columns nest as {"a": {"b": ...}}, unless "a" is a column of its own as well
+	let dotted = headers.iter().any(|h| h.contains('.'))
+		&& !headers
+			.iter()
+			.any(|h| headers.iter().any(|other| other.starts_with(&format!("{h}."))));
 	let mut rows = Vec::new();
 	for rec in r.records() {
 		let rec = rec.map_err(engine)?;
@@ -1233,9 +1247,22 @@ mod tests {
 	}
 
 	#[test]
-	fn csv_from_uneven_rows_fills_every_column() {
+	fn csv_from_uneven_rows_keeps_first_seen_column_order() {
 		let v: Value = serde_json::from_str(r#"[{"b":1,"a":2},{"c":3,"b":4}]"#).unwrap();
-		assert_eq!(write_csv(&v, b',').unwrap(), "a,b,c\n2,1,\n,4,3\n");
+		assert_eq!(write_csv(&v, b',').unwrap(), "b,a,c\n1,2,\n4,,3\n");
+	}
+
+	#[test]
+	fn csv_columns_survive_a_round_trip() {
+		let v = parse_data("name,name,a,a.b,zeta,alpha\nfirst,second,x,y,1,2\n", "csv").unwrap();
+		assert_eq!(
+			serde_json::to_string(&v).unwrap(),
+			r#"[{"name":"first","name_2":"second","a":"x","a.b":"y","zeta":1,"alpha":2}]"#
+		);
+		assert_eq!(
+			write_data(&v, Format::Csv).unwrap(),
+			"name,name_2,a,a.b,zeta,alpha\nfirst,second,x,y,1,2\n"
+		);
 	}
 
 	#[test]
