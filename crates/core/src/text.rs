@@ -60,6 +60,13 @@ pub fn read_within(path: &Path, limit: u64) -> Result<String, Error> {
 	}
 }
 
+/// How a text file was stored, so a tool can write its result back the same way.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Stored {
+	pub encoding: &'static encoding_rs::Encoding,
+	pub bom: bool,
+}
+
 /// How much of a file the formatter for `ext` can take.
 pub fn format_limit(ext: &str) -> u64 {
 	match ext {
@@ -70,18 +77,71 @@ pub fn format_limit(ext: &str) -> u64 {
 }
 
 pub fn decode(bytes: &[u8]) -> String {
+	decode_stored(bytes).0
+}
+
+/// Text in the encoding it was saved in. A file that is UTF-8 apart from a few broken bytes stays
+/// UTF-8, with those bytes replaced, instead of being read as an older code page.
+pub fn decode_stored(bytes: &[u8]) -> (String, Stored) {
 	if let Some((enc, bom)) = encoding_rs::Encoding::for_bom(bytes) {
 		let (text, _) = enc.decode_without_bom_handling(&bytes[bom..]);
-		return text.into_owned();
+		return (
+			text.into_owned(),
+			Stored {
+				encoding: enc,
+				bom: true,
+			},
+		);
 	}
+	let utf8 = Stored {
+		encoding: encoding_rs::UTF_8,
+		bom: false,
+	};
 	if let Ok(s) = std::str::from_utf8(bytes) {
-		return s.to_string();
+		return (s.to_string(), utf8);
+	}
+	let (mut broken, mut accented) = (0usize, 0usize);
+	for chunk in bytes.utf8_chunks() {
+		accented += chunk.valid().chars().filter(|c| !c.is_ascii()).count();
+		broken += !chunk.invalid().is_empty() as usize;
+	}
+	if accented > 0 && broken <= accented {
+		return (String::from_utf8_lossy(bytes).into_owned(), utf8);
 	}
 	let mut det = chardetng::EncodingDetector::new();
 	det.feed(bytes, true);
 	let enc = det.guess(None, true);
 	let (text, _, _) = enc.decode(bytes);
-	text.into_owned()
+	(
+		text.into_owned(),
+		Stored {
+			encoding: enc,
+			bom: false,
+		},
+	)
+}
+
+/// `text` saved the way the original was: same encoding, same byte-order mark.
+pub fn encode_stored(text: &str, s: Stored) -> Vec<u8> {
+	let mut out = Vec::with_capacity(text.len() + 3);
+	let enc = s.encoding;
+	if s.bom {
+		out.extend_from_slice(if enc == encoding_rs::UTF_16LE {
+			&[0xff, 0xfe][..]
+		} else if enc == encoding_rs::UTF_16BE {
+			&[0xfe, 0xff][..]
+		} else {
+			&[0xef, 0xbb, 0xbf][..]
+		});
+	}
+	if enc == encoding_rs::UTF_16LE {
+		out.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+	} else if enc == encoding_rs::UTF_16BE {
+		out.extend(text.encode_utf16().flat_map(u16::to_be_bytes));
+	} else {
+		out.extend_from_slice(&enc.encode(text).0);
+	}
+	out
 }
 
 /// The encoding the file seems to use, for the card after a fix.
@@ -715,6 +775,34 @@ pub fn rtf_to_text(rtf: &str) -> String {
 	];
 	let b = rtf.as_bytes();
 	let mut out = String::new();
+	// \'xx bytes are in the document's code page, and a character can take two of them
+	let codepage = rtf
+		.find("\\ansicpg")
+		.map(|at| &rtf[at + 8..])
+		.and_then(|r| {
+			r[..r.find(|c: char| !c.is_ascii_digit()).unwrap_or(r.len())]
+				.parse::<u32>()
+				.ok()
+		})
+		.and_then(|n| {
+			let label = match n {
+				932 => "shift_jis".to_string(),
+				936 => "gbk".to_string(),
+				949 => "euc-kr".to_string(),
+				950 => "big5".to_string(),
+				65001 => "utf-8".to_string(),
+				n => format!("windows-{n}"),
+			};
+			encoding_rs::Encoding::for_label(label.as_bytes())
+		})
+		.unwrap_or(encoding_rs::WINDOWS_1252);
+	let mut pending: Vec<u8> = Vec::new();
+	let flush = |pending: &mut Vec<u8>, out: &mut String| {
+		if !pending.is_empty() {
+			out.push_str(&codepage.decode_without_bom_handling(pending).0);
+			pending.clear();
+		}
+	};
 	// per group: whether its text is hidden
 	let mut stack: Vec<bool> = vec![false];
 	let mut skip_next_chars = 0usize;
@@ -722,6 +810,9 @@ pub fn rtf_to_text(rtf: &str) -> String {
 	let mut i = 0;
 	while i < b.len() {
 		let hidden = *stack.last().unwrap_or(&false);
+		if b[i] != b'\\' || b.get(i + 1) != Some(&b'\'') {
+			flush(&mut pending, &mut out);
+		}
 		match b[i] {
 			b'{' => {
 				stack.push(hidden);
@@ -749,7 +840,7 @@ pub fn rtf_to_text(rtf: &str) -> String {
 					};
 					let v = u8::from_str_radix(std::str::from_utf8(hex).unwrap_or("0"), 16).unwrap_or(0);
 					if !hidden && skip_next_chars == 0 {
-						out.push_str(&encoding_rs::WINDOWS_1252.decode(&[v]).0);
+						pending.push(v);
 					}
 					skip_next_chars = skip_next_chars.saturating_sub(1);
 					i += 3;
@@ -833,6 +924,7 @@ pub fn rtf_to_text(rtf: &str) -> String {
 			}
 		}
 	}
+	flush(&mut pending, &mut out);
 	let cleaned: Vec<&str> = out.lines().map(str::trim_end).collect();
 	cleaned.join("\n").trim().to_string() + "\n"
 }
@@ -994,10 +1086,11 @@ pub fn tool(input: &Path, r: &Recipe) -> Result<Vec<u8>, Error> {
 		Recipe::Pretty | Recipe::Minify => format_limit(&ext),
 		_ => LINE_LIMIT,
 	};
-	let text = read_within(input, limit)?;
+	check_size(input, limit)?;
+	let (text, stored) = decode_stored(&fs::read(input)?);
 	let nl = crlf(&text);
 	let s = match r {
-		Recipe::ToUtf8 => text,
+		Recipe::ToUtf8 => return Ok(text.into_bytes()),
 		Recipe::LineEndings { crlf } => join(&lines(&text), *crlf),
 		Recipe::CleanUp => {
 			let mut out: Vec<&str> = Vec::new();
@@ -1074,7 +1167,8 @@ pub fn tool(input: &Path, r: &Recipe) -> Result<Vec<u8>, Error> {
 		Recipe::Minify => crate::code::minify(&text, &ext)?,
 		_ => return Err(Error::Engine("this tool doesn't fit text files".into())),
 	};
-	Ok(s.into_bytes())
+	// everything but Fix encoding writes the file back the way it was stored
+	Ok(encode_stored(&s, stored))
 }
 
 /// Joins text files. CSV and TSV keep one header; JSON lists become one list.
@@ -1287,6 +1381,67 @@ mod tests {
 		let list = format!("<ul>{}</ul>", "<li>item<p>text".repeat(2_000));
 		assert!(tag_depth(&list) < 5);
 		assert_eq!(tag_depth("<div><span>a</span><br><img src=x/></div>"), 2);
+	}
+
+	#[test]
+	fn one_bad_byte_doesnt_change_the_encoding() {
+		let text = decode(b"Caf\xc3\xa9 cr\xc3\xa8me\nna\xc3\xafve\nstray byte \xff\n");
+		assert!(text.starts_with("Café crème\nnaïve\n"), "{text}");
+		assert_eq!(decode(b"Caf\xe9 cr\xe8me\n"), "Café crème\n");
+	}
+
+	#[test]
+	fn tools_write_back_in_the_files_own_encoding() {
+		let dir = std::env::temp_dir().join(format!("tw-enc-{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+		let cases: [(&str, Vec<u8>, Vec<u8>); 3] = [
+			(
+				"bom.csv",
+				b"\xef\xbb\xbfb\n\xc3\xa9\n".to_vec(),
+				b"\xef\xbb\xbfb\n\xc3\xa9\n".to_vec(),
+			),
+			(
+				"old.bat",
+				b"echo Caf\xe9\r\necho B\r\n".to_vec(),
+				b"echo B\r\necho Caf\xe9\r\n".to_vec(),
+			),
+			(
+				"wide.reg",
+				[
+					&[0xffu8, 0xfe][..],
+					&"z\r\na\r\n"
+						.encode_utf16()
+						.flat_map(u16::to_le_bytes)
+						.collect::<Vec<u8>>(),
+				]
+				.concat(),
+				[
+					&[0xffu8, 0xfe][..],
+					&"a\r\nz\r\n"
+						.encode_utf16()
+						.flat_map(u16::to_le_bytes)
+						.collect::<Vec<u8>>(),
+				]
+				.concat(),
+			),
+		];
+		for (name, input, want) in cases {
+			let p = dir.join(name);
+			fs::write(&p, input).unwrap();
+			let by = if name == "bom.csv" { SortBy::Za } else { SortBy::Az };
+			assert_eq!(tool(&p, &Recipe::SortLines { by }).unwrap(), want, "{name}");
+		}
+		let _ = fs::remove_dir_all(dir);
+	}
+
+	#[test]
+	fn rtf_reads_its_code_page() {
+		assert_eq!(
+			rtf_to_text("{\\rtf1\\ansi\\ansicpg1251 \\'cf\\'f0\\'e8\\'e2\\'e5\\'f2}"),
+			"Привет\n"
+		);
+		assert_eq!(rtf_to_text("{\\rtf1\\ansi\\ansicpg932 \\'93\\'fa\\'96\\'7b}"), "日本\n");
+		assert_eq!(rtf_to_text("{\\rtf1\\ansi Caf\\'e9}"), "Café\n");
 	}
 
 	#[test]
