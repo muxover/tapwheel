@@ -1,7 +1,7 @@
 // Crop pictures and videos: drag the box or its handles, snap to a ratio, type exact sizes,
 // nudge with the arrow keys. The original resolution is kept.
 
-import { apply, fit, h, keepImageExt, keepMediaExt, numberInput, outName, prepared, savesAs, segmented, shell, stageLoading, group, formatTime } from "../tw.js";
+import { apply, fit, formatTime, group, h, keepImageExt, keepMediaExt, mediaFor, numberInput, outName, prepared, savesAs, segmented, shell, stageLoading } from "../tw.js";
 
 const RATIOS = [
 	{ label: "Free", value: 0 },
@@ -53,7 +53,7 @@ export default async function crop(init) {
 	H = info.height;
 	let media;
 	if (video) {
-		media = h("video", { src: info.url, muted: true, preload: "auto" });
+		media = mediaFor(info, { muted: true, preload: "auto" });
 		// the box only needs the size, so a video the page can't play still crops
 		await new Promise((r) => {
 			media.addEventListener("loadeddata", r, { once: true });

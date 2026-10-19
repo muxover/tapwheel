@@ -1493,6 +1493,9 @@ pub fn run() -> i32 {
 	let mut engines = Engines::in_dir(&exe_dir().join("engines"), std::env::temp_dir().join("TapWheel"));
 	engines.cache = local.join("Cache");
 	tapwheel_core::run::clear_leftovers(&engines);
+	if !smoke {
+		tapwheel_core::run::clear_scratch(&engines);
+	}
 	let packaged = system::packaged();
 	let hooks = if smoke { None } else { Some(Hooks::install(main)) };
 	let hooks_ok = hooks.as_ref().is_none_or(Hooks::ok);

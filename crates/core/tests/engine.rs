@@ -668,3 +668,57 @@ fn animated_gifs_stay_animated() {
 	let out = run(&job, &e, &Defaults::default(), &mut |_| {}, &AtomicBool::new(false)).unwrap();
 	assert_eq!(frames(&e, &out.output), 3);
 }
+
+#[test]
+fn editor_previews_read_only_what_they_show() {
+	let Some((e, dir)) = engines("previews") else { return };
+	// MPEG-4 in AVI, which the editor's browser can't play, with a keyframe every second
+	let input = dir.join("long.avi");
+	make(
+		&e.ffmpeg,
+		&[
+			"-f",
+			"lavfi",
+			"-i",
+			"testsrc2=s=320x240:r=30:d=180",
+			"-f",
+			"lavfi",
+			"-i",
+			"sine=f=440:d=180",
+			"-c:v",
+			"mpeg4",
+			"-g",
+			"30",
+			"-c:a",
+			"mp3",
+		],
+		&input,
+	);
+	let p = tapwheel_core::ff::probe(&e.ffprobe, &input).unwrap();
+	assert!(!tapwheel_core::media::plays_in_browser(&input, &p));
+
+	let strip = dir.join("strip.png");
+	tapwheel_core::media::filmstrip(&e, &input, p.duration, 14, 72, &strip).unwrap();
+	assert_eq!(size(&e, &strip), (14 * 96, 72));
+
+	let wave = tapwheel_core::media::waveform(&e, &input, p.duration, 900).unwrap();
+	assert_eq!(wave.len(), 900);
+	let quiet = wave.iter().filter(|v| **v < 0.05).count();
+	assert_eq!(
+		quiet,
+		0,
+		"a steady tone has no gaps: {:?}",
+		wave.iter().enumerate().filter(|(_, v)| **v < 0.05).collect::<Vec<_>>()
+	);
+
+	let still = dir.join("still.jpg");
+	tapwheel_core::media::still(&e, &input, 100.0, &still).unwrap();
+	assert_eq!(size(&e, &still), (320, 240));
+
+	let clip = dir.join("clip.mp4");
+	tapwheel_core::media::clip(&e, &input, &p, 100.0, 4.0, &clip, &AtomicBool::new(false)).unwrap();
+	let c = tapwheel_core::ff::probe(&e.ffprobe, &clip).unwrap();
+	assert!(tapwheel_core::media::plays_in_browser(&clip, &c));
+	assert!((c.duration - 4.0).abs() < 0.5, "{}", c.duration);
+	let _ = fs::remove_dir_all(dir);
+}

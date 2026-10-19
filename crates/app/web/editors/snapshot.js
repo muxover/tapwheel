@@ -1,7 +1,7 @@
 // Snapshot: pick the exact frame and save it as a PNG.
 // Space plays, arrows step one frame, Shift+arrows step a second.
 
-import { apply, formatTime, group, h, outName, prepared, savesAs, shell, stageLoading } from "../tw.js";
+import { apply, formatTime, group, h, mediaFor, outName, prepared, savesAs, shell, stageLoading } from "../tw.js";
 
 export default async function snapshot(init) {
 	const file = init.files[0];
@@ -20,7 +20,7 @@ export default async function snapshot(init) {
 	const [info] = await prepared();
 	if (info.error) throw new Error(info.error);
 	const step = 1 / (info.fps > 0 ? info.fps : 30);
-	const video = h("video", { src: info.url, preload: "auto", muted: true, playsinline: true });
+	const video = mediaFor(info, { preload: "auto", muted: true, playsinline: true });
 	video.muted = true;
 	const scrub = h("input", { type: "range", min: 0, max: info.duration || 0, step: "any", value: 0, "aria-label": "Position" });
 	const wrap = h("div", { class: "snap" }, video, scrub);

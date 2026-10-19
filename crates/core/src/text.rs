@@ -10,22 +10,52 @@ use crate::recipe::{Case, Recipe, SortBy};
 
 const MB: u64 = 1024 * 1024;
 
-/// The largest files the text tools take. They hold a few copies of the text while they work
-/// (measured: about 2× for counting, 4× for the line tools, 30× for data conversions), so these
-/// keep a 4 GB PC from running out of memory halfway.
-pub const READ_LIMIT: u64 = 700 * MB;
-pub const LINE_LIMIT: u64 = 400 * MB;
-pub const DATA_LIMIT: u64 = 64 * MB;
-pub const CSV_LIMIT: u64 = 32 * MB;
-/// SQL formatting slows down with the square of the size.
-pub const SQL_LIMIT: u64 = 2 * MB;
-/// Read aloud keeps the whole recording in memory, about 3 KB per character.
-pub const SPEECH_LIMIT: u64 = 300 * 1024;
+/// The largest file a tool takes: a fixed ceiling, and what fits in the memory this PC has free
+/// when the job starts, given how many times the file's size the tool holds while it works.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Limit {
+	pub ceiling: u64,
+	pub copies: u64,
+}
 
-/// Refuses a file before reading it when it's over `limit` bytes.
-pub fn check_size(path: &Path, limit: u64) -> Result<(), Error> {
-	let len = fs::metadata(path)?.len();
-	if len > limit {
+// measured copies: about 2× for counting, 4× for the line tools, 30× for data conversions and
+// 50× for CSV; the ceilings keep a 4 GB PC from running out of memory halfway
+pub const READ_LIMIT: Limit = Limit {
+	ceiling: 700 * MB,
+	copies: 2,
+};
+pub const LINE_LIMIT: Limit = Limit {
+	ceiling: 400 * MB,
+	copies: 4,
+};
+pub const DATA_LIMIT: Limit = Limit {
+	ceiling: 64 * MB,
+	copies: 30,
+};
+pub const CSV_LIMIT: Limit = Limit {
+	ceiling: 32 * MB,
+	copies: 50,
+};
+/// SQL formatting slows down with the square of the size.
+pub const SQL_LIMIT: Limit = Limit {
+	ceiling: 2 * MB,
+	copies: 30,
+};
+/// Read aloud keeps the whole recording in memory, about 3 KB per character.
+pub const SPEECH_LIMIT: Limit = Limit {
+	ceiling: 300 * 1024,
+	copies: 3 * 1024,
+};
+
+/// Refuses a file before reading it when it's over the limit's ceiling, or when this PC hasn't
+/// the memory free for it now.
+pub fn check_size(path: &Path, limit: Limit) -> Result<(), Error> {
+	check_len(fs::metadata(path)?.len(), limit, crate::budget::free_memory())
+}
+
+fn check_len(len: u64, limit: Limit, free: Option<u64>) -> Result<(), Error> {
+	if len > limit.ceiling {
+		let limit = limit.ceiling;
 		let mb = |b: u64| (b as f64 / MB as f64).ceil() as u64;
 		let size = |b: u64| {
 			if b < MB {
@@ -40,7 +70,8 @@ pub fn check_size(path: &Path, limit: u64) -> Result<(), Error> {
 			size(limit)
 		)));
 	}
-	Ok(())
+	crate::budget::fits(len.saturating_mul(limit.copies), free)
+		.map_err(|e| Error::Engine(format!("This file is too big for this tool right now: {e}")))
 }
 
 /// Reads a text file in whatever encoding it uses.
@@ -49,7 +80,7 @@ pub fn read(path: &Path) -> Result<String, Error> {
 }
 
 /// Like [`read`], refusing files over `limit` bytes before reading them.
-pub fn read_within(path: &Path, limit: u64) -> Result<String, Error> {
+pub fn read_within(path: &Path, limit: Limit) -> Result<String, Error> {
 	check_size(path, limit)?;
 	let bytes = fs::read(path)?;
 	// valid UTF-8 becomes the String without a second copy
@@ -68,7 +99,7 @@ pub struct Stored {
 }
 
 /// How much of a file the formatter for `ext` can take.
-pub fn format_limit(ext: &str) -> u64 {
+pub fn format_limit(ext: &str) -> Limit {
 	match ext {
 		"sql" => SQL_LIMIT,
 		"csv" | "tsv" => CSV_LIMIT,
@@ -1194,13 +1225,16 @@ pub fn merge(inputs: &[PathBuf]) -> Result<String, Error> {
 		.map(|i| fs::metadata(i).map(|m| m.len()).unwrap_or(0))
 		.sum();
 	let limit = if ext == "json" { DATA_LIMIT } else { READ_LIMIT };
-	if total > limit {
+	if total > limit.ceiling {
+		let limit = limit.ceiling;
 		return Err(Error::Engine(format!(
 			"These files are too big to merge together ({} MB; it works up to {} MB)",
 			total.div_ceil(MB),
 			limit / MB
 		)));
 	}
+	crate::budget::fits_now(total.saturating_mul(limit.copies))
+		.map_err(|e| Error::Engine(format!("These files are too big to merge right now: {e}")))?;
 	if matches!(ext.as_str(), "json") {
 		let mut all = Vec::new();
 		for i in inputs {
@@ -1343,16 +1377,31 @@ mod tests {
 		fs::create_dir_all(&dir).unwrap();
 		// sparse files: the size is there without the disk use
 		let log = dir.join("big.log");
-		fs::File::create(&log).unwrap().set_len(LINE_LIMIT + 1).unwrap();
+		fs::File::create(&log).unwrap().set_len(LINE_LIMIT.ceiling + 1).unwrap();
 		let err = tool(&log, &Recipe::SortLines { by: SortBy::Az })
 			.unwrap_err()
 			.to_string();
 		assert!(err.starts_with("This file is too big for this tool"), "{err}");
 		let json = dir.join("big.json");
-		fs::File::create(&json).unwrap().set_len(DATA_LIMIT + 1).unwrap();
+		fs::File::create(&json)
+			.unwrap()
+			.set_len(DATA_LIMIT.ceiling + 1)
+			.unwrap();
 		let err = convert(&json, Format::Yaml).unwrap_err().to_string();
 		assert!(err.starts_with("This file is too big"), "{err}");
 		let _ = fs::remove_dir_all(dir);
+	}
+
+	#[test]
+	fn a_file_under_the_ceiling_still_waits_for_free_memory() {
+		// 100 MB through the line tools holds about 400 MB
+		assert!(check_len(100 * MB, LINE_LIMIT, Some(4096 * MB)).is_ok());
+		let err = check_len(100 * MB, LINE_LIMIT, Some(600 * MB)).unwrap_err().to_string();
+		assert!(
+			err.starts_with("This file is too big for this tool right now: this needs about 400 MB of memory"),
+			"{err}"
+		);
+		assert!(check_len(500 * MB, LINE_LIMIT, Some(64 * 1024 * MB)).is_err());
 	}
 
 	#[test]
