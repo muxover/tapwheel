@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
@@ -159,8 +159,25 @@ fn write_tar<W: Write>(w: W, entries: &[Entry], cancel: &AtomicBool) -> Result<W
 struct Landing<'a> {
 	dest: &'a Path,
 	taken: HashSet<String>,
+	/// Files already unpacked, by their name in the archive, for hard links to copy.
+	files: HashMap<String, PathBuf>,
 	renamed: usize,
-	skipped: Vec<String>,
+	symlinks: Vec<String>,
+	broken: Vec<String>,
+}
+
+/// An entry name as plain parts joined by `/`, or `None` when it climbs out with `..`.
+/// Split by hand: on Windows, Path reads a name like `a:b.txt` as a drive.
+fn archive_key(name: &str) -> Option<String> {
+	let mut parts = Vec::new();
+	for part in name.split(['/', '\\']) {
+		match part {
+			"" | "." => {}
+			".." => return None,
+			_ => parts.push(part),
+		}
+	}
+	(!parts.is_empty()).then(|| parts.join("/"))
 }
 
 impl<'a> Landing<'a> {
@@ -168,29 +185,22 @@ impl<'a> Landing<'a> {
 		Landing {
 			dest,
 			taken: HashSet::new(),
+			files: HashMap::new(),
 			renamed: 0,
-			skipped: Vec::new(),
+			symlinks: Vec::new(),
+			broken: Vec::new(),
 		}
 	}
 
 	/// The path for an entry, or `None` when it would land outside `dest`.
 	fn place(&mut self, name: &str, dir: bool) -> Option<PathBuf> {
+		let key = archive_key(name)?;
 		let mut out = self.dest.to_path_buf();
 		let mut changed = false;
-		// split by hand: on Windows, Path reads a name like `a:b.txt` as a drive
-		for part in name.split(['/', '\\']) {
-			match part {
-				"" | "." => {}
-				".." => return None,
-				_ => {
-					let fit = windows_name(part);
-					changed |= fit != part;
-					out.push(fit);
-				}
-			}
-		}
-		if out == self.dest {
-			return None;
+		for part in key.split('/') {
+			let fit = windows_name(part);
+			changed |= fit != part;
+			out.push(fit);
 		}
 		if !dir {
 			let first = out.clone();
@@ -207,16 +217,34 @@ impl<'a> Landing<'a> {
 			}
 		}
 		self.renamed += changed as usize;
+		if !dir {
+			self.files.insert(key, out.clone());
+		}
 		Some(out)
+	}
+
+	/// Where the file a hard link names was unpacked, if it was.
+	fn unpacked(&self, target: &str) -> Option<PathBuf> {
+		self.files.get(&archive_key(target)?).cloned()
 	}
 
 	/// What the card says when not everything came out as it was named.
 	fn note(self) -> Option<String> {
 		let mut parts = Vec::new();
-		match self.skipped.as_slice() {
+		match self.symlinks.as_slice() {
 			[] => {}
-			[one] => parts.push(format!("skipped the link {one}")),
-			many => parts.push(format!("skipped {} links", many.len())),
+			[one] => parts.push(format!("skipped the symbolic link {one}")),
+			many => parts.push(format!("skipped {} symbolic links", many.len())),
+		}
+		match self.broken.as_slice() {
+			[] => {}
+			[one] => parts.push(format!(
+				"skipped the hard link {one}, its file isn't among those unpacked"
+			)),
+			many => parts.push(format!(
+				"skipped {} hard links whose files aren't among those unpacked",
+				many.len()
+			)),
 		}
 		match self.renamed {
 			0 => {}
@@ -373,9 +401,26 @@ fn untar<R: Read>(r: R, land: &mut Landing, wanted: &dyn Fn(&str) -> bool, cance
 			continue;
 		}
 		let kind = entry.header().entry_type();
-		if kind.is_symlink() || kind.is_hard_link() {
-			// a link can point anywhere, and Windows only makes them with extra rights
-			land.skipped.push(name);
+		if kind.is_symlink() {
+			// a symbolic link can point anywhere, and Windows only makes them with extra rights
+			land.symlinks.push(name);
+			continue;
+		}
+		if kind.is_hard_link() {
+			// a hard link becomes a copy of a file unpacked before it, never of anything outside
+			let target = entry
+				.link_name_bytes()
+				.map(|b| String::from_utf8_lossy(&b).into_owned())
+				.unwrap_or_default();
+			let Some(from) = land.unpacked(&target) else {
+				land.broken.push(name);
+				continue;
+			};
+			let Some(path) = land.place(&name, false) else { continue };
+			if let Some(p) = path.parent() {
+				fs::create_dir_all(p)?;
+			}
+			fs::copy(from, path)?;
 			continue;
 		}
 		let dir = kind.is_dir();
@@ -728,7 +773,7 @@ mod tests {
 	}
 
 	#[test]
-	fn extract_skips_links_and_renames_what_windows_cant_hold() {
+	fn extract_copies_hard_links_skips_symbolic_ones_and_renames_for_windows() {
 		let root = std::env::temp_dir().join(format!("tw-land-{}", std::process::id()));
 		let _ = fs::remove_dir_all(&root);
 		fs::create_dir_all(&root).unwrap();
@@ -754,6 +799,21 @@ mod tests {
 				h.set_cksum();
 				b.append(&h, body.as_bytes()).unwrap();
 			}
+			for (name, target) in [
+				("hard/copy.txt", "readme"),
+				("stray.txt", "../outside.txt"),
+				("ghost.txt", "missing.txt"),
+			] {
+				let mut h = tar::Header::new_gnu();
+				h.set_entry_type(tar::EntryType::Link);
+				h.as_mut_bytes()[..name.len()].copy_from_slice(name.as_bytes());
+				// the link name field, raw for the same reason
+				h.as_mut_bytes()[157..157 + target.len()].copy_from_slice(target.as_bytes());
+				h.set_size(0);
+				h.set_mode(0o644);
+				h.set_cksum();
+				b.append(&h, io::empty()).unwrap();
+			}
 			b.finish().unwrap();
 		}
 		let dest = root.join("out");
@@ -762,7 +822,8 @@ mod tests {
 			.unwrap();
 		assert_eq!(
 			note,
-			"Skipped the link link; renamed 3 files Windows can't hold as they were"
+			"Skipped the symbolic link link; skipped 2 hard links whose files aren't among those \
+			 unpacked; renamed 3 files Windows can't hold as they were"
 		);
 		assert_eq!(fs::read_to_string(dest.join("link/inside.txt")).unwrap(), "a");
 		assert!(!dest.join("link").is_symlink());
@@ -770,6 +831,9 @@ mod tests {
 		assert_eq!(fs::read_to_string(dest.join("a_b.txt")).unwrap(), "c");
 		assert_eq!(fs::read_to_string(dest.join("README")).unwrap(), "d");
 		assert_eq!(fs::read_to_string(dest.join("readme (2)")).unwrap(), "e");
+		assert_eq!(fs::read_to_string(dest.join("hard/copy.txt")).unwrap(), "e");
+		assert!(!dest.join("stray.txt").exists() && !root.join("outside.txt").exists());
+		assert!(!dest.join("ghost.txt").exists());
 		let _ = fs::remove_dir_all(root);
 	}
 
