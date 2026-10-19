@@ -49,8 +49,25 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// Runs work that may panic inside a library, so a bad file fails its job instead of closing
+/// the app. The panic hook still logs where it happened.
+pub fn caught<T>(failed: &str, f: impl FnOnce() -> Result<T, Error>) -> Result<T, Error> {
+	std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or_else(|_| Err(Error::Engine(failed.to_string())))
+}
+
 impl From<std::io::Error> for Error {
 	fn from(e: std::io::Error) -> Self {
 		Error::Io(e)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn a_panic_becomes_an_error() {
+		let r: Result<(), Error> = caught("this file can't be read", || panic!("deep inside a decoder"));
+		assert_eq!(r.unwrap_err().to_string(), "this file can't be read");
 	}
 }

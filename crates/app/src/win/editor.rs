@@ -102,13 +102,14 @@ impl App {
 			// tapwheel:// address would never load
 			format!("/file/{token}/{}", web::urlencode(&file_name(path)))
 		};
-		std::thread::spawn(move || {
+		let worker = std::thread::Builder::new().stack_size(tapwheel_core::run::JOB_STACK);
+		let spawned = worker.spawn(move || {
 			let started = std::time::Instant::now();
 			let never = AtomicBool::new(false);
 			let mut out = Vec::new();
 			for (i, f) in files.iter().enumerate() {
 				let mut info = json!({ "index": i });
-				let result: Result<(), tapwheel_core::Error> = (|| {
+				let result = tapwheel_core::caught("This file couldn't be opened here", || {
 					match (op, kind) {
 						(Op::Rename, _) => {}
 						(Op::RemoveBackground, _) => {
@@ -210,7 +211,7 @@ impl App {
 						}
 					}
 					Ok(())
-				})();
+				});
 				if let Err(e) = result {
 					super::log::write(&format!("{op:?} preparing {}: {e}", file_name(f)));
 					info["error"] = json!(e.to_string());
@@ -223,6 +224,9 @@ impl App {
 			}
 			send(json!({ "type": "prepared", "files": out }));
 		});
+		if let Err(e) = spawned {
+			super::log::write(&format!("{op:?}: couldn't start getting the files ready: {e}"));
+		}
 	}
 
 	pub fn web_message(&mut self, hwnd: HWND, msg: Value) {

@@ -130,7 +130,23 @@ pub fn unpremultiply(data: &[u8]) -> Vec<u8> {
 }
 
 fn decode_special(e: &Engines, input: &Path, ext: &str) -> Result<Option<PathBuf>, Error> {
-	let (w, h, rgba) = match ext {
+	if !matches!(ext, "svg" | "svgz" | "jxl" | "psd") && !is_raw(ext) {
+		return Ok(None);
+	}
+	let what = match ext {
+		"psd" => "This PSD can't be read".to_string(),
+		e if is_raw(e) => "This camera file can't be read".to_string(),
+		other => format!("This .{other} file can't be read"),
+	};
+	let (w, h, rgba) = crate::caught(&what, || decode_rgba_special(input, ext))?;
+	let tmp = temp_png(e, "src")?;
+	write_png(&tmp, w, h, &rgba)?;
+	Ok(Some(tmp))
+}
+
+/// Pictures FFmpeg can't open, decoded by their own libraries.
+fn decode_rgba_special(input: &Path, ext: &str) -> Result<(u32, u32, Vec<u8>), Error> {
+	Ok(match ext {
 		"svg" | "svgz" => render_svg(input, 1024)?,
 		"jxl" => {
 			let img = jxl_oxide::JxlImage::builder()
@@ -174,11 +190,8 @@ fn decode_special(e: &Engines, input: &Path, ext: &str) -> Result<Option<PathBuf
 				.collect();
 			(img.width as u32, img.height as u32, rgba)
 		}
-		_ => return Ok(None),
-	};
-	let tmp = temp_png(e, "src")?;
-	write_png(&tmp, w, h, &rgba)?;
-	Ok(Some(tmp))
+		other => return Err(Error::Engine(format!("can't decode .{other} here"))),
+	})
 }
 
 /// Makes the input readable by FFmpeg and works out how to stand it upright.
@@ -749,6 +762,23 @@ mod tests {
 		let txt = dir.join("a.txt");
 		fs::write(&txt, b"not a picture at all, just words here").unwrap();
 		assert_eq!(header_size(&txt), None);
+		let _ = fs::remove_dir_all(dir);
+	}
+
+	#[test]
+	fn a_broken_psd_is_an_error_not_a_crash() {
+		let dir = std::env::temp_dir().join(format!("tw-psd-{}", std::process::id()));
+		fs::create_dir_all(&dir).unwrap();
+		// a valid header whose colour-mode section claims far more bytes than the file has
+		let mut psd = b"8BPS\x00\x01\x00\x00\x00\x00\x00\x00\x00\x03".to_vec();
+		psd.extend([0, 0, 0, 16, 0, 0, 0, 16, 0, 8, 0, 3]);
+		psd.extend([0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0x40, 0]);
+		psd.extend([0, 0]);
+		let path = dir.join("cut.psd");
+		fs::write(&path, &psd).unwrap();
+		let e = Engines::in_dir(&dir, dir.join("scratch"));
+		let err = decode_special(&e, &path, "psd").unwrap_err();
+		assert_eq!(err.to_string(), "This PSD can't be read");
 		let _ = fs::remove_dir_all(dir);
 	}
 }

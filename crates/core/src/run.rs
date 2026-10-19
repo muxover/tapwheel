@@ -199,6 +199,13 @@ pub fn size_of(path: &Path) -> u64 {
 	}
 }
 
+/// Stack for the threads that run jobs: parsers and formatters recurse, and the default 2 MB
+/// runs out on deeply nested files before the depth checks would.
+pub const JOB_STACK: usize = 64 * 1024 * 1024;
+
+/// What a job's card says when its engine panicked; the log has the details.
+const BUG: &str = "TapWheel hit a bug with this file, so nothing was saved (details are in the log)";
+
 /// Runs a job into a `.tw-part` file, then gives it its final name.
 /// The final name is re-checked at the end, so a file that appeared meanwhile is never replaced.
 pub fn run(
@@ -210,7 +217,7 @@ pub fn run(
 ) -> Result<Outcome, Error> {
 	let bytes_in = job.inputs.iter().map(|p| size_of(p)).sum();
 	if job.output.as_os_str().is_empty() {
-		let note = report(job, cancel)?;
+		let note = crate::caught(BUG, || report(job, cancel))?;
 		return Ok(Outcome {
 			output: PathBuf::new(),
 			bytes_in,
@@ -222,7 +229,7 @@ pub fn run(
 	preflight(job, bytes_in)?;
 	let part = part_path(&job.output);
 	note_part(engines, &part, true);
-	let done = execute(job, &part, engines, defaults, progress, cancel);
+	let done = crate::caught(BUG, || execute(job, &part, engines, defaults, progress, cancel));
 	if let Err(e) = done {
 		remove(&part);
 		note_part(engines, &part, false);

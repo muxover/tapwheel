@@ -13,4 +13,3 @@ rust-version = "1.93"
 lto = "thin"
 codegen-units = 1
 strip = true
-panic = "abort"
