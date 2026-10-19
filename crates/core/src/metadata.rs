@@ -185,6 +185,8 @@ impl<'a> Tiff<'a> {
 
 const ORIENTATION: u16 = 0x0112;
 const GPS_IFD: u16 = 0x8825;
+const THUMB_START: u16 = 0x0201;
+const THUMB_LEN: u16 = 0x0202;
 
 /// EXIF orientation, 1 to 8, where 1 is upright.
 pub fn orientation(file: &[u8]) -> u16 {
@@ -216,7 +218,8 @@ fn write_u16(b: &mut [u8], at: usize, v: u16, le: bool) {
 	b[at..at + 2].copy_from_slice(&bytes);
 }
 
-/// Copy of an EXIF block, set upright and, if asked, without location.
+/// Copy of an EXIF block for an edited picture: set upright, without the embedded thumbnail
+/// (it still shows the original, before any crop or redaction) and, if asked, without location.
 pub fn tidy_exif(exif: &[u8], drop_location: bool) -> Vec<u8> {
 	let mut out = exif.to_vec();
 	let Some(t) = Tiff::new(exif) else { return out };
@@ -224,6 +227,26 @@ pub fn tidy_exif(exif: &[u8], drop_location: bool) -> Vec<u8> {
 	let Some(ifd) = t.ifd0() else { return out };
 	if let Some(e) = t.find(ifd, ORIENTATION) {
 		write_u16(&mut out, e + 8, 1, le);
+	}
+	// IFD0's link to IFD1, which holds the thumbnail, sits right after IFD0's entries
+	let link = ifd + 2 + t.entries(ifd).len() * 12;
+	if let Some(ifd1) = t.u32(link).map(|o| o as usize).filter(|&o| o != 0) {
+		let at = |tag| t.find(ifd1, tag).and_then(|e| t.u32(e + 8)).map(|v| v as usize);
+		if let (Some(start), Some(len)) = (at(THUMB_START), at(THUMB_LEN))
+			&& let Some(thumb) = out.get_mut(start..start.saturating_add(len))
+		{
+			thumb.fill(0);
+		}
+		for (_, entry) in t.entries(ifd1) {
+			if let Some(r) = t.value_range(entry) {
+				out[r].fill(0);
+			}
+			out[entry..entry + 12].fill(0);
+		}
+		if ifd1 + 2 <= out.len() {
+			write_u16(&mut out, ifd1, 0, le);
+		}
+		out[link..link + 4].fill(0);
 	}
 	if drop_location
 		&& let Some(e) = t.find(ifd, GPS_IFD)
@@ -242,34 +265,139 @@ pub fn tidy_exif(exif: &[u8], drop_location: bool) -> Vec<u8> {
 	out
 }
 
-/// Whether a file carries GPS coordinates.
+/// Whether a file carries GPS coordinates, in its EXIF or its XMP.
 pub fn has_location(file: &[u8]) -> bool {
-	let Some(r) = exif_range(file) else { return false };
-	let Some(t) = Tiff::new(&file[r]) else { return false };
-	t.ifd0()
-		.and_then(|ifd| t.find(ifd, GPS_IFD))
-		.and_then(|e| t.u32(e + 8))
-		.is_some_and(|gps| !t.entries(gps as usize).is_empty())
+	let in_exif = exif_range(file)
+		.and_then(|r| {
+			let t = Tiff::new(&file[r])?;
+			t.ifd0()
+				.and_then(|ifd| t.find(ifd, GPS_IFD))
+				.and_then(|e| t.u32(e + 8))
+				.map(|gps| !t.entries(gps as usize).is_empty())
+		})
+		.unwrap_or(false);
+	in_exif
+		|| xmp_ranges(file).iter().any(|(r, _)| {
+			let x = &file[r.clone()];
+			find(x, b"exif:GPSLatitude").is_some() || find(x, b"exif:GPSLongitude").is_some()
+		})
 }
 
 /// Removes location only, keeping every other detail. `None` when the format isn't handled losslessly.
 pub fn remove_location(file: &[u8]) -> Option<Vec<u8>> {
-	let r = exif_range(file)?;
-	let tidy = {
-		// keep the orientation as it was; only the location goes
-		let Some(t) = Tiff::new(&file[r.clone()]) else {
-			return Some(file.to_vec());
-		};
-		let o = t.ifd0().and_then(|i| t.find(i, ORIENTATION)).and_then(|e| t.u16(e + 8));
-		let mut x = tidy_exif(&file[r.clone()], true);
-		if let (Some(o), Some(e)) = (o, t.ifd0().and_then(|i| t.find(i, ORIENTATION))) {
-			write_u16(&mut x, e + 8, o, t.le);
-		}
-		x
-	};
+	let png = file.starts_with(b"\x89PNG\r\n\x1a\n");
+	let webp = file.starts_with(b"RIFF") && file.get(8..12) == Some(&b"WEBP"[..]);
+	if !file.starts_with(&[0xff, 0xd8]) && !png && !webp {
+		return None;
+	}
 	let mut out = file.to_vec();
-	out[r].copy_from_slice(&tidy);
+	if let Some(r) = exif_range(file)
+		&& let Some(t) = Tiff::new(&file[r.clone()])
+	{
+		// keep the orientation and the thumbnail as they were; only the location goes
+		let mut x = file[r.clone()].to_vec();
+		if let Some(e) = t.ifd0().and_then(|i| t.find(i, GPS_IFD))
+			&& let Some(gps) = t.u32(e + 8).map(|o| o as usize)
+		{
+			for (_, entry) in t.entries(gps) {
+				if let Some(v) = t.value_range(entry) {
+					x[v].fill(0);
+				}
+				x[entry..entry + 12].fill(0);
+			}
+			if gps + 2 <= x.len() {
+				write_u16(&mut x, gps, 0, t.le);
+			}
+		}
+		out[r].copy_from_slice(&x);
+	}
+	for (r, chunk) in xmp_ranges(file) {
+		if blank_xmp_location(&mut out[r])
+			&& let Some(c) = chunk
+		{
+			// a PNG chunk's checksum covers its type and data
+			let crc = crc32(&out[c.start + 4..c.end - 4]);
+			out[c.end - 4..c.end].copy_from_slice(&crc.to_be_bytes());
+		}
+	}
 	Some(out)
+}
+
+fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
+	hay.windows(needle.len()).position(|w| w == needle)
+}
+
+/// Where the XMP packets sit: the text itself, plus the whole PNG chunk when its checksum has to
+/// be redone after an edit. Compressed PNG XMP is left alone.
+fn xmp_ranges(file: &[u8]) -> Vec<(Range<usize>, Option<Range<usize>>)> {
+	const JPEG_XMP: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
+	if file.starts_with(&[0xff, 0xd8]) {
+		jpeg_segments(file)
+			.into_iter()
+			.filter(|s| s.marker == 0xe1 && file[s.data.clone()].starts_with(JPEG_XMP))
+			.map(|s| (s.data.start + JPEG_XMP.len()..s.data.end, None))
+			.collect()
+	} else if file.starts_with(b"\x89PNG\r\n\x1a\n") {
+		png_chunks(file)
+			.into_iter()
+			.filter(|c| &c.kind == b"iTXt" && file[c.data.clone()].starts_with(b"XML:com.adobe.xmp\0\0"))
+			.map(|c| (c.data.start + 18..c.data.end, Some(c.whole)))
+			.collect()
+	} else if file.starts_with(b"RIFF") {
+		riff_chunks(file)
+			.into_iter()
+			.filter(|c| &c.kind == b"XMP ")
+			.map(|c| (c.data, None))
+			.collect()
+	} else {
+		Vec::new()
+	}
+}
+
+/// XMP properties that say where a picture was taken.
+const XMP_PLACE: &[&[u8]] = &[
+	b"exif:GPS",
+	b"photoshop:City",
+	b"photoshop:State",
+	b"photoshop:Country",
+	b"Iptc4xmpCore:Location",
+];
+
+/// Blanks the location properties of an XMP packet with spaces, so its length stays the same.
+fn blank_xmp_location(x: &mut [u8]) -> bool {
+	let mut changed = false;
+	for p in XMP_PLACE {
+		let mut from = 0;
+		while let Some(at) = find(&x[from..], p).map(|i| i + from) {
+			let name_end = at
+				+ x[at..]
+					.iter()
+					.position(|c| !(c.is_ascii_alphanumeric() || *c == b':'))
+					.unwrap_or(x.len() - at);
+			let (start, end) = if at > 0 && x[at - 1] == b'<' {
+				// an element: through its closing tag, or to the end of a tag that closes itself
+				let close = [b"</", &x[at..name_end], b">"].concat();
+				let end = find(&x[name_end..], &close)
+					.map(|i| name_end + i + close.len())
+					.or_else(|| x[name_end..].iter().position(|&c| c == b'>').map(|i| name_end + i + 1))
+					.unwrap_or(name_end);
+				(at - 1, end)
+			} else if x.get(name_end) == Some(&b'=') && matches!(x.get(name_end + 1), Some(b'"' | b'\'')) {
+				let q = x[name_end + 1];
+				let end = x[name_end + 2..]
+					.iter()
+					.position(|&c| c == q)
+					.map_or(name_end, |i| name_end + 2 + i + 1);
+				(at, end)
+			} else {
+				(at, name_end)
+			};
+			x[start..end].fill(b' ');
+			changed = true;
+			from = end.max(at + 1);
+		}
+	}
+	changed
 }
 
 /// Removes EXIF, XMP, comments and text, keeping the colour profile and the pixels.
@@ -575,6 +703,10 @@ fn crc32(data: &[u8]) -> u32 {
 pub(crate) mod tests {
 	use super::*;
 
+	fn has(hay: &[u8], needle: &[u8]) -> bool {
+		hay.windows(needle.len()).any(|w| w == needle)
+	}
+
 	/// A tiny JPEG-shaped file with EXIF holding an orientation and a GPS latitude.
 	pub fn sample_jpeg(orient: u16) -> Vec<u8> {
 		// TIFF: IFD0 at 8 with 2 entries (orientation, GPS pointer), GPS IFD with 1 entry (latitude ref "N")
@@ -665,6 +797,70 @@ pub(crate) mod tests {
 		assert!(got.contains(&("Camera".into(), "Model".into(), "Pixel 9".into())));
 		assert!(got.contains(&("Shot".into(), "ISO".into(), "200".into())));
 		assert!(!got.iter().any(|(_, n, _)| n.contains("atitude")), "{got:?}");
+	}
+
+	#[test]
+	fn edited_pictures_lose_the_thumbnail() {
+		use exif::experimental::Writer;
+		use exif::{Field, In, Value};
+		let thumb = [0xff, 0xd8, 0xab, 0xcd, 0xef, 0x12, 0xff, 0xd9];
+		let model = Field {
+			tag: exif::Tag::Model,
+			ifd_num: In::PRIMARY,
+			value: Value::Ascii(vec![b"Pixel 9".to_vec()]),
+		};
+		let mut w = Writer::new();
+		w.push_field(&model);
+		w.set_jpeg(&thumb, In::THUMBNAIL);
+		let mut tiff = std::io::Cursor::new(Vec::new());
+		w.write(&mut tiff, false).unwrap();
+		let tiff = tiff.into_inner();
+		assert!(has(&tiff, &thumb));
+		let tidy = tidy_exif(&tiff, false);
+		assert!(!has(&tidy, &thumb), "the old picture is still inside");
+		let jpg = insert_exif(&[0xff, 0xd8, 0xff, 0xd9], &tidy).unwrap();
+		let got = fields(&jpg);
+		assert!(
+			got.contains(&("Camera".into(), "Model".into(), "Pixel 9".into())),
+			"{got:?}"
+		);
+	}
+
+	#[test]
+	fn location_in_xmp_goes_too() {
+		let xmp = br#"<x:xmpmeta><rdf:Description exif:GPSLatitude="30,2.0N" exif:GPSLongitude='31,14.0E' photoshop:City="Cairo"><exif:GPSAltitude>12/1</exif:GPSAltitude><dc:title>Trip</dc:title></rdf:Description></x:xmpmeta>"#;
+		let mut seg = vec![0xff, 0xe1];
+		seg.extend(((xmp.len() + 29 + 2) as u16).to_be_bytes());
+		seg.extend(b"http://ns.adobe.com/xap/1.0/\0");
+		seg.extend(xmp);
+		let j = sample_jpeg(1);
+		let mut with = j[..2].to_vec();
+		with.extend(&seg);
+		with.extend(&j[2..]);
+		assert!(has_location(&with));
+		let out = remove_location(&with).unwrap();
+		assert_eq!(out.len(), with.len());
+		assert!(!has_location(&out));
+		for gone in [&b"GPS"[..], b"Cairo", b"12/1"] {
+			assert!(!has(&out, gone));
+		}
+		assert!(has(&out, b"<dc:title>Trip</dc:title>"));
+
+		let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+		let mut body = b"iTXtXML:com.adobe.xmp\0\0\0\0\0".to_vec();
+		body.extend(xmp);
+		png.extend(((body.len() - 4) as u32).to_be_bytes());
+		png.extend(&body);
+		png.extend(crc32(&body).to_be_bytes());
+		png.extend([0, 0, 0, 0, b'I', b'E', b'N', b'D', 0xae, 0x42, 0x60, 0x82]);
+		assert!(has_location(&png));
+		let out = remove_location(&png).unwrap();
+		assert!(!has_location(&out));
+		let c = &png_chunks(&out)[0];
+		assert_eq!(
+			&out[c.data.end..c.whole.end],
+			crc32(&out[c.whole.start + 4..c.data.end]).to_be_bytes()
+		);
 	}
 
 	#[test]

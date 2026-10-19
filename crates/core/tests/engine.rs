@@ -471,3 +471,69 @@ fn background_comes_off() {
 	let solid = alphas.iter().filter(|a| **a == 255).count() as f32 / alphas.len() as f32;
 	assert!(clear > 0.05 && solid > 0.05, "clear {clear}, solid {solid}");
 }
+
+#[test]
+fn a_redacted_photo_keeps_neither_location_nor_the_old_thumbnail() {
+	let Some((e, dir)) = engines("redact") else { return };
+	let plain = dir.join("plain.jpg");
+	make(
+		&e.ffmpeg,
+		&["-f", "lavfi", "-i", "testsrc2=s=200x100:d=1", "-frames:v", "1"],
+		&plain,
+	);
+	// EXIF with a GPS latitude reference in IFD0's GPS directory, and IFD1 holding a thumbnail
+	let thumb = [0xff, 0xd8, 0x5a, 0x5b, 0x5c, 0x5d, 0xff, 0xd9];
+	let mut t = b"II*\0\x08\0\0\0".to_vec();
+	t.extend(1u16.to_le_bytes());
+	t.extend(0x8825u16.to_le_bytes());
+	t.extend(4u16.to_le_bytes());
+	t.extend(1u32.to_le_bytes());
+	t.extend(26u32.to_le_bytes());
+	t.extend(44u32.to_le_bytes());
+	// GPS directory at 26
+	t.extend(1u16.to_le_bytes());
+	t.extend(1u16.to_le_bytes());
+	t.extend(2u16.to_le_bytes());
+	t.extend(2u32.to_le_bytes());
+	t.extend(b"N\0\0\0");
+	t.extend(0u32.to_le_bytes());
+	// IFD1 at 44 with the thumbnail's offset and length, thumbnail at 74
+	t.extend(2u16.to_le_bytes());
+	t.extend(0x0201u16.to_le_bytes());
+	t.extend(4u16.to_le_bytes());
+	t.extend(1u32.to_le_bytes());
+	t.extend(74u32.to_le_bytes());
+	t.extend(0x0202u16.to_le_bytes());
+	t.extend(4u16.to_le_bytes());
+	t.extend(1u32.to_le_bytes());
+	t.extend((thumb.len() as u32).to_le_bytes());
+	t.extend(0u32.to_le_bytes());
+	t.extend(thumb);
+	let photo = dir.join("street.jpg");
+	fs::write(
+		&photo,
+		tapwheel_core::metadata::insert_exif(&fs::read(&plain).unwrap(), &t).unwrap(),
+	)
+	.unwrap();
+	assert!(tapwheel_core::metadata::has_location(&fs::read(&photo).unwrap()));
+	// what the Redact window hands back: its drawing as a PNG
+	let drawn = dir.join("drawn.png");
+	make(
+		&e.ffmpeg,
+		&["-f", "lavfi", "-i", "color=black:s=200x100:d=1", "-frames:v", "1"],
+		&drawn,
+	);
+	let recipe = Recipe::Rendered {
+		file: drawn,
+		suffix: "redacted".into(),
+		to: None,
+	};
+	let job = plan(Op::Redact, &recipe, std::slice::from_ref(&photo)).remove(0);
+	let out = run(&job, &e, &Defaults::default(), &mut |_| {}, &AtomicBool::new(false)).unwrap();
+	let bytes = fs::read(&out.output).unwrap();
+	assert!(!tapwheel_core::metadata::has_location(&bytes));
+	assert!(
+		!bytes.windows(thumb.len()).any(|w| w == thumb),
+		"the unredacted thumbnail is still inside"
+	);
+}
