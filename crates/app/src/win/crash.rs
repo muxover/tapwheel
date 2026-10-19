@@ -128,12 +128,31 @@ fn dump(info: *const EXCEPTION_POINTERS) -> bool {
 	}
 }
 
+/// What the exception codes seen in practice mean, for the log line.
+fn meaning(code: u32) -> &'static str {
+	match code {
+		0xc000_0005 => " (access violation)",
+		0xc000_0017 => " (out of memory)",
+		0xc000_001d => " (illegal instruction)",
+		0xc000_0094 => " (integer divided by zero)",
+		0xc000_00fd => " (stack overflow)",
+		0xc000_0374 => " (heap corruption)",
+		0xc000_0409 => " (fail fast)",
+		// Chromium's own out-of-memory code, raised inside the app by WebView2
+		0xe000_0008 => " (out of memory in WebView2)",
+		0xe06d_7363 => " (C++ exception)",
+		0x8000_0003 => " (breakpoint)",
+		_ => "",
+	}
+}
+
 unsafe extern "system" fn on_fault(info: *const EXCEPTION_POINTERS) -> i32 {
 	let (code, at) = unsafe { info.as_ref().and_then(|i| i.ExceptionRecord.as_ref()) }
 		.map_or((0, 0), |r| (r.ExceptionCode as u32, r.ExceptionAddress as usize));
 	let dumped = dump(info);
 	append(&line(format_args!(
-		"crash: exception {code:#010x} at {at:#x}{}",
+		"crash: exception {code:#010x}{} at {at:#x}{}",
+		meaning(code),
 		if dumped { ", minidump in the crash folder" } else { "" }
 	)));
 	// keep searching, so Windows still reports the crash the usual way
@@ -181,6 +200,7 @@ unsafe impl GlobalAlloc for Logged {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use windows_sys::Win32::System::Diagnostics::Debug::{CONTEXT, EXCEPTION_RECORD};
 
 	#[test]
 	fn a_fault_and_a_failed_allocation_leave_a_trace() {
@@ -189,10 +209,24 @@ mod tests {
 		let (log, dmp) = (dir.join("tapwheel.log"), dir.join("tapwheel.dmp"));
 		set_paths(&log, &dmp);
 		assert_eq!(unsafe { on_fault(std::ptr::null()) }, 0);
+		let mut record = EXCEPTION_RECORD {
+			ExceptionCode: 0xe000_0008_u32 as i32,
+			..Default::default()
+		};
+		let mut context = CONTEXT::default();
+		let pointers = EXCEPTION_POINTERS {
+			ExceptionRecord: &mut record,
+			ContextRecord: &mut context,
+		};
+		assert_eq!(unsafe { on_fault(&pointers) }, 0);
 		let huge = Layout::from_size_align(1 << 60, 8).unwrap();
 		assert!(unsafe { Logged.alloc(huge) }.is_null());
 		let text = std::fs::read_to_string(&log).unwrap();
-		assert!(text.contains("crash: exception 0x00000000"), "{text}");
+		assert!(text.contains("crash: exception 0x00000000 at"), "{text}");
+		assert!(
+			text.contains("crash: exception 0xe0000008 (out of memory in WebView2) at 0x0"),
+			"{text}"
+		);
 		assert!(
 			text.contains(&format!("out of memory: Windows couldn't give {} bytes", 1usize << 60)),
 			"{text}"
