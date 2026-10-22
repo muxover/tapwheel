@@ -449,6 +449,7 @@ impl App {
 	fn place_wheel(&mut self) {
 		let pt = cursor();
 		let (work, scale) = monitor_at(pt);
+		let scale = wheel::fit_scale(scale, work.right - work.left, work.bottom - work.top);
 		let (w, h) = wheel::size(scale);
 		self.wheel.scale = scale;
 		self.wheel.x = (pt.x - (wheel::CX * scale) as i32).clamp(work.left, (work.right - w as i32).max(work.left));

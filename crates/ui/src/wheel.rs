@@ -111,6 +111,14 @@ pub fn size(scale: f32) -> (u32, u32) {
 	((WIDTH * scale).ceil() as u32, (HEIGHT * scale).ceil() as u32)
 }
 
+/// The scale to draw at on a work area of `work_w` by `work_h` pixels: the display's own, or
+/// smaller when the wheel wouldn't fit, as on a 1366 by 768 screen at 125%.
+pub fn fit_scale(scale: f32, work_w: i32, work_h: i32) -> f32 {
+	let room = (work_w.max(1) as f32 / WIDTH).min(work_h.max(1) as f32 / HEIGHT);
+	// a pixel to spare, so rounding the size up never pushes past the edge
+	scale.min(room * (1.0 - 1.0 / HEIGHT))
+}
+
 pub fn pages(n: usize) -> usize {
 	if n <= PER_PAGE { 1 } else { n.div_ceil(PER_PAGE - 1) }
 }
@@ -784,6 +792,22 @@ fn draw_keys(pm: &mut Pixmap, v: &WheelView, theme: &Theme, fonts: &Fonts, s: f3
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn the_wheel_fits_a_small_screen() {
+		// 1366 by 768 at 125%, with the taskbar: the work area is 1366 by 708 pixels
+		let s = fit_scale(1.25, 1366, 708);
+		assert!(s < 1.25);
+		let (w, h) = size(s);
+		assert!(w <= 1366 && h <= 708, "{w} by {h}");
+		// where it fits, the display's own scale stays
+		assert_eq!(fit_scale(1.25, 1920, 1032), 1.25);
+		assert_eq!(fit_scale(2.0, 3840, 2088), 2.0);
+		for (scale, ww, wh) in [(1.0, 1024, 560), (1.5, 1280, 680), (2.0, 1100, 900), (1.75, 900, 1500)] {
+			let (w, h) = size(fit_scale(scale, ww, wh));
+			assert!(w as i32 <= ww && h as i32 <= wh, "{scale}: {w} by {h} on {ww} by {wh}");
+		}
+	}
 
 	fn view(n: usize, ring: &[&str]) -> WheelView {
 		WheelView {
