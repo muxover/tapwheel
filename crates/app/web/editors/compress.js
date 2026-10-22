@@ -2,6 +2,9 @@
 
 import { apply, fit, formatSize, group, h, keepImageExt, loadImage, mediaFor, numberInput, outName, prepared, savesAs, segmented, shell, slider, stageLoading } from "../tw.js";
 
+/** The words for a video's CRF: lower keeps more. The slider runs the other way, so it shows 58 minus the CRF. */
+const quality = (crf) => (crf <= 22 ? "Very high" : crf <= 26 ? "High" : crf <= 30 ? "Balanced" : crf <= 34 ? "Small" : "Smallest");
+
 export default async function compress(init) {
 	const file = init.files[0];
 	const video = init.kind === "video";
@@ -11,7 +14,7 @@ export default async function compress(init) {
 		? { crf: d.video_crf_balanced, mb: 25, height: 0 }
 		: { quality: d.image_quality_balanced, kb: Math.max(50, Math.round(file.size / 1024 / 3)), edge: 0 };
 	const qual = video
-		? slider({ label: "Quality", min: 18, max: 40, value: st.crf, format: (v) => (v <= 22 ? "Very high" : v <= 26 ? "High" : v <= 30 ? "Balanced" : v <= 34 ? "Small" : "Smallest"), oninput: (v) => (st.crf = 58 - v) })
+		? slider({ label: "Quality", min: 18, max: 40, value: st.crf, format: (v) => quality(58 - v), oninput: (v) => (st.crf = 58 - v) })
 		: slider({ label: "Quality", min: 30, max: 95, value: st.quality, format: (v) => `${v}%`, oninput: (v) => (st.quality = v) });
 	if (video) qual.set(58 - st.crf);
 	const target = numberInput(video ? st.mb : st.kb, { label: "Target size", min: 1, onchange: (v) => (video ? (st.mb = v) : (st.kb = v)) });
