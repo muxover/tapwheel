@@ -14,7 +14,7 @@ use super::{hooks, shell};
 
 /// Links pages may open, so a page can't send the browser anywhere else.
 const LINKS: &[&str] = &[
-	"https://tapwheel.muxover.com",
+	"https://tapwheel.app",
 	"https://github.com/muxover/tapwheel",
 	"https://muxover.com",
 	"https://apps.microsoft.com/detail/9MW1GB4106VS",

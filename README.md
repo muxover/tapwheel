@@ -12,7 +12,7 @@
 
 ---
 
-TapWheel puts file tools on a wheel in Windows 10 and 11. Start dragging a file in File Explorer or on the desktop, tap Shift, Ctrl or Alt, and a wheel opens under your pointer. Drop the file on JPG, Trim, Remove BG or ZIP and the new file appears next to the old one. Pictures, video, sound, icons, text, code and archives, all done on your PC, with nothing uploaded. It's inspired by [Tangerine](https://tangerineformac.com/) for Mac and built natively for Windows. Try the tool windows at [tapwheel.muxover.com](https://tapwheel.muxover.com/#try).
+TapWheel puts file tools on a wheel in Windows 10 and 11. Start dragging a file in File Explorer or on the desktop, tap Shift, Ctrl or Alt, and a wheel opens under your pointer. Drop the file on JPG, Trim, Remove BG or ZIP and the new file appears next to the old one. Pictures, video, sound, icons, text, code and archives, all done on your PC, with nothing uploaded. It's inspired by [Tangerine](https://tangerineformac.com/) for Mac and built natively for Windows. Try the tool windows at [tapwheel.app](https://tapwheel.app/#try).
 
 ---
 
@@ -115,7 +115,7 @@ tapwheel/
 │       └── web/              # The tool windows and settings, shown in WebView2
 ├── engines/                  # Pinned FFmpeg, ONNX Runtime and model, and the script that fetches them
 ├── packaging/                # Portable zip and Store package builder, Store manifest and listing
-├── site/                     # tapwheel.muxover.com, its sample files and its layout check
+├── site/                     # tapwheel.app, its sample files and its layout check
 ├── release-notes/            # One file per release
 └── docs/PROJECT.md           # Maintainer notes
 ```
@@ -136,7 +136,7 @@ Licensed under the [GPL-3.0](LICENSE) license. Third-party parts are listed in [
 
 ## Links
 
-- Website: https://tapwheel.muxover.com
+- Website: https://tapwheel.app
 - Microsoft Store: https://apps.microsoft.com/detail/9MW1GB4106VS
 - Repository: https://github.com/muxover/tapwheel
 - Issues: https://github.com/muxover/tapwheel/issues

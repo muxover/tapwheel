@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://tapwheel.muxover.com/sitemap.xml
+Sitemap: https://tapwheel.app/sitemap.xml

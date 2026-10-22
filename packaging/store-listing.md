@@ -82,9 +82,9 @@ The package already carries its tiles and icons, drawn from the app's own mark. 
 
 ## Support and privacy
 
-- Privacy policy URL: https://tapwheel.muxover.com/privacy
-- Website: https://tapwheel.muxover.com/
-- Support contact: https://tapwheel.muxover.com/support
+- Privacy policy URL: https://tapwheel.app/privacy
+- Website: https://tapwheel.app/
+- Support contact: https://tapwheel.app/support
 
 ## Category
 

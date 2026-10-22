@@ -6,5 +6,9 @@
     "not_found_handling": "404-page",
     "html_handling": "drop-trailing-slash"
   },
-  "routes": [{ "pattern": "tapwheel.muxover.com", "custom_domain": true }]
+  "routes": [
+    { "pattern": "tapwheel.app", "custom_domain": true },
+    // the old address stays attached so its DNS stays proxied; a Cloudflare Redirect Rule sends it to tapwheel.app
+    { "pattern": "tapwheel.muxover.com", "custom_domain": true }
+  ]
 }

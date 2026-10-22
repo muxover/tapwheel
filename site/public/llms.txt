@@ -2,8 +2,8 @@
 
 > Free, open-source file tools for Windows 10 and 11. Drag a file, tap Shift, Ctrl or Alt, and drop it on the wheel that opens under the pointer. Convert, crop, trim, compress, add or remove backgrounds, annotate, redact, tag, format code, pack and unpack archives, rename in bulk and see what a file really is, for pictures, video, sound, icons, text, code and archives. Runs offline with a bundled FFmpeg and background removal model. Made by Jax (muxover). Inspired by Tangerine for Mac.
 
-- [Home](https://tapwheel.muxover.com/): what it does, a wheel to play with, the tool windows to try with sample files, every format and tool, safety, FAQ, download
-- [Privacy](https://tapwheel.muxover.com/privacy): the app connects to nothing; the site sets no cookies
-- [Support](https://tapwheel.muxover.com/support): troubleshooting and contact
+- [Home](https://tapwheel.app/): what it does, a wheel to play with, the tool windows to try with sample files, every format and tool, safety, FAQ, download
+- [Privacy](https://tapwheel.app/privacy): the app connects to nothing; the site sets no cookies
+- [Support](https://tapwheel.app/support): troubleshooting and contact
 - [Source](https://github.com/muxover/tapwheel): GPL-3.0 code, releases and changelog
-- [Wheel contents](https://tapwheel.muxover.com/data/wheel.json): every format each kind of file opens and every tool the wheels offer, as JSON
+- [Wheel contents](https://tapwheel.app/data/wheel.json): every format each kind of file opens and every tool the wheels offer, as JSON
