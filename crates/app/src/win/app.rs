@@ -6,7 +6,7 @@ use std::time::Instant;
 use tapwheel_core::ops::{selection_badge, selection_kind};
 use tapwheel_core::run::Engines;
 use tapwheel_core::settings::Key;
-use tapwheel_core::{Kind, Mode as OpMode, Op, Recipe, Settings, Wheel, choices, plan, recipe_for};
+use tapwheel_core::{Kind, Mode as OpMode, Op, Recipe, Settings, Wheel, choices, recipe_for};
 use tapwheel_ui::hud::{self, Button, Card, HudView, State};
 use tapwheel_ui::wheel::{self, Hover, KeyHint, Motion, Slice, WheelView};
 use tapwheel_ui::{Fonts, Theme};
@@ -815,23 +815,18 @@ impl App {
 
 	pub fn run_recipe(&mut self, op: Op, recipe: Recipe, files: Vec<PathBuf>) {
 		let kind = selection_kind(&files);
-		let jobs = plan(op, &recipe, &files);
-		if jobs.is_empty() {
-			self.jobs
-				.problem(op, kind, &files, "Nothing to do for these files".into());
-		} else {
-			let main = self.main as usize;
-			self.jobs.start(
-				op,
-				files,
-				jobs,
-				recipe,
-				self.settings.defaults.clone(),
-				move || unsafe {
-					PostMessageW(main as HWND, WM_APP_JOBS, 0, 0);
-				},
-			);
-		}
+		let main = self.main as usize;
+		// the job's thread works out its files and names, which looks at each one on disk
+		self.jobs.start(
+			op,
+			kind,
+			files,
+			recipe,
+			self.settings.defaults.clone(),
+			move || unsafe {
+				PostMessageW(main as HWND, WM_APP_JOBS, 0, 0);
+			},
+		);
 		self.refresh_hud();
 	}
 
