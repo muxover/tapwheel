@@ -56,6 +56,9 @@ Fits your PC is a rule for every version: every heavy tool knows what it costs a
 - 2026-10-22: the roadmap is redesigned under the five rules in Position, so the app never gets crammed. Screen capture and recording, Copy anything, AI rewrite and email replies, the command palette and desktop layer, the duplicate finder, folder summaries, extensions, a CLI, watch folders and the full Office-to-Office matrix leave the roadmap. This replaces the 2026-10-18 capture plan and the 2026-10-19 rule of keeping every feature (Jax's call).
 - 2026-10-22: the site moves to tapwheel.app and tapwheel.muxover.com redirects to it; the switch ships with v0.1.1 (Jax's call).
 - 2026-10-22: three ideas from Tangerine go in: batch convert with drag and Shift (same kind since v0.1.0, mixed kinds in v0.6.0), adapting to the PC to stay smooth (Fits your PC), and a logo that follows the Windows theme (v0.2.0) (Jax's call).
+- 2026-10-22: the brand is about Windows: the site, README and Store copy say Windows and never name a version. The minimum version stays in the Store manifest (Jax's call).
+- 2026-10-22: v0.2.0 redesigns the whole site and brand identity, smooth and iconic, with the Windows identity (Jax's call).
+- 2026-10-22: Terminal leaves the Alt wheel and the README in v0.2.0; removing it is a change, so it stays out of the patch.
 - 2026-10-19: Extract unpacks a hard link as a copy of the file it names, only when that file was unpacked from the same archive (the zip-slip check applies to the target too), and skips symbolic links (Jax's call).
 
 ## Status
@@ -288,6 +291,8 @@ Progress: phases 1, 2 and 3 are on `build`. The Windows CI run on the head (0331
 - Windows on Arm: a native ARM64 build next to x64, built and tested in CI, in the same Store listing and as its own portable zip.
 - Report a problem: a button opens a filled-in GitHub issue in the browser with the app version, the Windows version and display setup, and the end of the log. Nothing is sent until the user posts it.
 - winget: `winget install 9MW1GB4106VS` is checked to resolve before it's advertised.
+- Terminal leaves the Alt wheel and the README.
+- A new site and brand identity: the whole site and the brand redone to be smooth and iconic, with the Windows identity throughout. The copy says Windows and names no version.
 
 ## v0.3.0: languages
 
@@ -328,13 +333,11 @@ Each version builds on the last; patch releases (v0.x.1 and up) fix reported bug
 | v0.7.0 | Hardening | Compatibility, fuzzing, speed on a low-end PC, upgrade and uninstall tests; fixes only |
 | v1.0.0 | Stable | Stable recipe format, documented limits, no known data-loss, security or accessibility bugs |
 
-Off the roadmap (2026-10-22): screen capture and recording, Copy anything from the screen, AI rewrite and email replies, the command palette and desktop layer, the duplicate finder and folder summaries, extensions and community themes, a CLI and watch folders, the full Office-to-Office matrix.
+Off the roadmap (2026-10-22), possibly separate apps later: screen capture and recording, Copy anything from the screen, AI rewrite and email replies, the command palette and desktop layer, the duplicate finder and folder summaries, extensions and community themes, a CLI and watch folders, the full Office-to-Office matrix.
 
 Never: cloud accounts, online conversion, an AI chat window, a plugin marketplace.
 
 ## Open questions
 
 - How often an Alt tap showed Explorer's "Create link" instead of the wheel in the PC test (K1). Settles the hook work in phase 3 of v0.1.1.
-- Whether the features taken off the roadmap are dropped for good or kept for a separate companion app.
-- Whether Terminal stays on the Alt wheel (folders and code files).
-- Whether the site keeps saying Windows 10 works before anyone has tested it.
+- Whether mixed-kind batches move earlier than v0.6.0.
