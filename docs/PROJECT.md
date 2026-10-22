@@ -2,7 +2,21 @@
 
 ## What this is
 
-TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and acts on files without opening an app. You start dragging a file, tap Shift, Ctrl or Alt, and a wheel opens under the pointer. Dropping on a slice converts the file, runs a tool or opens a small editor, and the result lands next to the original. It's inspired by Tangerine for Mac and built natively for Windows, and it aims to be the most complete and polished tool of its kind on any platform.
+TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and acts on files without opening an app. You start dragging a file, tap Shift, Ctrl or Alt, and a wheel opens under the pointer. Dropping on a slice converts the file, runs a tool or opens a small editor, and the result lands next to the original. It's inspired by Tangerine for Mac and built natively for Windows. It stays free forever.
+
+## Position
+
+The fastest way to do one thing to a file on Windows: drag, tap, drop, done, offline. TapWheel isn't a file manager, a screenshot tool, a launcher or an AI assistant; it lives between picking a file up and putting it down.
+
+Every feature passes all five rules:
+
+1. It starts from a file being dragged or selected.
+2. It ends as a file next to the source, or on the clipboard.
+3. It's one drop or one small window.
+4. It works offline. A one-click download from an official source is the only exception.
+5. It fits the slice budget: at most 8 slices on a file kind's first page. A new tool goes into a ring, into More, or replaces a weaker one.
+
+Fits your PC is a rule for every version: every heavy tool knows what it costs and adapts to the device, so the app stays smooth on a low-end PC.
 
 ## Stack and layout
 
@@ -13,7 +27,7 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - `crates/app/web`: the editor and settings pages (HTML, CSS, JS) shown in WebView2, also reused by the website's live demo.
 - `engines/`: pinned FFmpeg and FFprobe build and the background-removal model (version, URL, SHA-256), fetched by `fetch.ps1`. Never committed.
 - `packaging/`: portable zip and Store MSIX builder, Store manifest.
-- `site/`: tapwheel.muxover.com.
+- `site/`: tapwheel.app (tapwheel.muxover.com redirects to it).
 
 ## Decisions
 
@@ -39,11 +53,14 @@ TapWheel is a free, open-source Windows 10 and 11 app that converts, edits and a
 - 2026-10-19: the plan keeps every feature whatever other tools a PC already has. v0.2.0 also gets a native ARM64 build, a Report a problem button and winget; v0.3.0 also gets translations (Arabic first, right to left). Patch releases fix reported bugs only.
 - 2026-10-19: v0.1.1 fixes what the full audit of v0.1.0 found that crashes the app or writes wrong output, every item with a test that fails before the fix. The UI-thread work (hooks, editors, memory budgets) waits for the test results from Jax's PC, which decide the details of K1 and K2 (Jax's call).
 - 2026-10-19: Minify is gone for CSV and stays gone; it's logged as the T-D9 bug fix, since minifying a CSV could only damage it (Jax's call).
+- 2026-10-22: the roadmap is redesigned under the five rules in Position, so the app never gets crammed. Screen capture and recording, Copy anything, AI rewrite and email replies, the command palette and desktop layer, the duplicate finder, folder summaries, extensions, a CLI, watch folders and the full Office-to-Office matrix leave the roadmap. This replaces the 2026-10-18 capture plan and the 2026-10-19 rule of keeping every feature (Jax's call).
+- 2026-10-22: the site moves to tapwheel.app and tapwheel.muxover.com redirects to it; the switch ships with v0.1.1 (Jax's call).
+- 2026-10-22: three ideas from Tangerine go in: batch convert with drag and Shift (same kind since v0.1.0, mixed kinds in v0.6.0), adapting to the PC to stay smooth (Fits your PC), and a logo that follows the Windows theme (v0.2.0) (Jax's call).
 - 2026-10-19: Extract unpacks a hard link as a copy of the file it names, only when that file was unpacked from the same archive (the zip-slip check applies to the target too), and skips symbolic links (Jax's call).
 
 ## Status
 
-v0.1.0 is out: released on GitHub on 2026-10-18 (the zip and checksums), the site live at https://tapwheel.muxover.com, and the app public on the Microsoft Store (https://apps.microsoft.com/detail/9MW1GB4106VS) since 2026-10-19. Every tool and window was tried on Jax's Windows 11 PC; Windows 10, 125 to 200% scaling and two monitors are still untried. v0.1.1, the audit fixes below, is being built on `build`; v0.2.0 follows it.
+v0.1.0 is out: released on GitHub on 2026-10-18 (the zip and checksums), the site live at https://tapwheel.app (since 2026-10-22; first at tapwheel.muxover.com), and the app public on the Microsoft Store (https://apps.microsoft.com/detail/9MW1GB4106VS) since 2026-10-19. Every tool and window was tried on Jax's Windows 11 PC; Windows 10, 125 to 200% scaling and two monitors are still untried. v0.1.1, the audit fixes below, is being built on `build`; v0.2.0 follows it.
 
 ## How the wheel works (all versions)
 
@@ -246,7 +263,12 @@ Done when: the PC test shows the wheel opening on every Alt tap with the Trim wi
 | 3 | The UI thread and editors | The PC test results are in and the phase 3 bar above holds |
 | Release | Notes, CHANGELOG, the signed release commit and tag | `release-notes/v0.1.1.md` and the CHANGELOG entry are written, and the tag builds the zip and checksums |
 
-Progress: phases 1 and 2 are on `build` with CI green; the PC test results are in; phase 3 hasn't started.
+### Also in v0.1.1
+
+- The wheel fits the work area: at 1366×768 and 125% the 750 px wheel is taller than the 708 px work area and clips the key pill.
+- The move to tapwheel.app: the site's canonical and `og:` tags, sitemap, `robots.txt`, `security.txt`, the README, the Store listing text and the two links in the app (`crates/app/src/win/editor.rs`, `crates/app/web/settings.js`); `wrangler.jsonc` lists both domains, and a Cloudflare Redirect Rule sends tapwheel.muxover.com to the same path on tapwheel.app with a 301.
+
+Progress: phases 1, 2 and 3 are on `build`. The Windows CI run on the head (0331fd0) is red and the failing or hanging test isn't found yet. The two items above aren't started.
 
 ### Release blockers for v0.1.1
 
@@ -254,58 +276,65 @@ Progress: phases 1 and 2 are on `build` with CI green; the PC test results are i
 - A crash in the PC test that leaves no line in the log or the crash folder.
 - A behaviour change that isn't a bug fix (patch rule).
 
-## v0.2.0: Copy anything, capture, your own wheels and screen readers
+## v0.2.0: Reach and control
 
-One version with everything below, not split (Jax, 2026-10-19).
-
-- Capture, from the same shortcut and the tray: a screenshot of an area, a window or the whole screen, opened straight in the Annotate window or copied; a screen recording of an area, a window or a screen to MP4 or GIF, with or without sound and the pointer, a countdown, and Stop from the tray or the shortcut again. Both save next to each other in a folder you choose, and every result gets a card with the same tools as any file.
+- A way in without a drag: Enter on the Explorer selection (A5), and an Explorer command handler that puts TapWheel in the right-click menu (top level on Windows 11) for the Store and portable builds.
 - Your own wheels: hide, pin and reorder slices on each wheel; save a tool's settings as your own ring choice (for example "Compress to 2 MB"); pick which wheel each key opens; wheel size and the accent colour. Everything is in Settings, with a reset.
-- Copy anything: a shortcut (and a tray item) freezes the screen; drag over any area (a paused video, a picture, a PDF page, an app that won't let you select) and its text is copied with the offline Windows OCR, in the languages Windows has installed. Tables come out as tab-separated rows.
-- QR and barcodes: the same capture reads QR codes and common barcodes; links open or copy, Wi-Fi codes show the network and password, text is copied.
-- From the wheel: images get Copy text and Read QR; videos get Copy text from the current frame chosen in a frame picker.
-- Make QR: any text or link file, or the clipboard, into a QR PNG or SVG.
+- Fits your PC: a device profile read at start (CPU cores, memory, the graphics card and its hardware encoders, free space on the output and temp drives, battery and power mode, refresh rate). Batches run as many jobs at once as the PC can carry; heavy jobs wait on Battery saver and say so on the card; the wheel's animation drops to a fade when Windows animations are off or the graphics card is weak; an idle memory target is set once it's measured.
+- Jobs you can trust: hardware video encoding with the encoder shown on the card; a time estimate and a "this PC can't do that well" warning before long jobs; batch rename Undo; output folder rules.
+- The wheel fits every screen; Windows 10, 125 to 200% scaling and two monitors are checked.
 - Screen readers: UI Automation for the wheel, cards, editors and settings, with announcements for wheel changes, hover and results; full keyboard use everywhere.
-- Store right-click: an Explorer command handler, which also puts TapWheel in the top-level Windows 11 menu, for both the Store and portable builds.
-- Windows on Arm: a native ARM64 build next to x64, built and tested in CI, in the same Store listing and as its own portable zip, so Snapdragon PCs don't run TapWheel through emulation.
-- Report a problem: a button in TapWheel's window opens a filled-in GitHub issue in the browser with the app version, the Windows version and display setup, and the end of the log. Nothing is sent until the user posts it, so TapWheel still makes no network connections of its own.
-- winget: the README and the site's download section show `winget install 9MW1GB4106VS` (winget installs Store apps from the `msstore` source).
+- A logo that follows Windows: the tray icon, the wheel centre and the windows take the accent colour and light or dark mode, live. Start, the taskbar and the Store get light and dark images, since Windows can't tint those to the accent. The site keeps its blue.
+- Windows on Arm: a native ARM64 build next to x64, built and tested in CI, in the same Store listing and as its own portable zip.
+- Report a problem: a button opens a filled-in GitHub issue in the browser with the app version, the Windows version and display setup, and the end of the log. Nothing is sent until the user posts it.
+- winget: `winget install 9MW1GB4106VS` is checked to resolve before it's advertised.
 
-## v0.3.0: documents and languages
+## v0.3.0: languages
 
-- PDF: merge, split, reorder, rotate and delete pages (thumbnails window), compress, to images (PNG, JPG at 150 or 300 DPI), images to PDF, extract text, extract images, add page numbers and watermarks, password protect and remove a known password, fill and flatten forms, sign with a drawn or typed signature. Engine: a bundled PDFium.
-- Microsoft Office, every version: DOC, DOCX, DOCM, DOT, DOTX, RTF, XLS, XLSX, XLSM, XLSB, CSV, PPT, PPTX, PPSX, POT, POTX, and OpenDocument (ODT, ODS, ODP). Convert to PDF, to each other's newer or older format, DOCX to Markdown, HTML and TXT, XLSX to CSV and JSON per sheet, PPTX to images per slide. Tools: compress embedded pictures, remove personal details, extract images, count words.
-- Google Docs, Sheets and Slides: their downloaded formats (DOCX, XLSX, PPTX, ODT, PDF) get everything above; `.gdoc`, `.gsheet` and `.gslides` shortcuts open the file in the browser, since the document itself lives online.
-- EPUB: to PDF and TXT, cover extraction, metadata.
-- Engine choice, checked on first use: Microsoft Office when installed (exact layouts), otherwise LibreOffice, downloaded with one click from its official site. Asking users to fetch a library from its official source is fine (Jax, 2026-10-19). That download is TapWheel's first network call, so the privacy page, the Store listing and the settings say so, and it never happens without a click.
-- Languages: every string in the app, the tool windows and the cards comes from translation files. Arabic first, right to left throughout (wheel labels, windows, cards); then the languages users ask for. Anyone can add a language with one file and a pull request.
+- Every string in the app, the tool windows and the cards comes from translation files. Arabic first, right to left throughout (wheel labels, windows, cards); then the languages users ask for. Anyone can add a language with one file and a pull request.
 
-## v0.4.0: local AI
+## v0.4.0: documents
 
-- Every AI feature first checks the PC (memory, graphics card, CPU features, free disk) and only offers what will run smoothly; models download on demand with their size shown, and run fully offline after that.
-- Transcribe: audio and video to text, SRT and VTT subtitles, with Whisper (whisper.cpp) in the size the PC can handle; burn the subtitles into a video.
-- Text tools with a very small local language model (llama.cpp): rewrite, fix grammar, change tone (formal, friendly, short), summarize, translate, and click to reply to an email (`.eml`, `.msg`, or text on the clipboard), which drafts a reply to edit and copy.
-- Picture upscaling (2× and 4×) where the graphics card can do it quickly.
+- PDF becomes an eighth file kind: merge, split, reorder, rotate and delete pages (thumbnails window), compress, to images, images to PDF, extract text and images, page numbers, watermark, password protect and remove a known password, flatten forms, sign. Engine: a bundled PDFium.
+- Office (DOC, DOCX, XLS, XLSX, PPT, PPTX and their kin), OpenDocument and EPUB to PDF; DOCX to Markdown, HTML and TXT; XLSX to CSV per sheet.
+- Engine choice, checked on first use: Microsoft Office when installed, otherwise LibreOffice downloaded with one click from its official site. That download is TapWheel's first network call, so the privacy page, the Store listing and the settings say so, and it never happens without a click.
+
+## v0.5.0: smart and offline
+
+- Transcribe audio and video to text, SRT and VTT with whisper.cpp in the size the PC can handle; burn subtitles into a video.
+- Upscale pictures 2× and 4× where the graphics card can do it quickly.
+- Copy text from a dropped picture with the offline Windows OCR; read QR codes and barcodes in a picture; make a QR PNG or SVG from a text file.
+- Every one of these checks the PC first; models download on demand with their size shown, and run fully offline after that.
+
+## v0.6.0: batches and recipes
+
+- Multi-step recipes with a preview, saved and shared as files.
+- Mixed-kind batches: one drop on a selection of different file kinds.
+- Naming templates; compare two dropped files (text, pictures, binaries).
 
 ## Later
 
-Details are written when v0.4.0 is finished. Each version builds on the last; patch releases (v0.x.1 and up) fix reported bugs in between and never carry new features.
+Each version builds on the last; patch releases (v0.x.1 and up) fix reported bugs in between and never carry new features.
 
 | Version | Theme | Scope |
 | --- | --- | --- |
 | v0.1.0 | Seven kinds of files | Released 2026-10-18, on the Microsoft Store since 2026-10-19 |
 | v0.1.1 | Fixes from the audit | Detailed above |
-| v0.2.0 | Capture, your own wheels, Copy anything | Detailed above, with Windows on Arm, Report a problem and winget |
-| v0.3.0 | Documents and languages | Detailed above |
-| v0.4.0 | Local AI | Detailed above |
-| v0.5.0 | Automation | Multi-step recipes with preview, mixed-file batches, naming templates |
-| v0.6.0 | File intelligence | Compare text, pictures and binaries, a duplicate finder that never deletes on its own, folder summaries |
-| v0.7.0 | Desktop layer | Command palette, quick preview, saved Float shelves, job history, per-monitor and per-device settings |
-| v0.8.0 | Sharing and extensions | Shareable recipe files, community presets and themes, extensions for trusted local tools |
-| v0.9.0 | Hardening | Compatibility, fuzzing, speed on a low-end PC, upgrade and uninstall tests; fixes only |
+| v0.2.0 | Reach and control | Detailed above |
+| v0.3.0 | Languages | Detailed above |
+| v0.4.0 | Documents | Detailed above |
+| v0.5.0 | Smart and offline | Detailed above |
+| v0.6.0 | Batches and recipes | Detailed above |
+| v0.7.0 | Hardening | Compatibility, fuzzing, speed on a low-end PC, upgrade and uninstall tests; fixes only |
 | v1.0.0 | Stable | Stable recipe format, documented limits, no known data-loss, security or accessibility bugs |
+
+Off the roadmap (2026-10-22): screen capture and recording, Copy anything from the screen, AI rewrite and email replies, the command palette and desktop layer, the duplicate finder and folder summaries, extensions and community themes, a CLI and watch folders, the full Office-to-Office matrix.
 
 Never: cloud accounts, online conversion, an AI chat window, a plugin marketplace.
 
 ## Open questions
 
 - How often an Alt tap showed Explorer's "Create link" instead of the wheel in the PC test (K1). Settles the hook work in phase 3 of v0.1.1.
+- Whether the features taken off the roadmap are dropped for good or kept for a separate companion app.
+- Whether Terminal stays on the Alt wheel (folders and code files).
+- Whether the site keeps saying Windows 10 works before anyone has tested it.
