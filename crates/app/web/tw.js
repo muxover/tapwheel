@@ -267,7 +267,8 @@ export function shell({ title, lead, panel = [], primary = "Save", onSave, out =
 	setOut(out);
 	addEventListener("keydown", (e) => {
 		if (e.key === "Escape") send("close");
-		if (e.key === "Enter" && !save.disabled && (e.ctrlKey || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || ""))) save.click();
+		// Enter on a button or link presses that one (Cancel stays Cancel); Ctrl+Enter saves from anywhere
+		if (e.key === "Enter" && !save.disabled && (e.ctrlKey || !/INPUT|TEXTAREA|SELECT|BUTTON|^A$/.test(document.activeElement?.tagName || ""))) save.click();
 	});
 	const ui = {
 		stage,
