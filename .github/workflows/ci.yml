@@ -23,7 +23,18 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: .github/scripts/report.sh cargo fmt --all --check
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      # the runner's package mirror sometimes hangs: each try gets a time limit, and there are three
+      - name: Install FFmpeg
+        timeout-minutes: 10
+        run: |
+          for try in 1 2 3; do
+            sudo timeout 120 apt-get update -qq -o Acquire::Retries=3 \
+              && sudo timeout 300 apt-get install -y -qq -o Acquire::Retries=3 ffmpeg \
+              && exit 0
+            echo "::warning::installing FFmpeg failed on try $try"
+            sleep 10
+          done
+          exit 1
       - run: .github/scripts/report.sh cargo clippy --workspace --all-targets -- -D warnings
       - run: .github/scripts/report.sh cargo test --workspace
         env:
