@@ -1091,6 +1091,7 @@ impl App {
 						shell::set_autostart(false, false);
 						let _ = std::fs::remove_dir_all(shell::appdata("APPDATA"));
 						let _ = std::fs::remove_dir_all(shell::appdata("LOCALAPPDATA"));
+						shell::remove_samples();
 						self.remove_tray();
 						self.close(None);
 						PostQuitMessage(0);

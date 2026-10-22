@@ -264,18 +264,60 @@ pub fn appdata(var: &str) -> PathBuf {
 		.join("TapWheel")
 }
 
+/// The user's Documents folder, wherever Windows keeps it (OneDrive included).
+pub fn documents() -> Option<PathBuf> {
+	use std::os::windows::ffi::OsStringExt;
+	let mut p: windows_sys::core::PWSTR = std::ptr::null_mut();
+	let hr = unsafe {
+		SHGetKnownFolderPath(
+			&FOLDERID_Documents,
+			KF_FLAG_DEFAULT as u32,
+			std::ptr::null_mut(),
+			&mut p,
+		)
+	};
+	let path = (hr >= 0 && !p.is_null()).then(|| {
+		let len = (0..).take_while(|&i| unsafe { *p.add(i) } != 0).count();
+		PathBuf::from(std::ffi::OsString::from_wide(unsafe {
+			std::slice::from_raw_parts(p, len)
+		}))
+	});
+	unsafe { windows_sys::Win32::System::Com::CoTaskMemFree(p as *const _) };
+	path
+}
+
+const SAMPLE_FILES: [&str; 4] = ["TapWheel logo.png", "Phone photo.heic", "Tone.wav", "Subtitles.srt"];
+
+/// Where the sample files go: Documents, not AppData. The Store version's new AppData folders
+/// are visible only to TapWheel, so Explorer couldn't open them there.
+fn samples_dir() -> PathBuf {
+	documents()
+		.unwrap_or_else(|| appdata("LOCALAPPDATA"))
+		.join("TapWheel samples")
+}
+
 /// A folder of small files to practise on, made fresh each time.
 pub fn samples(logo_png: &[u8], heic: &[u8]) -> std::io::Result<PathBuf> {
-	let dir = appdata("LOCALAPPDATA").join("Samples");
+	let dir = samples_dir();
 	std::fs::create_dir_all(&dir)?;
-	std::fs::write(dir.join("TapWheel logo.png"), logo_png)?;
-	std::fs::write(dir.join("Phone photo.heic"), heic)?;
-	std::fs::write(dir.join("Tone.wav"), tone_wav())?;
+	let [logo, photo, tone, subtitles] = SAMPLE_FILES;
+	std::fs::write(dir.join(logo), logo_png)?;
+	std::fs::write(dir.join(photo), heic)?;
+	std::fs::write(dir.join(tone), tone_wav())?;
 	std::fs::write(
-		dir.join("Subtitles.srt"),
+		dir.join(subtitles),
 		"1\r\n00:00:01,000 --> 00:00:03,000\r\nDrag me, then tap Shift.\r\n\r\n2\r\n00:00:03,500 --> 00:00:06,000\r\nDrop me on VTT.\r\n",
 	)?;
 	Ok(dir)
+}
+
+/// Removes the sample files, and their folder only if nothing else was put in it.
+pub fn remove_samples() {
+	let dir = samples_dir();
+	for name in SAMPLE_FILES {
+		let _ = std::fs::remove_file(dir.join(name));
+	}
+	let _ = std::fs::remove_dir(&dir);
 }
 
 /// Two seconds of a soft 440 Hz tone, 16-bit mono.
