@@ -84,7 +84,7 @@ export default function settings(init) {
 			),
 			group("Practise",
 				h("div", { class: "row" },
-					h("span", { style: { flex: "1", color: "var(--text-2)" } }, "A folder with a photo, a sound and subtitles to try things on."),
+					h("span", { style: { flex: "1", color: "var(--text-2)" } }, "A folder in Documents with a photo, a sound and subtitles to try things on."),
 					h("button", { class: "btn primary", type: "button", onclick: () => send("samples") }, "Open sample files"),
 				),
 			),
