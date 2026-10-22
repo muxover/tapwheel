@@ -785,6 +785,8 @@ impl App {
 	fn give_back_memory(&mut self) {
 		unsafe { KillTimer(self.main, T_IDLE) };
 		if self.jobs.any_running() || !self.web.windows.is_empty() || self.wheel.visible() || self.hud.visible {
+			// still busy: look again later, so memory comes back once the last thing ends
+			self.quiet_later();
 			return;
 		}
 		tapwheel_core::bg::release();
