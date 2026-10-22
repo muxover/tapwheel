@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Indent picked the wrong step, Minify broke TOML strings and could damage CSV (Minify is gone for CSV), batch rename dropped `.tar.gz` and could replace a file that appeared after the preview, and stripping PNG and WebP details turned portraits sideways.
 - Extract failed on one symbolic link or a name Windows can't hold. It skips symbolic links, unpacks hard links as copies and renames such names.
 - Compress and Crop opened every video as a picture, and the tag editor opened sound files as photos: the app sent the tool windows a kind none of them recognised.
+- Open sample files did nothing on many Store installs: Windows hides new AppData folders of Store apps from Explorer. The samples go to `Documents\TapWheel samples`, and Remove from this PC deletes them.
 - Crop's size boxes rewrote a number while it was typed, Compress showed its video quality words in reverse, Enter on Cancel saved, and Save stayed on "Saving" after the app turned a save down.
 
 ## [0.1.0] - 2026-10-18
