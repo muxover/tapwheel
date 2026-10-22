@@ -271,7 +271,11 @@ Done when: the PC test shows the wheel opening on every Alt tap with the Trim wi
 - The wheel fits the work area: at 1366×768 and 125% the 750 px wheel is taller than the 708 px work area and clips the key pill.
 - The move to tapwheel.app: the site's canonical and `og:` tags, sitemap, `robots.txt`, `security.txt`, the README, the Store listing text and the two links in the app (`crates/app/src/win/editor.rs`, `crates/app/web/settings.js`); `wrangler.jsonc` lists both domains, and a Cloudflare Redirect Rule sends tapwheel.muxover.com to the same path on tapwheel.app with a 301.
 
-Progress: phases 1, 2 and 3 are on `build`. The Windows CI run on the head (0331fd0) is red and the failing or hanging test isn't found yet. The two items above aren't started.
+Progress (2026-10-22): phases 1, 2 and 3 and both items above are on `build`, with the release notes and the CHANGELOG entry.
+
+- Phase 3's editor fixes: Crop's size boxes keep what's typed, Compress's video quality words follow the slider, Enter on Cancel cancels, and Save comes back when the app turns a save down. The wheel reads its files once instead of every frame (A1). The Store's sample-files folder and log path needed no change: the PC test showed the Store build uses `%LOCALAPPDATA%\TapWheel`, as the zip does.
+- The Reverse test in `crates/core/tests/memory.rs` failed because it paired frames by time: the Matroska pieces carry whole-millisecond timestamps. Compared frame by frame the output matches FFmpeg's own whole-file reverse (43.7 dB). It now pairs frames by number and checks the frame count.
+- Windows CI runs its tests with cargo-nextest (`.config/nextest.toml`), which stops a test after 5 minutes and names it, after two runs hit the 40-minute job limit.
 
 ### Release blockers for v0.1.1
 
