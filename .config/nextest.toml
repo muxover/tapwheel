@@ -1,0 +1,5 @@
+# Windows CI runs the tests with cargo-nextest, so a test that hangs is stopped and named
+# instead of using up the job's time limit.
+[profile.ci]
+slow-timeout = { period = "60s", terminate-after = 5 }
+fail-fast = false

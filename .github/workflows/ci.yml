@@ -54,9 +54,10 @@ jobs:
       - name: Clippy
         shell: bash
         run: .github/scripts/report.sh cargo clippy --workspace --all-targets --message-format=short -- -D warnings
+      - uses: taiki-e/install-action@nextest
       - name: Tests with the real converter
         shell: bash
-        run: .github/scripts/report.sh cargo test --workspace
+        run: .github/scripts/report.sh cargo nextest run --workspace --profile ci --no-tests=warn
         env:
           TAPWHEEL_FFMPEG: ${{ github.workspace }}\target\engines\ffmpeg.exe
           TAPWHEEL_MODEL_DIR: ${{ github.workspace }}\target\engines
