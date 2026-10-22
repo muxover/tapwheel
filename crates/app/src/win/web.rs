@@ -499,6 +499,7 @@ pub fn close(a: &mut App, hwnd: HWND) {
 	}
 	a.web.windows.retain(|w| w.hwnd != hwnd);
 	unsafe { DestroyWindow(hwnd) };
+	a.quiet_later();
 }
 
 pub fn theme_changed(a: &mut App) {

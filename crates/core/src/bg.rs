@@ -78,6 +78,16 @@ fn session(e: &Engines) -> Result<std::sync::MutexGuard<'static, Option<ort::ses
 	Ok(guard)
 }
 
+/// Lets the model go, giving back the memory it holds (about 400 MB). The next cut-out loads it
+/// again. Does nothing while a cut-out is using it.
+pub fn release() {
+	if let Some(cell) = SESSION.get()
+		&& let Ok(mut guard) = cell.try_lock()
+	{
+		*guard = None;
+	}
+}
+
 /// Loads the model ahead of time, so the first cut-out doesn't wait for it. Safe to call more
 /// than once; only the first call does any work.
 pub fn warm(e: &Engines) {
