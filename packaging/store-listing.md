@@ -1,6 +1,6 @@
 # Microsoft Store listing
 
-What goes into Partner Center for TapWheel (Store ID 9MW1GB4106VS). Paste each part into the field it's named after. Every claim here is something the app does in v0.1.0.
+What goes into Partner Center for TapWheel (Store ID 9MW1GB4106VS). Paste each part into the field it's named after. Every claim here is something the app does in v0.1.1.
 
 ## Product name
 
