@@ -131,9 +131,16 @@ export default async function crop(init) {
 			el.style.left = `${x * scale}px`;
 			el.style.top = `${y * scale}px`;
 		}
-		wIn.value = Math.round(box.w);
-		hIn.value = Math.round(box.h);
+		// a box being typed in keeps what's typed
+		if (document.activeElement !== wIn) wIn.value = Math.round(box.w);
+		if (document.activeElement !== hIn) hIn.value = Math.round(box.h);
 	};
+	// once a box is left (or Enter pressed), it shows the size the crop settled on
+	for (const input of [wIn, hIn])
+		input.addEventListener("change", () => {
+			wIn.value = Math.round(box.w);
+			hIn.value = Math.round(box.h);
+		});
 	const clamp = () => {
 		box.w = Math.max(8, Math.min(box.w, W));
 		box.h = Math.max(8, Math.min(box.h, H));
