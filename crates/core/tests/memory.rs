@@ -83,12 +83,30 @@ fn make_gif_and_reverse_stream_instead_of_holding_every_frame() {
 	// the original, frame by frame
 	let p = tapwheel_core::ff::probe(&e.ffprobe, &out.output).unwrap();
 	assert!((p.duration - 60.0).abs() < 0.2, "{}", p.duration);
+	let frames = |f: &PathBuf| {
+		let counted = Command::new(&e.ffprobe)
+			.args(["-v", "error", "-select_streams", "v:0", "-count_packets"])
+			.args(["-show_entries", "stream=nb_read_packets", "-of", "csv=p=0"])
+			.arg(f)
+			.output()
+			.unwrap();
+		String::from_utf8_lossy(&counted.stdout).trim().to_string()
+	};
+	assert_eq!(frames(&out.output), frames(&video), "Reverse dropped or added frames");
+	// the pieces are Matroska, whose timestamps are whole milliseconds, so frames are paired by
+	// their number: paired by time, every third frame would meet its neighbour
 	let compared = Command::new(&ff)
 		.args(["-hide_banner", "-nostats", "-i"])
 		.arg(&out.output)
 		.arg("-i")
 		.arg(&video)
-		.args(["-lavfi", "[1:v]reverse[r];[0:v][r]psnr", "-f", "null", "-"])
+		.args([
+			"-lavfi",
+			"[0:v]settb=1/30,setpts=N[o];[1:v]reverse,settb=1/30,setpts=N[r];[o][r]psnr",
+			"-f",
+			"null",
+			"-",
+		])
 		.output()
 		.unwrap();
 	let log = String::from_utf8_lossy(&compared.stderr);
