@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- The website moved to [tapwheel.app](https://tapwheel.app); tapwheel.muxover.com sends visitors there.
+
+### Fixed
+
+- Compress on a 2.7 GB video ran out of memory and closed the app. Editors read files from disk in 4 MB pieces, off the UI thread.
+- Tapping Alt during a drag lagged or showed Explorer's "Create link" while an editor was busy. The keyboard and mouse hooks run on their own thread and are set again if Windows drops them.
+- Video editors waited up to 9.8 s for a filmstrip. They open after the file is read; Trim's filmstrip comes from 14 seeks, and Compress, Crop and Snapshot build none.
+- Make GIF and Reverse held every frame in memory. Reverse works a piece at a time, and both check free memory first.
+- The wheel was taller than the screen at 1366 by 768 and 125%. It shrinks to fit the work area.
+- The wheel looked at every dragged file on disk on every frame. It reads them once.
+- RTF, subtitle and INI inputs, damaged PSD and camera raw files, deep nesting and huge declared sizes could close the app. They fail on their card instead.
+- Crashes the panic hook never sees are logged, with a minidump in `%LOCALAPPDATA%\TapWheel\crash`, and FFmpeg ends with the app.
+- Edited photos kept the original thumbnail and Redact kept the location; Remove location missed GPS in XMP.
+- Two jobs at once could share temporary files.
+- Multi-member `.gz` and `.bz2` and multi-stream `.xz` files were cut short.
+- JSON lost its key order and number formatting; CSV lost column order and duplicate columns.
+- Animated GIFs lost their animation in the picture tools, and Combine dropped frames of mixed sizes.
+- Text lost its encoding and BOM, and RTF ignored its code page.
+- Indent picked the wrong step, Minify broke TOML strings and could damage CSV (Minify is gone for CSV), batch rename dropped `.tar.gz` and could replace a file that appeared after the preview, and stripping PNG and WebP details turned portraits sideways.
+- Extract failed on one symbolic link or a name Windows can't hold. It skips symbolic links, unpacks hard links as copies and renames such names.
+- Crop's size boxes rewrote a number while it was typed, Compress showed its video quality words in reverse, Enter on Cancel saved, and Save stayed on "Saving" after the app turned a save down.
+
 ## [0.1.0] - 2026-10-18
 
 ### Added
