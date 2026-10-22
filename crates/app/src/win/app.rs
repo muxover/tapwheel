@@ -89,6 +89,9 @@ pub struct WheelState {
 	pub mode: Mode,
 	pub wheel: Wheel,
 	pub files: Option<Vec<PathBuf>>,
+	/// The centre's line about the files, made once when they arrive: working it out looks at
+	/// each file on disk, too slow for every frame.
+	pub subtitle: String,
 	pub kind: Option<Kind>,
 	pub ops: Vec<Op>,
 	/// Ring choices per op: (id, label).
@@ -118,6 +121,11 @@ pub struct WheelState {
 }
 
 impl WheelState {
+	fn set_files(&mut self, files: Option<Vec<PathBuf>>) {
+		self.subtitle = files.as_deref().map(summary).unwrap_or_default();
+		self.files = files;
+	}
+
 	fn new() -> Self {
 		let now = Instant::now();
 		WheelState {
@@ -125,6 +133,7 @@ impl WheelState {
 			mode: Mode::Drag,
 			wheel: Wheel::Convert,
 			files: None,
+			subtitle: String::new(),
 			kind: None,
 			ops: Vec::new(),
 			rings: Vec::new(),
@@ -399,7 +408,7 @@ impl App {
 			} else {
 				w.wheel.title().into()
 			},
-			subtitle: w.files.as_deref().map(summary).unwrap_or_default(),
+			subtitle: w.subtitle.clone(),
 			keys: self.key_hints(),
 			message,
 			hint: None,
@@ -505,7 +514,7 @@ impl App {
 		self.wheel.mode = mode;
 		self.wheel.wheel = wh;
 		self.wheel.kind = selection_kind(&files);
-		self.wheel.files = Some(files);
+		self.wheel.set_files(Some(files));
 		self.refresh_ops();
 		self.wheel.opened = Instant::now();
 		// a picture's Tools wheel may lead to Remove BG: load the model while the hand is still moving
@@ -549,7 +558,7 @@ impl App {
 		let was_probe = self.wheel.phase == Phase::Probe;
 		self.wheel.phase = Phase::Closing;
 		self.wheel.picked = picked;
-		self.wheel.files = None;
+		self.wheel.set_files(None);
 		hooks::WHEEL_OPEN.store(false, std::sync::atomic::Ordering::Relaxed);
 		unsafe {
 			KillTimer(self.wheel_hwnd, T_HIDE);
@@ -1120,7 +1129,7 @@ impl Target for WheelTarget {
 				Phase::Open if a.wheel.mode == Mode::Drag => {
 					if let Some(f) = files.filter(|f| !f.is_empty()) {
 						hooks::FILES.store(true, std::sync::atomic::Ordering::Relaxed);
-						a.wheel.files = Some(f);
+						a.wheel.set_files(Some(f));
 					}
 				}
 				_ => return false,
@@ -1160,7 +1169,7 @@ impl Target for WheelTarget {
 			}
 			let h = a.hover_at(POINT { x, y });
 			if let Some(f) = files.filter(|f| !f.is_empty()) {
-				a.wheel.files = Some(f);
+				a.wheel.set_files(Some(f));
 			}
 			let acts = a.choice(h).is_some();
 			a.pick(h);
