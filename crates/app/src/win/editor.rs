@@ -73,7 +73,7 @@ impl App {
 			"tool": op.id(),
 			"label": op.label(),
 			"describe": op.describe(kind),
-			"kind": format!("{kind:?}").to_lowercase(),
+			"kind": kind.map(Kind::id),
 			"files": list,
 			"defaults": self.settings.defaults,
 			"presets": presets,

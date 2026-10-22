@@ -17,6 +17,22 @@ pub enum Kind {
 }
 
 impl Kind {
+	/// The name the tool windows know the kind by, like "video".
+	pub fn id(self) -> &'static str {
+		match self {
+			Kind::Image => "image",
+			Kind::Video => "video",
+			Kind::Audio => "audio",
+			Kind::Icon => "icon",
+			Kind::Text => "text",
+			Kind::Code => "code",
+			Kind::Archive => "archive",
+			Kind::Program => "program",
+			Kind::Folder => "folder",
+			Kind::Other => "other",
+		}
+	}
+
 	/// Plural noun for "3 images" in titles and cards.
 	pub fn plural(self) -> &'static str {
 		match self {
@@ -287,6 +303,14 @@ pub fn common_ext(paths: &[impl AsRef<Path>]) -> Option<String> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn tool_windows_get_a_plain_kind_name() {
+		assert_eq!(Kind::Video.id(), "video");
+		assert_eq!(Kind::Audio.id(), "audio");
+		// what the tool windows were sent in v0.1.0, which matched nothing
+		assert_ne!(format!("{:?}", Some(Kind::Video)).to_lowercase(), Kind::Video.id());
+	}
 	use std::path::PathBuf;
 
 	#[test]
