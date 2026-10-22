@@ -264,17 +264,17 @@ impl Jobs {
 	pub fn start(
 		&mut self,
 		op: Op,
+		kind: Option<Kind>,
 		inputs: Vec<PathBuf>,
-		jobs: Vec<Job>,
 		recipe: Recipe,
 		defaults: Defaults,
 		wake: impl Fn() + Send + 'static,
 	) {
-		let kind = tapwheel_core::ops::selection_kind(&inputs);
 		let mut b = Self::blank(op, kind, &inputs);
 		b.state = State::Waiting;
-		b.recipe = Some(recipe);
-		b.total = jobs.len();
+		b.recipe = Some(recipe.clone());
+		// one job per file until the plan says otherwise
+		b.total = inputs.len();
 		b.done = 0;
 		b.finished = None;
 		let cancel = b.cancel.clone();
@@ -284,6 +284,24 @@ impl Jobs {
 		let engines = self.engines.clone();
 		let worker = std::thread::Builder::new().stack_size(tapwheel_core::run::JOB_STACK);
 		let spawned = worker.spawn(move || {
+			let update = |f: &mut dyn FnMut(&mut Batch)| {
+				if let Some(b) = batches.lock().unwrap().iter_mut().find(|b| b.id == id) {
+					f(b);
+				}
+			};
+			let jobs: Vec<Job> = tapwheel_core::plan(op, &recipe, &inputs);
+			if jobs.is_empty() {
+				super::log::write(&format!("{op:?}: Nothing to do for these files"));
+				update(&mut |b| {
+					b.note = Some("Nothing to do for these files".into());
+					b.state = State::Failed;
+					b.finished = Some(Instant::now());
+				});
+				wake();
+				return;
+			}
+			update(&mut |b| b.total = jobs.len());
+			wake();
 			{
 				let mut free = slots.free.lock().unwrap();
 				while *free == 0 {
@@ -291,11 +309,6 @@ impl Jobs {
 				}
 				*free -= 1;
 			}
-			let update = |f: &mut dyn FnMut(&mut Batch)| {
-				if let Some(b) = batches.lock().unwrap().iter_mut().find(|b| b.id == id) {
-					f(b);
-				}
-			};
 			update(&mut |b| b.state = State::Running);
 			wake();
 
