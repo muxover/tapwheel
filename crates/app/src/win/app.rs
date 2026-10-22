@@ -43,6 +43,10 @@ const T_NUDGE: usize = 2;
 const T_HIDE: usize = 3;
 const T_PROBE: usize = 4;
 const T_PICK: usize = 10;
+/// On the main window: TapWheel has been quiet for a while, so it gives memory back.
+const T_IDLE: usize = 11;
+/// How long nothing has to happen before memory is given back.
+const QUIET_MS: u32 = 30_000;
 const T_HUD: usize = 20;
 
 // Windows animation durations: 83, 167, 250 and 333 ms
@@ -555,6 +559,7 @@ impl App {
 		if !self.wheel.visible() {
 			return;
 		}
+		self.quiet_later();
 		let was_probe = self.wheel.phase == Phase::Probe;
 		self.wheel.phase = Phase::Closing;
 		self.wheel.picked = picked;
@@ -769,6 +774,28 @@ impl App {
 
 	// work
 
+	/// Starts (or restarts) the wait before memory is given back.
+	pub fn quiet_later(&self) {
+		unsafe { SetTimer(self.main, T_IDLE, QUIET_MS, None) };
+	}
+
+	/// Gives back memory once nothing is running and no window is open: the background model,
+	/// the heap's free blocks, and the pages only kept for speed. Opening the wheel brings back
+	/// the few it needs.
+	fn give_back_memory(&mut self) {
+		unsafe { KillTimer(self.main, T_IDLE) };
+		if self.jobs.any_running() || !self.web.windows.is_empty() || self.wheel.visible() || self.hud.visible {
+			return;
+		}
+		tapwheel_core::bg::release();
+		unsafe {
+			windows_sys::Win32::System::Memory::HeapCompact(windows_sys::Win32::System::Memory::GetProcessHeap(), 0);
+			windows_sys::Win32::System::ProcessStatus::K32EmptyWorkingSet(
+				windows_sys::Win32::System::Threading::GetCurrentProcess(),
+			);
+		}
+	}
+
 	pub fn apply(&mut self, op: Op, preset: Option<String>, files: Vec<PathBuf>) {
 		self.settings.record(op);
 		self.save();
@@ -903,6 +930,7 @@ impl App {
 					KillTimer(self.hud_hwnd, T_HUD);
 					ShowWindow(self.hud_hwnd, SW_HIDE);
 				}
+				self.quiet_later();
 			}
 			return;
 		}
@@ -1209,6 +1237,7 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 			WM_RBUTTONUP | WM_CONTEXTMENU => a.tray_menu(),
 			_ => {}
 		}),
+		WM_TIMER if w == T_IDLE => with(|a| a.give_back_memory()),
 		WM_TIMER if w == T_PICK => with(|a| unsafe {
 			KillTimer(hwnd, T_PICK);
 			let files = std::mem::take(&mut a.pending_pick);
