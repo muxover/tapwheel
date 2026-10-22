@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Make GIF and Reverse held every frame in memory. Reverse works a piece at a time, and both check free memory first.
 - The wheel was taller than the screen at 1366 by 768 and 125%. It shrinks to fit the work area.
 - The wheel looked at every dragged file on disk on every frame. It reads them once.
+- Memory stayed taken after the work was done: the background-removal model, loaded whenever a picture's Tools wheel opened, was never released, and neither was what a job or tool window left behind. After 30 quiet seconds TapWheel gives it back.
+- A drop of thousands of files was planned on the UI thread. It's planned on the job's own thread.
 - RTF, subtitle and INI inputs, damaged PSD and camera raw files, deep nesting and huge declared sizes could close the app. They fail on their card instead.
 - Crashes the panic hook never sees are logged, with a minidump in `%LOCALAPPDATA%\TapWheel\crash`, and FFmpeg ends with the app.
 - Edited photos kept the original thumbnail and Redact kept the location; Remove location missed GPS in XMP.
