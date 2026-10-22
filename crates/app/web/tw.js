@@ -28,6 +28,8 @@ TW.receive = (msg) => {
 			applyTheme(msg.theme);
 			break;
 		case "error":
+			// a Save the app turned down can be tried again
+			current?.busy(false);
 			toast(msg.message, true);
 			break;
 		case "toast":
