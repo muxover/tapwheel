@@ -23,22 +23,41 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: .github/scripts/report.sh cargo fmt --all --check
-      # the runner's package mirror sometimes hangs: each try gets a time limit, and there are three
-      - name: Install FFmpeg
-        timeout-minutes: 10
+      # FFmpeg 8.1, the line the Windows app ships, as a static build from GitHub: Ubuntu's package
+      # mirror hung on most runs in October 2026. It's checked against the build's published SHA-256
+      # and cached under it, so a run only downloads when a new 8.1 build comes out.
+      - name: Find the FFmpeg build
+        id: ffmpeg
+        timeout-minutes: 2
         run: |
-          for try in 1 2 3; do
-            sudo timeout 120 apt-get update -qq -o Acquire::Retries=3 \
-              && sudo timeout 300 apt-get install -y -qq -o Acquire::Retries=3 ffmpeg \
-              && exit 0
-            echo "::warning::installing FFmpeg failed on try $try"
-            sleep 10
-          done
-          exit 1
+          base=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest
+          name=ffmpeg-n8.1-latest-linux64-gpl-8.1
+          curl -fsSL --retry 3 --max-time 60 "$base/checksums.sha256" -o "$RUNNER_TEMP/ffmpeg.sha256"
+          sum=$(awk -v f="$name.tar.xz" '$2 == f { print $1 }' "$RUNNER_TEMP/ffmpeg.sha256")
+          if [ -z "$sum" ]; then echo "::error::$name.tar.xz is not in the build's checksums"; exit 1; fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "sum=$sum" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        id: ffmpeg-cache
+        with:
+          path: ${{ runner.temp }}/ffmpeg
+          key: ffmpeg-linux-${{ steps.ffmpeg.outputs.sum }}
+      - name: Download FFmpeg
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 --max-time 240 "${{ steps.ffmpeg.outputs.base }}/${{ steps.ffmpeg.outputs.name }}.tar.xz" -o ffmpeg.tar.xz
+          echo "${{ steps.ffmpeg.outputs.sum }}  ffmpeg.tar.xz" | sha256sum -c -
+          mkdir -p ffmpeg
+          tar -xJf ffmpeg.tar.xz --strip-components=2 -C ffmpeg "${{ steps.ffmpeg.outputs.name }}/bin/ffmpeg" "${{ steps.ffmpeg.outputs.name }}/bin/ffprobe"
+          rm ffmpeg.tar.xz
+      - run: ${{ runner.temp }}/ffmpeg/ffmpeg -hide_banner -version | head -n 1
       - run: .github/scripts/report.sh cargo clippy --workspace --all-targets -- -D warnings
       - run: .github/scripts/report.sh cargo test --workspace
         env:
-          TAPWHEEL_FFMPEG: /usr/bin/ffmpeg
+          TAPWHEEL_FFMPEG: ${{ runner.temp }}/ffmpeg/ffmpeg
       - name: The website lists what the wheel offers
         run: |
           cargo run -q -p tapwheel-core --example site_data > /tmp/wheel.json
