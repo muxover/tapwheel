@@ -117,7 +117,7 @@ tapwheel/
 ├── packaging/                # Portable zip and Store package builder, Store manifest and listing
 ├── site/                     # tapwheel.app, its sample files and its layout check
 ├── release-notes/            # One file per release
-└── docs/PROJECT.md           # Maintainer notes
+└── docs/PROJECT.md           # Project page
 ```
 
 ---
