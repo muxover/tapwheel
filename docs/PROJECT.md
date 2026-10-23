@@ -45,25 +45,25 @@ Fits your PC is a rule for every version: every heavy tool knows what it costs a
 - 2026-10-18: from the roadmap review, v0.1.0 adds Copy name and the other clipboard choices, Properties, Open with, Duplicate, Rename with a batch preview, File info, preflight checks, an Undo that checks the file first, and Retry and batch summaries on cards. Open containing folder is out (Explorer is already open where the drag started), file encryption is out until it has a security review (password ZIP and 7Z cover it), and there is no fourth key.
 - 2026-10-18: the privacy page promises: the app makes no network connections; settings (keys, options, slice counts, recent Move to folders) stay in `%APPDATA%\TapWheel\settings.toml`; input is watched only for Shift, Ctrl, Alt, Tab and Esc and nothing typed is kept; the site sets no cookies and uses only Cloudflare Web Analytics. The zip version's tray menu has Remove from this PC, which deletes its right-click and start-up entries and its settings.
 - 2026-10-18: the privacy page also promises: errors go to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on the PC (error messages and file names, never typing, under 256 KB, removed by Remove from this PC, never sent anywhere).
-- 2026-10-18: screenshots, screen recording and customizing the wheels are goals (asked for by Jax); they're planned for v0.2.0 next to Copy anything, which uses the same screen capture.
+- 2026-10-18: screenshots, screen recording and customizing the wheels are goals; they're planned for v0.2.0 next to Copy anything, which uses the same screen capture.
 - 2026-10-18: the Contents window extracts what you tick instead of dragging single items out, which WebView2 can't hand to Explorer.
 - 2026-10-18: the zip stays unsigned (no code-signing certificate). It's for developers and technical users, who can get past Chrome's and SmartScreen's warnings; the site always sends people to the Microsoft Store version, which Microsoft signs.
 - 2026-10-18: the Store package can't write classic shell keys, so its right-click entry waits for the Explorer command handler in v0.2.0; the portable build adds a classic one.
-- 2026-10-19: the full commit history stays as it is; a release only adds one signed `chore: release vX.Y.Z` commit on top and moves nothing else. Nothing is deleted on this project, old Actions runs included (Jax's call after a squash of the 91 commits was undone the same night).
+- 2026-10-19: the full commit history stays as it is; a release only adds one signed `chore: release vX.Y.Z` commit on top and moves nothing else. Nothing is deleted on this project, old Actions runs included, after a squash of the 91 commits was undone the same night.
 - 2026-10-19: the plan keeps every feature whatever other tools a PC already has. v0.2.0 also gets a native ARM64 build, a Report a problem button and winget; v0.3.0 also gets translations (Arabic first, right to left). Patch releases fix reported bugs only.
-- 2026-10-19: v0.1.1 fixes what the full audit of v0.1.0 found that crashes the app or writes wrong output, every item with a test that fails before the fix. The UI-thread work (hooks, editors, memory budgets) waits for the test results from Jax's PC, which decide the details of K1 and K2 (Jax's call).
-- 2026-10-19: Minify is gone for CSV and stays gone; it's logged as the T-D9 bug fix, since minifying a CSV could only damage it (Jax's call).
-- 2026-10-22: the roadmap is redesigned under the five rules in Position, so the app never gets crammed. Screen capture and recording, Copy anything, AI rewrite and email replies, the command palette and desktop layer, the duplicate finder, folder summaries, extensions, a CLI, watch folders and the full Office-to-Office matrix leave the roadmap. This replaces the 2026-10-18 capture plan and the 2026-10-19 rule of keeping every feature (Jax's call).
-- 2026-10-22: the site moves to tapwheel.app and tapwheel.muxover.com redirects to it; the switch ships with v0.1.1 (Jax's call).
-- 2026-10-22: three ideas from Tangerine go in: batch convert with drag and Shift (same kind since v0.1.0, mixed kinds in v0.6.0), adapting to the PC to stay smooth (Fits your PC), and a logo that follows the Windows theme (v0.2.0) (Jax's call).
-- 2026-10-22: the brand is about Windows: the site, README and Store copy say Windows and never name a version. The minimum version stays in the Store manifest (Jax's call).
-- 2026-10-22: v0.2.0 redesigns the whole site and brand identity, smooth and iconic, with the Windows identity (Jax's call).
+- 2026-10-19: v0.1.1 fixes what the full audit of v0.1.0 found that crashes the app or writes wrong output, every item with a test that fails before the fix. The UI-thread work (hooks, editors, memory budgets) waits for the results of the PC test, which decide the details of K1 and K2.
+- 2026-10-19: Minify is gone for CSV and stays gone; it's logged as the T-D9 bug fix, since minifying a CSV could only damage it.
+- 2026-10-22: the roadmap is redesigned under the five rules in Position, so the app never gets crammed. Screen capture and recording, Copy anything, AI rewrite and email replies, the command palette and desktop layer, the duplicate finder, folder summaries, extensions, a CLI, watch folders and the full Office-to-Office matrix leave the roadmap. This replaces the 2026-10-18 capture plan and the 2026-10-19 rule of keeping every feature.
+- 2026-10-22: the site moves to tapwheel.app and tapwheel.muxover.com redirects to it; the switch ships with v0.1.1.
+- 2026-10-22: three ideas from Tangerine go in: batch convert with drag and Shift (same kind since v0.1.0, mixed kinds in v0.6.0), adapting to the PC to stay smooth (Fits your PC), and a logo that follows the Windows theme (v0.2.0).
+- 2026-10-22: the brand is about Windows: the site, README and Store copy say Windows and never name a version. The minimum version stays in the Store manifest.
+- 2026-10-22: v0.2.0 redesigns the whole site and brand identity, smooth and iconic, with the Windows identity.
 - 2026-10-22: Terminal leaves the Alt wheel and the README in v0.2.0; removing it is a change, so it stays out of the patch.
-- 2026-10-19: Extract unpacks a hard link as a copy of the file it names, only when that file was unpacked from the same archive (the zip-slip check applies to the target too), and skips symbolic links (Jax's call).
+- 2026-10-19: Extract unpacks a hard link as a copy of the file it names, only when that file was unpacked from the same archive (the zip-slip check applies to the target too), and skips symbolic links.
 
 ## Status
 
-v0.1.0 is out: released on GitHub on 2026-10-18 (the zip and checksums), the site live at https://tapwheel.app (since 2026-10-22; first at tapwheel.muxover.com), and the app public on the Microsoft Store (https://apps.microsoft.com/detail/9MW1GB4106VS) since 2026-10-19. Every tool and window was tried on Jax's Windows 11 PC; Windows 10, 125 to 200% scaling and two monitors are still untried. v0.1.1, the audit fixes below, is being built on `build`; v0.2.0 follows it.
+v0.1.1 is out: released on GitHub on 2026-10-23 and sent to the Microsoft Store (https://apps.microsoft.com/detail/9MW1GB4106VS), where v0.1.0 has been public since 2026-10-19. The site is live at https://tapwheel.app (since 2026-10-22; first at tapwheel.muxover.com). Every tool and window was tried on a Windows 11 PC; Windows 10, 125 to 200% scaling and two monitors are still untried. v0.2.0 is next.
 
 ## How the wheel works (all versions)
 
@@ -208,7 +208,7 @@ Each phase ends with CI green on main; nothing is tagged before G.
 | F. Website | The redesign below, with real captures | The browser check passes; looked at on a phone |
 | G. Release | README, CHANGELOG, release notes and these notes through the humanizer; notices checked; one final script signs, rewrites history to one commit per version, tags and releases | The release builds from a fresh clone; the Store package passes the App Certification Kit |
 
-Progress: A to D are done and pass in CI. E: every tool and window was tried on Jax's Windows 11 PC on 2026-10-18 and works; Windows 10, 125 to 200% scaling and two monitors are still untried. F is live. G: v0.1.0 was released on 2026-10-18 and passed Store certification; it has been public on the Microsoft Store since 2026-10-19. A 58 second launch video for X and Telegram was made from the app's own wheels, cards and tool windows; Jax posts it himself.
+Progress: A to D are done and pass in CI. E: every tool and window was tried on a Windows 11 PC on 2026-10-18 and works; Windows 10, 125 to 200% scaling and two monitors are still untried. F is live. G: v0.1.0 was released on 2026-10-18 and passed Store certification; it has been public on the Microsoft Store since 2026-10-19. A 58 second launch video for X and Telegram was made from the app's own wheels, cards and tool windows.
 
 Release blockers: a lost or replaced file, a claim the app can't back, a wheel that opens when it shouldn't or a stuck key, text outside its shape, a crash on a broken file, missing licence notices, a Store certification failure, or a wheel that waits on a job.
 
@@ -245,7 +245,7 @@ Done when: each item has a test that fails on v0.1.0 and passes; CI is green on 
 
 ### What the PC test found
 
-Jax's PC, 2026-10-19: Intel i7-1165G7, 32 GB RAM, NVMe SSD, the Store build 0.1.0.0.
+The test PC, 2026-10-19: Intel i7-1165G7, 32 GB RAM, NVMe SSD, the Store build 0.1.0.0.
 
 - Compress, then Custom, on a 2.7 GB video crashes TapWheel with exception 0xe0000008 in KERNELBASE: Chromium's out-of-memory code, raised by WebView2 inside `tapwheel.exe`. Private bytes peaked at 5,462 MB, about twice the file. This confirms K2. It happens with 32 GB in the PC, so the limit is WebView2's, not the PC's: the fix is serving the file in chunks, not a memory check.
 - The filmstrip the editors build now takes 4.72 s warm and 9.2 to 9.8 s cold on that file. The proposed filmstrip from 14 seeks takes 1.34 s.
