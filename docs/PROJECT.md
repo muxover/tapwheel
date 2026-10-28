@@ -32,7 +32,7 @@ TapWheel will never have cloud accounts, online conversion, an AI chat window or
 - With more than eight slices the last one becomes More. Hover it, press Tab or roll the mouse wheel to turn the page.
 - Tap the same key twice to repeat your last choice. The slices you use most move to the top.
 - Several files are handled in one go, with one card for the batch. Folders and mixed selections get the Actions wheel.
-- The portable version adds "Open with TapWheel" to Explorer's right-click menu.
+- TapWheel is in Explorer's right-click menu; on Windows 11 the Store version's entry is at the top of the menu. Choosing it opens the Convert wheel on the selection, ready for the keyboard.
 
 ### Cards
 
@@ -156,6 +156,7 @@ The app makes no network connections: no account, no telemetry, no crash reports
 - `crates/ui`: draws the wheel, cards and app icon with tiny-skia, so every surface renders to PNG in tests.
 - `crates/app`: the Windows app: keyboard and mouse hooks on their own thread, the wheel as a layered drop-target window, the tray, cards, and WebView2 windows for the editors and settings.
 - `crates/app/web`: the editor and settings pages, also used by the website's live demo.
+- `crates/shellext`: a small DLL that puts TapWheel in Explorer's right-click menu for the Store version, since a packaged app can't write the classic menu keys. It hands the selected files to the running app.
 - `engines/`: the pinned FFmpeg build and background-removal model (version, URL and SHA-256), fetched by `fetch.ps1` and never committed.
 - `packaging/`: builds the portable zip and the Microsoft Store package.
 - `site/`: the website, [tapwheel.app](https://tapwheel.app).

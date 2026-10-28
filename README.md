@@ -112,8 +112,9 @@ tapwheel/
 ├── crates/
 │   ├── core/                 # Formats, tools, recipes, output names, the runner and every engine
 │   ├── ui/                   # Draws the wheel, progress cards and icon
-│   └── app/                  # The Windows app: keys, drags, wheel, cards, tray, tool windows
-│       └── web/              # The tool windows and settings, shown in WebView2
+│   ├── app/                  # The Windows app: keys, drags, wheel, cards, tray, tool windows
+│   │   └── web/              # The tool windows and settings, shown in WebView2
+│   └── shellext/             # The Store version's entry in Explorer's right-click menu
 ├── engines/                  # Pinned FFmpeg, ONNX Runtime and model, and the script that fetches them
 ├── packaging/                # Portable zip and Store package builder, Store manifest and listing
 ├── site/                     # tapwheel.app, its sample files and its layout check

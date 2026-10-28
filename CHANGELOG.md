@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 
 - Select files in File Explorer or on the desktop and tap a wheel's key twice to open that wheel without dragging. Settings can switch it to Ctrl+Shift+Space or turn it off.
+- The Store version is in Explorer's right-click menu too, at the top of the menu on Windows 11.
 
 ## [0.1.1] - 2026-10-23
 
