@@ -267,7 +267,13 @@ mod tests {
 			assert_eq!(cmd.GetCanonicalName().unwrap(), CLSID);
 			assert_eq!(cmd.GetFlags().unwrap(), ECF_DEFAULT.0 as u32);
 			assert!(cmd.EnumSubCommands().is_err());
-			assert_eq!(paths(&items).unwrap(), vec![file.clone()]);
+			// the temp folder can come back under its short 8.3 name, so compare where both lead
+			let found: Vec<PathBuf> = paths(&items)
+				.unwrap()
+				.iter()
+				.map(|p| std::fs::canonicalize(p).unwrap())
+				.collect();
+			assert_eq!(found, vec![std::fs::canonicalize(&file).unwrap()]);
 		}
 		std::fs::remove_file(file).unwrap();
 	}
