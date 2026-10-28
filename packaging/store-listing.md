@@ -92,6 +92,6 @@ Productivity, subcategory none. Also fits Utilities and tools.
 
 ## Notes for certification
 
-TapWheel is a desktop app (full trust). It watches the keyboard and mouse with low-level hooks for one reason: to notice a quick tap of Shift, Ctrl or Alt, plus Tab and Esc, while a file is being dragged. It records nothing, sends nothing, and passes every key and click on unchanged. To try it: run TapWheel, start dragging any picture in File Explorer, and tap Shift while still holding the mouse button.
+TapWheel is a desktop app (full trust). It watches the keyboard and mouse with low-level hooks for one reason: to notice a quick tap of Shift, Ctrl or Alt, plus Tab and Esc, while a file is being dragged, and two quick taps of one of those keys on files selected in File Explorer. It records nothing and sends nothing. To try it: run TapWheel, start dragging any picture in File Explorer, and tap Shift while still holding the mouse button. Or select the picture and tap Shift twice.
 
 It starts with Windows by default (the user can turn this off in its window), so the wheel is ready when a drag begins.
