@@ -25,7 +25,8 @@ TapWheel will never have cloud accounts, online conversion, an AI chat window or
 ### The wheel
 
 - Three wheels on three keys, which you can change in Settings: Shift converts, Ctrl opens tools, Alt opens actions. Tapping another key on an open wheel switches to that wheel.
-- The wheel opens on a quick tap (down and up within 400 ms, no other key in between), never on a hold, and only while files are being dragged.
+- The wheel opens on a quick tap (down and up within 400 ms, no other key in between), never on a hold, while files are being dragged.
+- Without a drag, two quick taps of a wheel's key open that wheel on the files selected in File Explorer or on the desktop. Settings can change this to Ctrl+Shift+Space or turn it off. It only works while the file list has the keyboard, so typing in a rename box, the address bar or the search box is never caught.
 - Each slice has an icon and a label that follows the slice's curve. The centre shows the file's name and type, and on hover what the slice will do and, where it can be known, the size of the result.
 - Slices with choices grow an outer ring on hover, for example Compress: Balanced, Smaller, Best, Custom. Dropping on the slice uses the first choice, dropping on the ring uses that one, and Custom opens the tool's window.
 - With more than eight slices the last one becomes More. Hover it, press Tab or roll the mouse wheel to turn the page.
@@ -142,11 +143,11 @@ Copy, Copy path (full path, name, name without extension, extension, quoted path
 
 ### Settings
 
-Keys for each wheel, start with Windows, favourites first, pause, and defaults for every tool. Settings also has sample files to practise on.
+Keys for each wheel, how the wheel opens without a drag, start with Windows, favourites first, pause, and defaults for every tool. Settings also has sample files to practise on.
 
 ## Privacy
 
-The app makes no network connections: no account, no telemetry, no crash reports, no update checks. Files never leave your PC. TapWheel watches the keyboard only to notice Shift, Ctrl, Alt, Tab and Esc during a drag, keeps no record of what you type, and passes every key on unchanged. Errors go to a log on your PC that is never sent anywhere. The full policy is at [tapwheel.app/privacy](https://tapwheel.app/privacy).
+The app makes no network connections: no account, no telemetry, no crash reports, no update checks. Files never leave your PC. TapWheel watches the keyboard only to notice Shift, Ctrl, Alt, Tab and Esc during a drag, and double taps of Shift, Ctrl or Alt on files selected in File Explorer. It keeps no record of what you type and passes every other key on unchanged. Errors go to a log on your PC that is never sent anywhere. The full policy is at [tapwheel.app/privacy](https://tapwheel.app/privacy).
 
 ## How it's built
 
@@ -178,7 +179,7 @@ Each version has one theme and builds on the last.
 
 ### v0.2.0: reach and control
 
-- Open the wheel without dragging: Enter on a file selected in Explorer, and TapWheel in Explorer's right-click menu for the Store version too.
+- Open the wheel without dragging: two quick taps of a wheel's key on files selected in File Explorer, and TapWheel in Explorer's right-click menu for the Store version too.
 - Your own wheels: hide, pin and reorder slices, save a tool's settings as your own ring choice (for example "Compress to 2 MB"), choose which key opens which wheel, and set the wheel's size and colour.
 - Fits your PC: TapWheel reads the PC's cores, memory, graphics card, free space, battery and screen once, then sizes batches to match, waits on Battery saver, and keeps the wheel smooth on weaker hardware.
 - Hardware video encoding, with the encoder shown on the card, and a time estimate before long jobs.
