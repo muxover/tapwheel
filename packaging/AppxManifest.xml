@@ -3,8 +3,10 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap desktop rescap">
+  IgnorableNamespaces="uap desktop desktop4 com rescap">
   <Identity Name="Jaxmuxover.TapWheel" Publisher="CN=50CBFD77-B27F-4D02-AB74-844DC5756318" Version="$VERSION$.0" ProcessorArchitecture="x64" />
   <Properties>
     <DisplayName>TapWheel</DisplayName>
@@ -31,6 +33,24 @@
         <desktop:Extension Category="windows.startupTask" Executable="tapwheel.exe" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="TapWheelStartup" Enabled="true" DisplayName="TapWheel" />
         </desktop:Extension>
+        <!-- TapWheel in Explorer's right-click menu: crates/shellext, same class ID as its CLSID -->
+        <desktop4:Extension Category="windows.fileExplorerContextMenus">
+          <desktop4:FileExplorerContextMenus>
+            <desktop4:ItemType Type="*">
+              <desktop4:Verb Id="TapWheel" Clsid="7148b49a-3df7-4720-a9d0-4580d276708f" />
+            </desktop4:ItemType>
+            <desktop4:ItemType Type="Directory">
+              <desktop4:Verb Id="TapWheel" Clsid="7148b49a-3df7-4720-a9d0-4580d276708f" />
+            </desktop4:ItemType>
+          </desktop4:FileExplorerContextMenus>
+        </desktop4:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:SurrogateServer DisplayName="TapWheel menu">
+              <com:Class Id="7148b49a-3df7-4720-a9d0-4580d276708f" Path="tapwheel_shell.dll" ThreadingModel="STA" />
+            </com:SurrogateServer>
+          </com:ComServer>
+        </com:Extension>
       </Extensions>
     </Application>
   </Applications>

@@ -233,7 +233,7 @@ const VERB_KEYS: [&str; 2] = [
 ];
 
 /// The classic right-click entry for the portable build. The Store package can't write
-/// these keys for Explorer to see, so it relies on the drag and the sample files instead.
+/// these keys for Explorer to see, so it declares the command in `crates/shellext` instead.
 pub fn set_context_menu(on: bool) {
 	let exe = std::env::current_exe().unwrap_or_default();
 	for key in VERB_KEYS {

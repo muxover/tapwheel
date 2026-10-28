@@ -14,7 +14,7 @@ if (-not $version) { throw "no version in Cargo.toml" }
 $exe = "target/release/tapwheel.exe"
 $engines = @("ffmpeg.exe", "ffprobe.exe", "onnxruntime.dll", "background.onnx", "background.f16") |
 	ForEach-Object { "target/engines/$_" }
-foreach ($f in @($exe) + $engines) { if (-not (Test-Path $f)) { throw "$f is missing" } }
+foreach ($f in @($exe, "target/release/tapwheel_shell.dll") + $engines) { if (-not (Test-Path $f)) { throw "$f is missing" } }
 
 Remove-Item -Recurse -Force $Out -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
@@ -46,6 +46,8 @@ $bin = Join-Path $sdk.FullName "x64"
 
 $layout = Join-Path $Out "msix"
 Copy-App $layout
+# the right-click entry; the portable version writes classic shell keys instead
+Copy-Item "target/release/tapwheel_shell.dll" (Join-Path $layout "tapwheel_shell.dll")
 New-Item -ItemType Directory -Force -Path (Join-Path $layout "Assets") | Out-Null
 Get-ChildItem $assets -Filter "*.png" | Where-Object { $_.Name -ne "logo-512.png" } |
 	Copy-Item -Destination (Join-Path $layout "Assets")

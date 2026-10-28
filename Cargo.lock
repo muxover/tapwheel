@@ -4748,6 +4748,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tapwheel-shell"
+version = "0.1.1"
+dependencies = [
+ "windows",
+ "windows-core",
+]
+
+[[package]]
 name = "tapwheel-ui"
 version = "0.1.1"
 dependencies = [
