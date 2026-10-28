@@ -141,10 +141,23 @@ impl Default for Defaults {
 	}
 }
 
+/// How the wheel opens on files selected in Explorer or on the desktop, without a drag.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoDrag {
+	/// Two quick taps of a wheel's key open that wheel.
+	#[default]
+	DoubleTap,
+	/// Ctrl+Shift+Space opens the Convert wheel. Windows gives the shortcut to TapWheel alone.
+	Shortcut,
+	Off,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
 	pub keys: Keys,
+	pub no_drag: NoDrag,
 	pub start_with_windows: bool,
 	/// Slices you pick most move to the top of the wheel.
 	pub learn_order: bool,
@@ -161,6 +174,7 @@ impl Default for Settings {
 	fn default() -> Self {
 		Settings {
 			keys: Keys::default(),
+			no_drag: NoDrag::default(),
 			start_with_windows: true,
 			learn_order: true,
 			sounds: false,
@@ -261,6 +275,32 @@ mod tests {
 		let path = dir.join("settings.toml");
 		std::fs::write(&path, "keys = 12\n[[[").unwrap();
 		assert_eq!(Settings::load(&path), Settings::default());
+		std::fs::remove_dir_all(dir).unwrap();
+	}
+
+	#[test]
+	fn a_settings_file_from_before_no_drag_keeps_its_keys() {
+		let dir = std::env::temp_dir().join(format!("tw-set-old-{}", std::process::id()));
+		std::fs::create_dir_all(&dir).unwrap();
+		let path = dir.join("settings.toml");
+		std::fs::write(
+			&path,
+			"start_with_windows = false\n\n[keys]\nconvert = \"alt\"\ntools = \"ctrl\"\nactions = \"shift\"\n",
+		)
+		.unwrap();
+		let s = Settings::load(&path);
+		assert_eq!(s.keys.convert, Key::Alt);
+		assert!(!s.start_with_windows);
+		assert_eq!(s.no_drag, NoDrag::DoubleTap);
+		let mut s = s;
+		s.no_drag = NoDrag::Shortcut;
+		s.save(&path).unwrap();
+		assert!(
+			std::fs::read_to_string(&path)
+				.unwrap()
+				.contains("no_drag = \"shortcut\"")
+		);
+		assert_eq!(Settings::load(&path).no_drag, NoDrag::Shortcut);
 		std::fs::remove_dir_all(dir).unwrap();
 	}
 

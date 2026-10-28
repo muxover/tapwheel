@@ -16,7 +16,7 @@ use windows_sys::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, Unho
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
-use super::{WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_NOTAP, WM_APP_PAGE, WM_APP_PRESS, WM_APP_TAP};
+use super::{WM_APP_DOUBLE, WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_NOTAP, WM_APP_PAGE, WM_APP_PRESS, WM_APP_TAP};
 use crate::gesture::{Context, Event, KEY_ALT, KEY_CTRL, KEY_SHIFT, Key, Mouse, Tracker, hooks_missed};
 
 static TARGET: AtomicIsize = AtomicIsize::new(0);
@@ -28,6 +28,8 @@ pub static WHEEL_OPEN: AtomicBool = AtomicBool::new(false);
 pub static PAUSED: AtomicBool = AtomicBool::new(false);
 /// Set when the wheel has seen files on the current drag.
 pub static FILES: AtomicBool = AtomicBool::new(false);
+/// Set when a double tap opens the wheel on Explorer's selection.
+pub static DOUBLE_TAP: AtomicBool = AtomicBool::new(false);
 
 /// Tags the input TapWheel sends itself, so the hooks skip only that and still hear the
 /// on-screen keyboard, voice control and other tools that type for people.
@@ -46,6 +48,7 @@ fn context() -> Context {
 		wheel_open: WHEEL_OPEN.load(Ordering::Relaxed),
 		paused: PAUSED.load(Ordering::Relaxed),
 		files_seen: FILES.load(Ordering::Relaxed),
+		double_tap: DOUBLE_TAP.load(Ordering::Relaxed),
 	}
 }
 
@@ -53,6 +56,7 @@ fn post(e: Event) {
 	let (msg, w) = match e {
 		Event::Press(k) => (WM_APP_PRESS, k),
 		Event::Tap(k) => (WM_APP_TAP, k),
+		Event::DoubleTap(k) => (WM_APP_DOUBLE, k),
 		Event::NoTap(k) => (WM_APP_NOTAP, k),
 		Event::Escape => (WM_APP_ESCAPE, 0),
 		Event::Page { back } => (WM_APP_PAGE, back as usize),

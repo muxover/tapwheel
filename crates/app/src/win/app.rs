@@ -6,7 +6,7 @@ use std::time::Instant;
 use tapwheel_core::ops::{selection_badge, selection_kind};
 use tapwheel_core::run::Engines;
 use tapwheel_core::settings::Key;
-use tapwheel_core::{Kind, Mode as OpMode, Op, Recipe, Settings, Wheel, choices, recipe_for};
+use tapwheel_core::{Kind, Mode as OpMode, NoDrag, Op, Recipe, Settings, Wheel, choices, recipe_for};
 use tapwheel_ui::hud::{self, Button, Card, HudView, State};
 use tapwheel_ui::wheel::{self, Hover, KeyHint, Motion, Slice, WheelView};
 use tapwheel_ui::{Fonts, Theme};
@@ -28,8 +28,8 @@ use super::jobs::Jobs;
 use super::util::*;
 use super::web::Web;
 use super::{
-	WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_JOBS, WM_APP_NOTAP, WM_APP_PAGE, WM_APP_PRESS, WM_APP_TAP, WM_APP_TRAY,
-	WM_APP_WEB, shell, system,
+	WM_APP_DOUBLE, WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_JOBS, WM_APP_NOTAP, WM_APP_PAGE, WM_APP_PRESS, WM_APP_TAP,
+	WM_APP_TRAY, WM_APP_WEB, shell, system,
 };
 
 const MAIN_CLASS: &str = "TapWheel.Main";
@@ -45,6 +45,8 @@ const T_PROBE: usize = 4;
 const T_PICK: usize = 10;
 /// On the main window: TapWheel has been quiet for a while, so it gives memory back.
 const T_IDLE: usize = 11;
+/// The Ctrl+Shift+Space shortcut, when Settings choose it over the double tap.
+const HOTKEY_NO_DRAG: i32 = 1;
 /// How long nothing has to happen before memory is given back.
 const QUIET_MS: u32 = 30_000;
 const T_HUD: usize = 20;
@@ -546,7 +548,7 @@ impl App {
 		unsafe {
 			if mode == Mode::Pick {
 				ShowWindow(self.wheel_hwnd, SW_SHOW);
-				SetForegroundWindow(self.wheel_hwnd);
+				bring_to_front(self.wheel_hwnd);
 			} else {
 				ShowWindow(self.wheel_hwnd, SW_SHOWNOACTIVATE);
 			}
@@ -703,6 +705,39 @@ impl App {
 				self.animate();
 			}
 		}
+	}
+
+	/// The wheel on the files selected in Explorer or on the desktop, with no drag: from a double
+	/// tap or the shortcut. Anywhere else the keys do nothing.
+	fn no_drag(&mut self, wh: Wheel) {
+		if self.wheel.visible() || hooks::dragging() {
+			return;
+		}
+		if let Some(files) = super::selection::selected() {
+			self.open(Mode::Pick, wh, files);
+		}
+	}
+
+	/// Turns on the way in without a drag that Settings chose. False when another app already
+	/// holds the shortcut.
+	pub fn apply_no_drag(&self) -> bool {
+		let how = self.settings.no_drag;
+		hooks::DOUBLE_TAP.store(how == NoDrag::DoubleTap, std::sync::atomic::Ordering::Relaxed);
+		unsafe {
+			UnregisterHotKey(self.main, HOTKEY_NO_DRAG);
+			if how == NoDrag::Shortcut
+				&& RegisterHotKey(
+					self.main,
+					HOTKEY_NO_DRAG,
+					MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT,
+					VK_SPACE as u32,
+				) == 0
+			{
+				super::log::write("Ctrl+Shift+Space is taken by another app");
+				return false;
+			}
+		}
+		true
 	}
 
 	/// A trigger key went down during a drag: start looking at what it carries.
@@ -1208,6 +1243,12 @@ impl Target for WheelTarget {
 unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
 	let handled = match msg {
 		WM_APP_TAP => with(|a| a.tap(w)),
+		WM_APP_DOUBLE => with(|a| {
+			if let Some(wh) = a.settings.keys.wheel_for(key_from(w)) {
+				a.no_drag(wh);
+			}
+		}),
+		WM_HOTKEY if w as i32 == HOTKEY_NO_DRAG => with(|a| a.no_drag(Wheel::Convert)),
 		WM_APP_PRESS => with(|a| a.press(w)),
 		WM_APP_NOTAP => with(|a| a.no_tap()),
 		WM_APP_ESCAPE => with(|a| a.close(None)),
@@ -1442,6 +1483,28 @@ pub fn register(inst: HINSTANCE, name: &str, proc: WNDPROC, icon: HICON, cursor:
 	unsafe { RegisterClassExW(&wc) };
 }
 
+/// Brings a TapWheel window to the front. Windows only lets the app with the last input do that,
+/// and a key watched through the hooks isn't TapWheel's input, so it joins the front window's
+/// input for the moment of the switch.
+fn bring_to_front(hwnd: HWND) {
+	unsafe {
+		if SetForegroundWindow(hwnd) != 0 && GetForegroundWindow() == hwnd {
+			return;
+		}
+		let front = GetWindowThreadProcessId(GetForegroundWindow(), std::ptr::null_mut());
+		let me = windows_sys::Win32::System::Threading::GetCurrentThreadId();
+		let joined =
+			front != 0 && front != me && windows_sys::Win32::System::Threading::AttachThreadInput(me, front, 1) != 0;
+		SetForegroundWindow(hwnd);
+		if joined {
+			windows_sys::Win32::System::Threading::AttachThreadInput(me, front, 0);
+		}
+		if GetForegroundWindow() != hwnd {
+			super::log::write("the wheel couldn't take the keyboard");
+		}
+	}
+}
+
 /// Hands the request to a TapWheel that's already running. True when one took it.
 fn forward(text: &str) -> bool {
 	unsafe {
@@ -1578,6 +1641,7 @@ pub fn run() -> i32 {
 
 	with(|a| {
 		a.add_tray();
+		a.apply_no_drag();
 		if !a.settings.welcomed {
 			a.settings.welcomed = true;
 			a.save();

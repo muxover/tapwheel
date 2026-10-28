@@ -7,6 +7,16 @@ const KEYS = [
 	{ label: "Alt", value: "alt" },
 	{ label: "Off", value: "off" },
 ];
+const NO_DRAG = [
+	{ label: "Double tap", value: "double_tap" },
+	{ label: "Ctrl+Shift+Space", value: "shortcut" },
+	{ label: "Off", value: "off" },
+];
+const NO_DRAG_HINT = {
+	double_tap: "Tap a wheel's key twice, quickly, to open that wheel.",
+	shortcut: "Opens the Convert wheel. Other apps can't use this shortcut while it's on.",
+	off: "Wheels open only while you drag.",
+};
 const WHEELS = [
 	["convert", "Convert", "Turns a file into another format"],
 	["tools", "Tools", "Crop, trim, compress, remove backgrounds and more"],
@@ -79,6 +89,7 @@ export default function settings(init) {
 					h("li", {}, "More than eight slices? Rest on More, press Tab, or roll the mouse wheel."),
 					h("li", {}, "Tap the same key twice to repeat your last choice."),
 					h("li", {}, "Drop in the middle, or press Esc, to cancel."),
+					h("li", {}, "Select files in File Explorer and tap a key twice to open its wheel without dragging."),
 					h("li", {}, "Right-click a file and choose TapWheel to use the keyboard instead."),
 				),
 			),
@@ -100,7 +111,21 @@ export default function settings(init) {
 				return group(name, h("div", { class: "hint", style: { marginTop: 0, marginBottom: "8px" } }, what), seg);
 			}),
 			h("p", { class: "hint" }, "A key can only open one wheel; picking one that's in use swaps them."),
+			noDrag(),
 		);
+	}
+
+	function noDrag() {
+		const hint = h("div", { class: "hint", style: { marginTop: "8px" } }, NO_DRAG_HINT[s.no_drag]);
+		const seg = segmented(NO_DRAG, s.no_drag, (v) => {
+			s.no_drag = v;
+			hint.textContent = NO_DRAG_HINT[v];
+			save();
+		});
+		return [
+			h("h3", { style: section }, "Without dragging"),
+			group(null, h("div", { class: "hint", style: { marginTop: 0, marginBottom: "8px" } }, "Select files in File Explorer or on the desktop, then open a wheel on them."), seg, hint),
+		];
 	}
 
 	function assign(wheel, key) {

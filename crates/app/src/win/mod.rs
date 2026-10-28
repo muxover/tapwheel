@@ -7,6 +7,7 @@ mod float;
 mod hooks;
 mod jobs;
 mod log;
+mod selection;
 mod share;
 mod shell;
 mod system;
@@ -27,6 +28,8 @@ pub const WM_APP_WEB: u32 = WM_APP + 7;
 /// A trigger key went down during a drag; `WM_APP_TAP` or `WM_APP_NOTAP` follows.
 pub const WM_APP_PRESS: u32 = WM_APP + 8;
 pub const WM_APP_NOTAP: u32 = WM_APP + 9;
+/// Two quick taps of a key with no drag: open its wheel on Explorer's selection.
+pub const WM_APP_DOUBLE: u32 = WM_APP + 10;
 
 pub use crash::Logged;
 

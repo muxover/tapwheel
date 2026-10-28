@@ -392,6 +392,7 @@ impl App {
 			"settings" => {
 				if let Ok(s) = serde_json::from_value::<Settings>(msg["settings"].clone()) {
 					let autostart = s.start_with_windows != self.settings.start_with_windows;
+					let no_drag = s.no_drag != self.settings.no_drag;
 					// usage counts and recent folders change outside the page; keep ours
 					let usage = std::mem::take(&mut self.settings.usage);
 					let recent = std::mem::take(&mut self.settings.recent_folders);
@@ -400,6 +401,12 @@ impl App {
 					self.settings.recent_folders = recent;
 					if autostart {
 						shell::set_autostart(self.settings.start_with_windows, self.packaged);
+					}
+					if no_drag && !self.apply_no_drag() {
+						self.web.send(
+							hwnd,
+							&json!({ "type": "toast", "message": "Another app already uses Ctrl+Shift+Space" }),
+						);
 					}
 					self.save();
 				}
