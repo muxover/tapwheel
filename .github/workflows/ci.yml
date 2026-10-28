@@ -5,13 +5,40 @@ on:
     branches: [main, build]
   pull_request:
   workflow_call:
+  workflow_dispatch:
+
+# a newer push to a branch replaces its older run; main and tags always finish
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   CARGO_TERM_COLOR: never
 
 jobs:
+  changes:
+    name: What changed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.diff.outputs.rust }}
+      site: ${{ steps.diff.outputs.site }}
+      docs: ${{ steps.diff.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: diff
+        run: .github/scripts/changes.sh
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          FORK: ${{ github.event.pull_request.head.repo.fork }}
+
   core:
     name: Core and UI (Linux)
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -35,9 +62,7 @@ jobs:
           curl -fsSL --retry 3 --max-time 60 "$base/checksums.sha256" -o "$RUNNER_TEMP/ffmpeg.sha256"
           sum=$(awk -v f="$name.tar.xz" '$2 == f { print $1 }' "$RUNNER_TEMP/ffmpeg.sha256")
           if [ -z "$sum" ]; then echo "::error::$name.tar.xz is not in the build's checksums"; exit 1; fi
-          echo "base=$base" >> "$GITHUB_OUTPUT"
-          echo "name=$name" >> "$GITHUB_OUTPUT"
-          echo "sum=$sum" >> "$GITHUB_OUTPUT"
+          { echo "base=$base"; echo "name=$name"; echo "sum=$sum"; } >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6
         id: ffmpeg-cache
         with:
@@ -63,8 +88,11 @@ jobs:
           cargo run -q -p tapwheel-core --example site_data > /tmp/wheel.json
           diff -u site/public/data/wheel.json /tmp/wheel.json || { echo "::error file=site/public/data/wheel.json::Out of date. Run: cargo run -p tapwheel-core --example site_data > site/public/data/wheel.json"; exit 1; }
 
+  # Windows minutes count double, so this job waits for the Linux checks and stops early when they fail.
   windows:
     name: App (Windows)
+    needs: [changes, core]
+    if: needs.changes.outputs.rust == 'true'
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
@@ -91,17 +119,29 @@ jobs:
         env:
           TAPWHEEL_FFMPEG: ${{ github.workspace }}\target\engines\ffmpeg.exe
           TAPWHEEL_MODEL_DIR: ${{ github.workspace }}\target\engines
+      # The release build and package run on main, tags and manual runs. A branch push starts the
+      # debug build, which reuses what the tests compiled.
       - name: Build
+        id: build
         shell: bash
-        run: .github/scripts/report.sh cargo build --release
+        run: |
+          if [ "$GITHUB_REF" = refs/heads/main ] || [[ "$GITHUB_REF" == refs/tags/* ]] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "profile=release" >> "$GITHUB_OUTPUT"
+            .github/scripts/report.sh cargo build --release
+          else
+            echo "profile=debug" >> "$GITHUB_OUTPUT"
+            .github/scripts/report.sh cargo build
+          fi
       - name: Start the app once
         run: |
-          $p = Start-Process -FilePath target\release\tapwheel.exe -ArgumentList "--smoke" -Wait -PassThru
+          $p = Start-Process -FilePath "target\${{ steps.build.outputs.profile }}\tapwheel.exe" -ArgumentList "--smoke" -Wait -PassThru
           Get-Content "$env:TEMP\tapwheel-smoke.txt" -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "smoke test exited with $($p.ExitCode)" }
       - name: Package
+        if: steps.build.outputs.profile == 'release'
         run: ./packaging/package.ps1 -TestSigned
-      - uses: actions/upload-artifact@v7
+      - if: steps.build.outputs.profile == 'release'
+        uses: actions/upload-artifact@v7
         with:
           name: tapwheel-windows
           path: |
@@ -111,17 +151,26 @@ jobs:
           if-no-files-found: error
 
   site:
-    name: Website
+    name: Website and Markdown
+    needs: changes
+    if: needs.changes.outputs.site == 'true' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - if: needs.changes.outputs.docs == 'true'
+        uses: DavidAnson/markdownlint-cli2-action@v24
+        with:
+          globs: "**/*.md"
+      - if: needs.changes.outputs.site == 'true'
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
-      - run: npm install --no-save playwright@1
-      # the browser's system libraries come through the same package mirror as FFmpeg's
+      - if: needs.changes.outputs.site == 'true'
+        run: npm install --no-save playwright@1
+      # the browser's system libraries come through Ubuntu's package mirror
       - name: Install the browser
+        if: needs.changes.outputs.site == 'true'
         timeout-minutes: 8
         run: |
           for try in 1 2 3; do
@@ -130,13 +179,5 @@ jobs:
             sleep 10
           done
           exit 1
-      - run: node site/check.mjs
-
-  markdownlint:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: DavidAnson/markdownlint-cli2-action@v24
-        with:
-          globs: "**/*.md"
+      - if: needs.changes.outputs.site == 'true'
+        run: node site/check.mjs
