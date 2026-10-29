@@ -580,20 +580,7 @@ pub fn image_args(to: Format, filter: &str, quality: u8, strip: bool) -> Vec<Str
 		),
 		Format::Avif => (
 			join_vf(&[filter, ON_WHITE, EVEN, "format=yuv420p"]),
-			vec![
-				"-c:v".into(),
-				"libaom-av1".into(),
-				"-still-picture".into(),
-				"1".into(),
-				"-crf".into(),
-				avif_crf(quality),
-				"-b:v".into(),
-				"0".into(),
-				"-cpu-used".into(),
-				"6".into(),
-				"-row-mt".into(),
-				"1".into(),
-			],
+			av1_still(&avif_crf(quality)),
 		),
 		Format::Tiff => (join_vf(&[filter]), strs(&["-c:v", "tiff", "-compression_algo", "lzw"])),
 		Format::Bmp => (join_vf(&[filter, "format=bgra"]), strs(&["-c:v", "bmp"])),
@@ -732,26 +719,60 @@ impl HwEncoder {
 }
 
 /// Video encoder settings for a container. `crf` is x264's scale; other codecs are mapped from it.
+/// An AVIF picture. The Windows on Arm FFmpeg has no libaom, so there rav1e makes it, at the
+/// same quality on its 0 to 255 scale; SVT-AV1 can't take pictures under 64 pixels.
+fn av1_still(crf: &str) -> Vec<String> {
+	if cfg!(target_arch = "aarch64") {
+		let qp = (crf.parse::<u32>().unwrap_or(30) * 4).min(255).to_string();
+		strs(&["-c:v", "librav1e", "-qp", &qp, "-speed", "6"])
+	} else {
+		strs(&[
+			"-c:v",
+			"libaom-av1",
+			"-still-picture",
+			"1",
+			"-crf",
+			crf,
+			"-b:v",
+			"0",
+			"-cpu-used",
+			"6",
+			"-row-mt",
+			"1",
+		])
+	}
+}
+
+/// WebM's picture: VP9, or AV1 on Windows on Arm, whose FFmpeg has no libvpx. Either plays in
+/// browsers. yuv420p, because a GIF's palette would otherwise pick a format players can't show.
+fn webm_video(crf: u8) -> Vec<String> {
+	let q = (crf as u32 + 10).min(63).to_string();
+	if cfg!(target_arch = "aarch64") {
+		strs(&["-c:v", "libsvtav1", "-crf", &q, "-preset", "8", "-pix_fmt", "yuv420p"])
+	} else {
+		strs(&[
+			"-c:v",
+			"libvpx-vp9",
+			"-crf",
+			&q,
+			"-b:v",
+			"0",
+			"-row-mt",
+			"1",
+			"-deadline",
+			"good",
+			"-cpu-used",
+			"4",
+			"-pix_fmt",
+			"yuv420p",
+		])
+	}
+}
+
 pub fn video_codec_args(to: Format, crf: u8, audio: bool, audio_kbps: u32) -> Vec<String> {
 	let a = format!("{audio_kbps}k");
 	let mut args = match to {
-		Format::Webm => vec![
-			"-c:v".into(),
-			"libvpx-vp9".into(),
-			"-crf".into(),
-			(crf as u32 + 10).min(63).to_string(),
-			"-b:v".into(),
-			"0".into(),
-			"-row-mt".into(),
-			"1".into(),
-			"-deadline".into(),
-			"good".into(),
-			"-cpu-used".into(),
-			"4".into(),
-			// a GIF's palette would otherwise pick a format browsers and players can't show
-			"-pix_fmt".into(),
-			"yuv420p".into(),
-		],
+		Format::Webm => webm_video(crf),
 		Format::Avi => strs(&["-c:v", "mpeg4", "-q:v", "4", "-vtag", "XVID"]),
 		Format::Wmv => strs(&["-c:v", "wmv2", "-q:v", "4"]),
 		_ => vec![
