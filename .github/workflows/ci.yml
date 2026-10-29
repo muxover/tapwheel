@@ -88,11 +88,13 @@ jobs:
           cargo run -q -p tapwheel-core --example site_data > /tmp/wheel.json
           diff -u site/public/data/wheel.json /tmp/wheel.json || { echo "::error file=site/public/data/wheel.json::Out of date. Run: cargo run -p tapwheel-core --example site_data > site/public/data/wheel.json"; exit 1; }
 
-  # Windows minutes count double, so this job waits for the Linux checks and stops early when they fail.
+  # Windows minutes count double, so this job waits for the Linux checks and stops early when they
+  # fail. Pushes to build skip it: Windows code is type-checked before the push, and the whole
+  # Windows build runs once a batch of work is ready to try, from a manual run.
   windows:
     name: App (Windows)
     needs: [changes, core]
-    if: needs.changes.outputs.rust == 'true'
+    if: needs.changes.outputs.rust == 'true' && !(github.event_name == 'push' && github.ref == 'refs/heads/build')
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
