@@ -63,6 +63,8 @@ impl App {
 			"paused": hooks::PAUSED.load(std::sync::atomic::Ordering::Relaxed),
 			"packaged": self.packaged,
 			"wheels": wheel_catalog(),
+			"device": self.device,
+			"slots": self.device.slots(),
 			"voices": tapwheel_core::speech::voices().into_iter().map(|(id, name)| json!({ "id": id, "name": name })).collect::<Vec<_>>(),
 		})
 	}
