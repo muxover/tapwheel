@@ -203,6 +203,8 @@ pub struct App {
 	pub web: Web,
 	pub last: Option<(Op, Option<String>)>,
 	pending_pick: Vec<PathBuf>,
+	/// The file the next wheel opens beside, when it opens without a drag.
+	anchor: Option<RECT>,
 	taskbar_created: u32,
 }
 
@@ -462,13 +464,25 @@ impl App {
 	}
 
 	fn place_wheel(&mut self) {
-		let pt = cursor();
+		let anchor = self.anchor.take();
+		let pt = anchor.map_or_else(cursor, |r| POINT {
+			x: (r.left + r.right) / 2,
+			y: (r.top + r.bottom) / 2,
+		});
 		let (work, scale) = monitor_at(pt);
 		let scale = wheel::fit_scale(scale, work.right - work.left, work.bottom - work.top);
 		let (w, h) = wheel::size(scale);
 		self.wheel.scale = scale;
-		self.wheel.x = (pt.x - (wheel::CX * scale) as i32).clamp(work.left, (work.right - w as i32).max(work.left));
-		self.wheel.y = (pt.y - (wheel::CY * scale) as i32).clamp(work.top, (work.bottom - h as i32).max(work.top));
+		if let Some(r) = anchor {
+			(self.wheel.x, self.wheel.y) = wheel::beside(
+				[r.left, r.top, r.right, r.bottom],
+				[work.left, work.top, work.right, work.bottom],
+				scale,
+			);
+		} else {
+			self.wheel.x = (pt.x - (wheel::CX * scale) as i32).clamp(work.left, (work.right - w as i32).max(work.left));
+			self.wheel.y = (pt.y - (wheel::CY * scale) as i32).clamp(work.top, (work.bottom - h as i32).max(work.top));
+		}
 		unsafe {
 			SetWindowPos(
 				self.wheel_hwnd,
@@ -713,8 +727,14 @@ impl App {
 		if self.wheel.visible() || hooks::dragging() {
 			return;
 		}
+		let started = Instant::now();
 		if let Some(files) = super::selection::selected() {
+			self.anchor = super::selection::focused_item_rect();
 			self.open(Mode::Pick, wh, files);
+			let took = started.elapsed().as_millis();
+			if took > 120 {
+				super::log::write(&format!("slow: the wheel took {took} ms to open without a drag"));
+			}
 		}
 	}
 
@@ -1281,6 +1301,8 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 			KillTimer(hwnd, T_PICK);
 			let files = std::mem::take(&mut a.pending_pick);
 			if !files.is_empty() {
+				// the menu has closed and the file has the keyboard again: open beside it
+				a.anchor = super::selection::focused_item_rect();
 				a.open(Mode::Pick, Wheel::Convert, files);
 			}
 		}),
@@ -1631,6 +1653,7 @@ pub fn run() -> i32 {
 		web: Web::new(local.join("WebView")),
 		last: None,
 		pending_pick: Vec::new(),
+		anchor: None,
 		taskbar_created: unsafe { RegisterWindowMessageW(wide("TaskbarCreated").as_ptr()) },
 	};
 	APP.with(|a| *a.borrow_mut() = Some(app));
