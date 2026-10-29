@@ -3,7 +3,9 @@
 param(
 	[string]$Out = "dist",
 	# Also make a self-signed copy of the package for installing on a test PC.
-	[switch]$TestSigned
+	[switch]$TestSigned,
+	# The processor the build is for; the release build and engines must match it.
+	[ValidateSet("x64", "arm64")][string]$Arch = "x64"
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -33,7 +35,7 @@ function Copy-App($dest) {
 # portable zip
 $portable = Join-Path $Out "TapWheel"
 Copy-App $portable
-$zip = Join-Path $Out "TapWheel-$version-windows-x64.zip"
+$zip = Join-Path $Out "TapWheel-$version-windows-$Arch.zip"
 Compress-Archive -Path "$portable/*" -DestinationPath $zip
 Write-Host "Portable: $zip"
 
@@ -51,7 +53,7 @@ Copy-Item "target/release/tapwheel_shell.dll" (Join-Path $layout "tapwheel_shell
 New-Item -ItemType Directory -Force -Path (Join-Path $layout "Assets") | Out-Null
 Get-ChildItem $assets -Filter "*.png" | Where-Object { $_.Name -ne "logo-512.png" } |
 	Copy-Item -Destination (Join-Path $layout "Assets")
-(Get-Content packaging/AppxManifest.xml -Raw).Replace('$VERSION$', $version) |
+(Get-Content packaging/AppxManifest.xml -Raw).Replace('$VERSION$', $version).Replace('ProcessorArchitecture="x64"', "ProcessorArchitecture=`"$Arch`"") |
 	Set-Content -Path (Join-Path $layout "AppxManifest.xml") -Encoding utf8
 
 Push-Location $layout
@@ -61,7 +63,7 @@ if ($LASTEXITCODE -ne 0) { throw "makepri failed" }
 Remove-Item priconfig.xml
 Pop-Location
 
-$msix = Join-Path $Out "TapWheel-$version-x64.msix"
+$msix = Join-Path $Out "TapWheel-$version-$Arch.msix"
 & "$bin\makeappx.exe" pack /d $layout /p $msix /o
 if ($LASTEXITCODE -ne 0) { throw "makeappx failed" }
 Write-Host "Store package: $msix"
@@ -72,7 +74,7 @@ if ($TestSigned) {
 	$cert = New-SelfSignedCertificate -Type Custom -Subject $subject -KeyUsage DigitalSignature `
 		-FriendlyName "TapWheel test" -CertStoreLocation "Cert:\CurrentUser\My" `
 		-TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
-	$test = Join-Path $Out "TapWheel-$version-x64-test.msix"
+	$test = Join-Path $Out "TapWheel-$version-$Arch-test.msix"
 	Copy-Item $msix $test
 	$pfx = Join-Path $Out "test.pfx"
 	$pw = ConvertTo-SecureString -String "tapwheel-test" -Force -AsPlainText
