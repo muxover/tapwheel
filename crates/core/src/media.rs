@@ -665,10 +665,19 @@ fn trim(
 		.map(drop)
 }
 
+/// The graphics card's encoder, for a compress that aims at a quality without shrinking the
+/// picture: Balanced and its Custom kin. Smaller, and aiming at a size, stay on the processor,
+/// which packs more into each megabyte.
+pub fn hw_encoder_for(d: &Defaults, max_height: Option<u32>) -> Option<ff::HwEncoder> {
+	(d.hardware_video && max_height.is_none())
+		.then_some(d.hw_encoder)
+		.flatten()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn compress_video(
 	e: &Engines,
-	_d: &Defaults,
+	d: &Defaults,
 	p: &Probe,
 	input: &Path,
 	crf: u8,
@@ -684,17 +693,31 @@ fn compress_video(
 	}
 	let audio_k: u32 = if target_mb.is_some_and(|t| t < 15.0) { 96 } else { 128 };
 	let Some(target) = target_mb else {
-		let mut a = maps(p);
 		vf.push(ff::EVEN.into());
-		a.extend(strs(&["-vf", &vf.join(",")]));
-		a.extend(video_codec_args(Format::Mp4, crf, p.has_audio(), audio_k));
-		return Run::new(&e.ffmpeg)
-			.input(input)
-			.duration(p.duration)
-			.args(a)
-			.args(out(part))
-			.go(pr, c)
-			.map(drop);
+		let run = |video: Vec<String>, pr: Progress| {
+			let mut a = maps(p);
+			a.extend(strs(&["-vf", &vf.join(",")]));
+			a.extend(video);
+			Run::new(&e.ffmpeg)
+				.input(input)
+				.duration(p.duration)
+				.args(a)
+				.args(out(part))
+				.go(pr, c)
+				.map(drop)
+		};
+		let cpu = || video_codec_args(Format::Mp4, crf, p.has_audio(), audio_k);
+		if let Some(hw) = hw_encoder_for(d, max_height) {
+			let mut a = hw.video_args(crf);
+			a.extend(cpu().into_iter().skip_while(|x| x != "-c:a" && x != "-an"));
+			match run(a, &mut *pr) {
+				Ok(()) => return Ok(()),
+				Err(Error::Cancelled) => return Err(Error::Cancelled),
+				// the card turned it down (busy, a size it can't take): the processor does it
+				Err(_) => {}
+			}
+		}
+		return run(cpu(), pr);
 	};
 	if p.duration <= 0.0 {
 		return Err(Error::Engine(
@@ -1193,6 +1216,22 @@ pub fn waveform(e: &Engines, input: &Path, duration: f64, buckets: usize) -> Res
 
 #[cfg(test)]
 mod tests {
+
+	#[test]
+	fn the_graphics_card_takes_quality_compresses_only() {
+		let mut d = Defaults {
+			hw_encoder: Some(ff::HwEncoder::Qsv),
+			..Defaults::default()
+		};
+		assert_eq!(hw_encoder_for(&d, None), Some(ff::HwEncoder::Qsv), "Balanced");
+		assert_eq!(hw_encoder_for(&d, Some(720)), None, "Smaller shrinks the picture");
+		d.hardware_video = false;
+		assert_eq!(hw_encoder_for(&d, None), None, "switched off in Settings");
+		d.hardware_video = true;
+		d.hw_encoder = None;
+		assert_eq!(hw_encoder_for(&d, None), None, "no encoder found");
+	}
+
 	use super::*;
 
 	fn probe(v: Option<&str>, a: Option<&str>) -> Probe {

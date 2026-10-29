@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::Error;
 use crate::format::Format;
@@ -632,6 +632,105 @@ pub fn image_args(to: Format, filter: &str, quality: u8, strip: bool) -> Vec<Str
 	args
 }
 
+/// A graphics card's own H.264 encoder. Much faster than x264 and lighter on the processor, at
+/// the cost of somewhat bigger files for the same look.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HwEncoder {
+	Nvenc,
+	Qsv,
+	Amf,
+}
+
+impl HwEncoder {
+	pub const ALL: [HwEncoder; 3] = [HwEncoder::Nvenc, HwEncoder::Qsv, HwEncoder::Amf];
+
+	/// The name shown on cards and in Settings.
+	pub fn name(self) -> &'static str {
+		match self {
+			HwEncoder::Nvenc => "NVIDIA NVENC",
+			HwEncoder::Qsv => "Intel Quick Sync",
+			HwEncoder::Amf => "AMD AMF",
+		}
+	}
+
+	/// The encoders to try for a graphics card, its own maker's first.
+	pub fn for_gpu(gpu: Option<&str>) -> Vec<HwEncoder> {
+		let g = gpu.unwrap_or_default().to_ascii_lowercase();
+		let first = if g.contains("nvidia") {
+			Some(HwEncoder::Nvenc)
+		} else if g.contains("intel") {
+			Some(HwEncoder::Qsv)
+		} else if g.contains("amd") || g.contains("radeon") {
+			Some(HwEncoder::Amf)
+		} else {
+			None
+		};
+		let mut all: Vec<HwEncoder> = first.into_iter().collect();
+		all.extend(Self::ALL.into_iter().filter(|e| Some(*e) != first));
+		all
+	}
+
+	/// Encoder settings at about the look x264 gives at `crf`.
+	pub fn video_args(self, crf: u8) -> Vec<String> {
+		let q = crf.to_string();
+		match self {
+			HwEncoder::Nvenc => strs(&[
+				"-c:v",
+				"h264_nvenc",
+				"-preset",
+				"p5",
+				"-rc",
+				"vbr",
+				"-cq",
+				&q,
+				"-b:v",
+				"0",
+				"-pix_fmt",
+				"yuv420p",
+			]),
+			HwEncoder::Qsv => strs(&[
+				"-c:v",
+				"h264_qsv",
+				"-preset",
+				"medium",
+				"-global_quality",
+				&q,
+				"-look_ahead",
+				"0",
+				"-pix_fmt",
+				"nv12",
+			]),
+			HwEncoder::Amf => {
+				let p = (crf + 2).to_string();
+				strs(&[
+					"-c:v", "h264_amf", "-quality", "balanced", "-rc", "cqp", "-qp_i", &q, "-qp_p", &p, "-pix_fmt",
+					"nv12",
+				])
+			}
+		}
+	}
+
+	/// Encodes one second of a test picture with this encoder, which only works when the card,
+	/// its driver and this FFmpeg all agree.
+	pub fn works(self, ffmpeg: &Path) -> bool {
+		let mut args = strs(&["-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30", "-t", "1"]);
+		args.extend(self.video_args(27));
+		args.extend(strs(&["-an", "-f", "null"]));
+		let null = if cfg!(windows) { "NUL" } else { "/dev/null" };
+		Run::new(ffmpeg)
+			.args(args)
+			.arg(null)
+			.go(&mut |_| {}, &AtomicBool::new(false))
+			.is_ok()
+	}
+
+	/// The first encoder that works on this PC, trying the graphics card's own first.
+	pub fn find(ffmpeg: &Path, gpu: Option<&str>) -> Option<HwEncoder> {
+		Self::for_gpu(gpu).into_iter().find(|e| e.works(ffmpeg))
+	}
+}
+
 /// Video encoder settings for a container. `crf` is x264's scale; other codecs are mapped from it.
 pub fn video_codec_args(to: Format, crf: u8, audio: bool, audio_kbps: u32) -> Vec<String> {
 	let a = format!("{audio_kbps}k");
@@ -740,6 +839,33 @@ pub fn secs(t: f64) -> String {
 
 #[cfg(test)]
 mod tests {
+
+	#[test]
+	fn a_cards_own_encoder_is_tried_first() {
+		assert_eq!(
+			HwEncoder::for_gpu(Some("Intel(R) Iris(R) Xe Graphics"))[0],
+			HwEncoder::Qsv
+		);
+		assert_eq!(HwEncoder::for_gpu(Some("NVIDIA GeForce RTX 3060"))[0], HwEncoder::Nvenc);
+		assert_eq!(HwEncoder::for_gpu(Some("AMD Radeon(TM) Graphics"))[0], HwEncoder::Amf);
+		// an unknown card still tries all three, once each
+		let all = HwEncoder::for_gpu(None);
+		assert_eq!(all.len(), 3);
+		assert!(HwEncoder::ALL.iter().all(|e| all.contains(e)));
+	}
+
+	#[test]
+	fn encoder_settings_name_their_codec_and_quality() {
+		for e in HwEncoder::ALL {
+			let a = e.video_args(27);
+			assert!(
+				a.windows(2).any(|w| w[0] == "-c:v" && w[1].starts_with("h264_")),
+				"{a:?}"
+			);
+			assert!(a.contains(&"27".to_string()), "{a:?}");
+		}
+	}
+
 	use super::*;
 
 	#[test]
