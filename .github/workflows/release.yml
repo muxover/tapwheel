@@ -21,6 +21,10 @@ jobs:
         with:
           name: tapwheel-windows
           path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: tapwheel-windows-arm64
+          path: dist
       - name: Release notes
         id: notes
         run: |
@@ -32,7 +36,7 @@ jobs:
           else
             echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
-          cd dist && sha256sum TapWheel-*-windows-x64.zip > checksums.txt
+          cd dist && sha256sum TapWheel-*-windows-x64.zip TapWheel-*-windows-arm64.zip > checksums.txt
       - uses: softprops/action-gh-release@v3
         with:
           name: ${{ steps.notes.outputs.name }}
@@ -40,4 +44,5 @@ jobs:
           generate_release_notes: ${{ steps.notes.outputs.file == '' }}
           files: |
             dist/TapWheel-*-windows-x64.zip
+            dist/TapWheel-*-windows-arm64.zip
             dist/checksums.txt

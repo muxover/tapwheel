@@ -152,6 +152,57 @@ jobs:
             dist/*.cer
           if-no-files-found: error
 
+  # Windows on Arm, on GitHub's Arm runner: the engines' Arm builds, the engine tests, the app
+  # starting once, and the Arm zip and package. Like the x64 package, only on main, tags and a
+  # manual run.
+  arm64:
+    name: App (Windows on Arm)
+    needs: [changes, core]
+    if: needs.changes.outputs.rust == 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch')
+    runs-on: windows-11-arm
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      # the model is prepared with x64 Python, which Windows on Arm runs; its wheels are certain
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - uses: actions/cache@v6
+        with:
+          path: target/engines
+          key: engines-arm64-${{ hashFiles('engines/engines.toml', 'engines/model.py') }}
+      - name: Fetch converters
+        run: ./engines/fetch.ps1 -Arch arm64
+      - name: Engine tests on Arm
+        shell: bash
+        run: .github/scripts/report.sh cargo test -p tapwheel-core --test engine
+        env:
+          TAPWHEEL_FFMPEG: ${{ github.workspace }}\target\engines\ffmpeg.exe
+          TAPWHEEL_MODEL_DIR: ${{ github.workspace }}\target\engines
+      - name: Build
+        shell: bash
+        run: .github/scripts/report.sh cargo build --release
+      - name: Start the app once
+        run: |
+          $p = Start-Process -FilePath target\release\tapwheel.exe -ArgumentList "--smoke" -Wait -PassThru
+          Get-Content "$env:TEMP\tapwheel-smoke.txt" -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "smoke test exited with $($p.ExitCode)" }
+      - name: Package
+        run: ./packaging/package.ps1 -TestSigned -Arch arm64
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tapwheel-windows-arm64
+          path: |
+            dist/*.zip
+            dist/*.msix
+            dist/*.cer
+          if-no-files-found: error
+
   site:
     name: Website and Markdown
     needs: changes
