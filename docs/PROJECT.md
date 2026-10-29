@@ -44,6 +44,10 @@ When it starts, TapWheel reads the PC once: processor cores and family, memory, 
 
 At start TapWheel also tries a one-second test encode with the graphics card's own H.264 encoder (NVIDIA NVENC, Intel Quick Sync or AMD AMF). When one works, Compress on Balanced uses it and the card names it: much faster, with files a little bigger. Smaller and size targets stay on the processor, which packs more into each megabyte, and a card that turns a job down hands it to the processor. Running cards show the time left once enough has run to tell, and say plainly when a job will be slow on this PC.
 
+### Screen readers and the keyboard
+
+The wheel and the cards are drawn by TapWheel, so they speak to UI Automation themselves: Narrator, NVDA and JAWS hear the wheel open with its file and choices, each slice or ring choice as the pointer or keyboard reaches it, page turns, and every finished or failed job. On a wheel opened without a drag, Left and Right move between slices, Down opens a slice's ring choices and moves along them, Up comes back, Enter picks, number keys pick directly and Esc closes. The newest job's buttons (Open, Show in folder, Undo, Retry) are also in the tray menu, which Win+B reaches. The tool windows and Settings are web pages built for keyboards and screen readers: one tab stop per choice group with the arrow keys inside it, headings in order, and every picture named.
+
 ### Cards
 
 - Compact cards above the taskbar, on the monitor where you dropped the file.

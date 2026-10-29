@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - TapWheel reads the PC when it starts and fits its work to it: how many batches run at once, video and background removal waiting while Battery saver is on, and a lighter wheel animation without a graphics driver. Settings, General shows what it read.
 - Compress on Balanced uses the graphics card's video encoder when this PC has one, named on the card. Settings can turn it off.
 - Cards show the time left on long jobs, and say when a job will be slow on this PC.
+- Screen readers hear the wheel, its slices and ring choices, page turns and finished jobs. On a keyboard-opened wheel, Down reaches the ring choices. The newest job's buttons are in the tray menu.
+- Choice groups in the tool windows and Settings move with the arrow keys and read as radio buttons.
 - Batch rename has Undo.
 - The wheel fits every screen, scaling and monitor layout, and dark title bars work on early Windows 10 builds too.
 - Results can go into a subfolder or one folder instead of next to the original.
