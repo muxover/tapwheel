@@ -26,11 +26,12 @@ TapWheel will never have cloud accounts, online conversion, an AI chat window or
 
 - Three wheels on three keys, which you can change in Settings: Shift converts, Ctrl opens tools, Alt opens actions. Tapping another key on an open wheel switches to that wheel.
 - The wheel opens on a quick tap (down and up within 400 ms, no other key in between), never on a hold, while files are being dragged.
-- Without a drag, two quick taps of a wheel's key open that wheel on the files selected in File Explorer or on the desktop. Settings can change this to Ctrl+Shift+Space or turn it off. It only works while the file list has the keyboard, so typing in a rename box, the address bar or the search box is never caught.
+- Without a drag, two quick taps of a wheel's key open that wheel beside the files selected in File Explorer or on the desktop. Settings can change this to Ctrl+Shift+Space or turn it off. It only works while the file list has the keyboard, so typing in a rename box, the address bar or the search box is never caught.
 - Each slice has an icon and a label that follows the slice's curve. The centre shows the file's name and type, and on hover what the slice will do and, where it can be known, the size of the result.
 - Slices with choices grow an outer ring on hover, for example Compress: Balanced, Smaller, Best, Custom. Dropping on the slice uses the first choice, dropping on the ring uses that one, and Custom opens the tool's window.
 - With more than eight slices the last one becomes More. Hover it, press Tab or roll the mouse wheel to turn the page.
 - Tap the same key twice to repeat your last choice. The slices you use most move to the top.
+- Each wheel can be arranged for each kind of file in Settings: pin slices to the front in your order, hide the ones you never use, and keep a tool's settings as a choice on its ring (up to three per slice, before Custom). The wheel's size and colour can be changed too; its colour follows the Windows accent until you pick one.
 - Several files are handled in one go, with one card for the batch. Folders and mixed selections get the Actions wheel.
 - TapWheel is in Explorer's right-click menu; on Windows 11 the Store version's entry is at the top of the menu. Choosing it opens the Convert wheel on the selection, ready for the keyboard.
 
@@ -143,7 +144,7 @@ Copy, Copy path (full path, name, name without extension, extension, quoted path
 
 ### Settings
 
-Keys for each wheel, how the wheel opens without a drag, start with Windows, favourites first, pause, and defaults for every tool. Settings also has sample files to practise on.
+Keys for each wheel, how the wheel opens without a drag, how each wheel is arranged with its size and colour, your ring choices, start with Windows, favourites first, pause, and defaults for every tool. Settings also has sample files to practise on.
 
 ## Privacy
 
