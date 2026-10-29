@@ -22,6 +22,15 @@ impl Wheel {
 	}
 
 	pub const ALL: [Wheel; 3] = [Wheel::Convert, Wheel::Tools, Wheel::Actions];
+
+	/// The name Settings know the wheel by.
+	pub fn id(self) -> &'static str {
+		match self {
+			Wheel::Convert => "convert",
+			Wheel::Tools => "tools",
+			Wheel::Actions => "actions",
+		}
+	}
 }
 
 /// One slice on a wheel. The same tool can mean different work for different kinds of file,
@@ -754,6 +763,40 @@ pub fn choices(wheel: Wheel, paths: &[impl AsRef<Path>]) -> Vec<Op> {
 			a
 		}
 	}
+}
+
+/// Every slice each wheel can show for each kind of file, for the Settings page where wheels are
+/// arranged. Built from sample file names, so a slice that only some files of a kind get (a format
+/// the file is already in, Properties for one file) is still listed.
+pub fn catalog() -> Vec<(Wheel, Kind, Vec<Op>)> {
+	const SAMPLES: [(Kind, &[&str]); 7] = [
+		(Kind::Image, &["photo.heic", "shot.png", "scan.jpg"]),
+		(Kind::Video, &["clip.mp4", "intro.mov"]),
+		(Kind::Audio, &["song.mp3", "voice.m4a"]),
+		(Kind::Icon, &["logo.svg", "mark.ico"]),
+		(Kind::Text, &["notes.txt", "data.csv", "config.json"]),
+		(Kind::Code, &["app.ts", "main.rs"]),
+		(Kind::Archive, &["album.zip", "backup.7z"]),
+	];
+	let mut out = Vec::new();
+	for wheel in Wheel::ALL {
+		for (kind, names) in SAMPLES {
+			let mut ops: Vec<Op> = Vec::new();
+			let mut add = |found: Vec<Op>| {
+				for op in found {
+					if !ops.contains(&op) {
+						ops.push(op);
+					}
+				}
+			};
+			for name in names {
+				add(choices(wheel, &[name]));
+			}
+			add(choices(wheel, names));
+			out.push((wheel, kind, ops));
+		}
+	}
+	out
 }
 
 /// Kind used to pick icons and wording for a whole selection.
