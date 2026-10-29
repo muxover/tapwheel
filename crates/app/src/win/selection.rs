@@ -26,11 +26,34 @@ thread_local! {
 	static UIA: RefCell<Option<IUIAutomation>> = const { RefCell::new(None) };
 }
 
+/// Connects to Explorer and UI Automation ahead of time, so the first double tap is as quick as
+/// the rest. Called on the UI thread when a way in without a drag is turned on.
+pub fn warm() {
+	SHELL.with_borrow_mut(|slot| {
+		if slot.is_none() {
+			*slot = unsafe { CoCreateInstance(&ShellWindows, None, CLSCTX_LOCAL_SERVER) }
+				.inspect_err(|e| super::log::write(&format!("connecting to Explorer failed: {e}")))
+				.ok();
+		}
+	});
+	UIA.with_borrow_mut(|slot| {
+		if slot.is_none() {
+			*slot = unsafe { CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) }
+				.inspect_err(|e| super::log::write(&format!("starting UI Automation failed: {e}")))
+				.ok();
+		}
+	});
+}
+
 /// The selected files, or `None` when the keyboard isn't on the items of Explorer or the desktop
 /// (an address bar, a rename box, a search box, a file dialog or another app), or nothing on
 /// disk is selected. Items with no file behind them, such as This PC, are left out.
 pub fn selected() -> Option<Vec<PathBuf>> {
-	let (root, view) = focused_view()?;
+	let Some((root, view)) = focused_view() else {
+		// a line in the log says why nothing opened, for a report from a PC we can't see
+		super::log::write(&format!("no wheel without a drag: the keyboard is on {}", focus_name()));
+		return None;
+	};
 	let files = files_in(root, view)
 		.or_else(|_| {
 			// Explorer restarted since the list was made: make it again, once
@@ -39,7 +62,31 @@ pub fn selected() -> Option<Vec<PathBuf>> {
 		})
 		.inspect_err(|e| super::log::write(&format!("reading Explorer's selection failed: {e}")))
 		.ok()?;
+	if files.is_empty() {
+		super::log::write("no wheel without a drag: no file on disk is selected");
+	}
 	(!files.is_empty()).then_some(files)
+}
+
+/// The class of the window with the keyboard and of its top window, for the log.
+fn focus_name() -> String {
+	unsafe {
+		let fg = GetForegroundWindow();
+		if fg.is_null() {
+			return "no window".into();
+		}
+		let thread = GetWindowThreadProcessId(fg, std::ptr::null_mut());
+		let mut info = GUITHREADINFO {
+			cbSize: size_of::<GUITHREADINFO>() as u32,
+			..std::mem::zeroed()
+		};
+		let focus = if GetGUIThreadInfo(thread, &mut info) != 0 && !info.hwndFocus.is_null() {
+			class(info.hwndFocus)
+		} else {
+			"nothing".into()
+		};
+		format!("{focus} in {}", class(GetAncestor(fg, GA_ROOT)))
+	}
 }
 
 /// Where the focused file sits on screen, when Explorer or the desktop has the keyboard, so the
