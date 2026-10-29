@@ -276,6 +276,24 @@ impl Recipe {
 /// What a plain drop (or a ring choice) on a slice means, using the saved settings.
 /// `None` means the slice needs its window first.
 impl Recipe {
+	/// Work that keeps the processor or graphics card busy for a long time on a big file: video
+	/// encodes and background removal. It waits while Battery saver is on.
+	pub fn heavy(&self) -> bool {
+		match self {
+			Recipe::Convert { to } => to.kind() == Kind::Video,
+			Recipe::Trim { exact, .. } => *exact,
+			Recipe::CropVideo { .. }
+			| Recipe::CompressVideo { .. }
+			| Recipe::ResizeVideo { .. }
+			| Recipe::Speed { .. }
+			| Recipe::MakeGif { .. }
+			| Recipe::RotateVideo { .. }
+			| Recipe::Reverse
+			| Recipe::RemoveBackground => true,
+			_ => false,
+		}
+	}
+
 	/// Whether the recipe means the same thing on any file of its kind, so it can be kept as a
 	/// ring choice. Cuts, crops and drawings belong to one file, and a password is never stored.
 	pub fn reusable(&self) -> bool {
@@ -525,6 +543,36 @@ pub fn recipe_for(op: Op, preset: Option<&str>, kind: Option<Kind>, d: &Defaults
 
 #[cfg(test)]
 mod tests {
+
+	#[test]
+	fn only_long_video_work_and_background_removal_wait_for_the_charger() {
+		let d = Defaults::default();
+		let heavy = |op, preset, kind| recipe_for(op, preset, Some(kind), &d).map(|r| r.heavy());
+		assert_eq!(heavy(Op::Compress, None, Kind::Video), Some(true));
+		assert_eq!(heavy(Op::RemoveBackground, None, Kind::Image), Some(true));
+		assert_eq!(heavy(Op::Compress, None, Kind::Image), Some(false));
+		assert_eq!(heavy(Op::Compress, None, Kind::Audio), Some(false));
+		assert!(Recipe::Convert { to: Format::Mp4 }.heavy());
+		assert!(!Recipe::Convert { to: Format::Mp3 }.heavy());
+		assert!(
+			!Recipe::Trim {
+				keep: Vec::new(),
+				separate: false,
+				exact: false
+			}
+			.heavy(),
+			"instant cut"
+		);
+		assert!(
+			Recipe::Trim {
+				keep: Vec::new(),
+				separate: false,
+				exact: true
+			}
+			.heavy()
+		);
+	}
+
 	use super::*;
 
 	#[test]

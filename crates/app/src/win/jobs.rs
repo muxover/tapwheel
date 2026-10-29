@@ -33,6 +33,8 @@ pub struct Batch {
 	/// What ran, so Retry can run it again on the files that failed.
 	pub recipe: Option<Recipe>,
 	pub failed: Vec<PathBuf>,
+	/// Why a waiting batch hasn't started, when it's something other than another batch.
+	pub waiting_for: Option<String>,
 }
 
 fn name(p: &Path) -> String {
@@ -80,7 +82,10 @@ impl Batch {
 			State::Cancelled => "Cancelled".into(),
 		};
 		let detail = match self.state {
-			State::Waiting => "Waiting for another job to finish".into(),
+			State::Waiting => self
+				.waiting_for
+				.clone()
+				.unwrap_or_else(|| "Waiting for another job to finish".into()),
 			State::Running if single => self.inputs.first().map(|p| name(p)).unwrap_or_default(),
 			State::Running => format!("{} of {}", (self.done + 1).min(self.total), self.total),
 			State::Done if self.outputs.is_empty() => self.error.clone().unwrap_or_default(),
@@ -139,7 +144,7 @@ fn capitalize(s: &str) -> String {
 	}
 }
 
-/// At most two batches run at once; the rest wait their turn.
+/// As many batches run at once as the PC can carry (`Device::slots`); the rest wait their turn.
 struct Slots {
 	free: Mutex<usize>,
 	cv: Condvar,
@@ -150,18 +155,21 @@ pub struct Jobs {
 	slots: Arc<Slots>,
 	next: u64,
 	pub engines: Engines,
+	/// Battery saver is on: heavy batches wait until it's off or they're cancelled.
+	pub saver: Arc<AtomicBool>,
 }
 
 impl Jobs {
-	pub fn new(engines: Engines) -> Jobs {
+	pub fn new(engines: Engines, slots: usize) -> Jobs {
 		Jobs {
 			batches: Arc::new(Mutex::new(Vec::new())),
 			slots: Arc::new(Slots {
-				free: Mutex::new(2),
+				free: Mutex::new(slots.max(1)),
 				cv: Condvar::new(),
 			}),
 			next: 1,
 			engines,
+			saver: Arc::new(AtomicBool::new(false)),
 		}
 	}
 
@@ -194,6 +202,7 @@ impl Jobs {
 			copy: None,
 			recipe: None,
 			failed: Vec::new(),
+			waiting_for: None,
 		}
 	}
 
@@ -282,6 +291,7 @@ impl Jobs {
 		let batches = self.batches.clone();
 		let slots = self.slots.clone();
 		let engines = self.engines.clone();
+		let saver = self.saver.clone();
 		let worker = std::thread::Builder::new().stack_size(tapwheel_core::run::JOB_STACK);
 		let spawned = worker.spawn(move || {
 			let update = |f: &mut dyn FnMut(&mut Batch)| {
@@ -302,6 +312,15 @@ impl Jobs {
 			}
 			update(&mut |b| b.total = jobs.len());
 			wake();
+			if recipe.heavy() && saver.load(Ordering::Relaxed) {
+				update(&mut |b| b.waiting_for = Some("Waits while Battery saver is on".into()));
+				wake();
+				while saver.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
+					std::thread::sleep(std::time::Duration::from_millis(500));
+				}
+				update(&mut |b| b.waiting_for = None);
+				wake();
+			}
 			{
 				let mut free = slots.free.lock().unwrap();
 				while *free == 0 {
