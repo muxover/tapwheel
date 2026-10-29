@@ -153,7 +153,7 @@ Every tool works offline with what ships inside TapWheel: FFmpeg, TapWheel's own
 
 ### Actions, for any file or folder
 
-Copy, Copy path (full path, name, name without extension, extension, quoted path or file URI), Rename (one file, or many with numbering, find and replace, and every new name previewed before anything changes), Duplicate, File info (with the real type checked from the content), Properties, Open with, Move to, Share, Float (a small shelf that holds files to drop later), Checksum, and Terminal for folders and code.
+Copy, Copy path (full path, name, name without extension, extension, quoted path or file URI), Rename (one file, or many with numbering, find and replace, and every new name previewed before anything changes), Duplicate, File info (with the real type checked from the content), Properties, Open with, Move to, Share, Float (a small shelf that holds files to drop later) and Checksum.
 
 ### Settings
 
@@ -161,7 +161,7 @@ Keys for each wheel, how the wheel opens without a drag, how each wheel is arran
 
 ## Privacy
 
-The app makes no network connections: no account, no telemetry, no crash reports, no update checks. Files never leave your PC. TapWheel watches the keyboard only to notice Shift, Ctrl, Alt, Tab and Esc during a drag, and double taps of Shift, Ctrl or Alt on files selected in File Explorer. It keeps no record of what you type and passes every other key on unchanged. Errors go to a log on your PC that is never sent anywhere. The full policy is at [tapwheel.app/privacy](https://tapwheel.app/privacy).
+The app makes no network connections: no account, no telemetry, no crash reports, no update checks. Files never leave your PC. TapWheel watches the keyboard only to notice Shift, Ctrl, Alt, Tab and Esc during a drag, and double taps of Shift, Ctrl or Alt on files selected in File Explorer. It keeps no record of what you type and passes every other key on unchanged. Errors go to a log on your PC that is never sent anywhere. Report a problem in Settings opens a GitHub issue in your browser, filled in with the version, Windows, the screens and the end of the log with your user name taken out; nothing leaves the PC unless you post it. The full policy is at [tapwheel.app/privacy](https://tapwheel.app/privacy).
 
 ## How it's built
 
@@ -205,7 +205,6 @@ Each version has one theme and builds on the last.
 - A native build for Windows on Arm.
 - Report a problem: a button that opens a filled-in GitHub issue for you to post. Nothing is sent on its own.
 - winget support, checked before it's advertised.
-- Terminal leaves the Actions wheel.
 - A new website and brand identity.
 
 ### v0.3.0: languages
