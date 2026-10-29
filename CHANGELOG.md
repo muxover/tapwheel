@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Select files in File Explorer or on the desktop and tap a wheel's key twice to open that wheel without dragging. Settings can switch it to Ctrl+Shift+Space or turn it off.
 - The Store version is in Explorer's right-click menu too, at the top of the menu on Windows 11.
+- Wheels page in Settings: arrange each wheel for each kind of file by pinning, hiding and moving slices, and pick the wheel's size and colour.
+- Keep a tool's settings as a choice on its ring, like "To send" for a smaller video, from the tool's window.
 
 ## [0.1.1] - 2026-10-23
 

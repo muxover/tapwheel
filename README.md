@@ -77,6 +77,9 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 | Convert key | Shift | Key to tap during a drag for the Convert wheel |
 | Tools key | Ctrl | Key for the Tools wheel |
 | Actions key | Alt | Key for the Actions wheel |
+| Wheels | As shipped | Per wheel and kind of file: pinned slices first in your order, hidden slices, and tool settings kept as ring choices |
+| Wheel size | Normal | Small, Normal or Large |
+| Wheel colour | Windows accent | Follows the Windows accent, or a colour you pick |
 | Without dragging | Double tap | Opens a wheel on the files selected in File Explorer or on the desktop: tap its key twice, press Ctrl+Shift+Space, or Off |
 | Start with Windows | On | Starts TapWheel in the tray when you sign in |
 | Favorites first | On | Moves the slices you pick most to the top |
