@@ -16,6 +16,25 @@ files = "onnxruntime-win-x64-1.22.0/lib/onnxruntime.dll"
 license = "MIT"
 source = "https://github.com/microsoft/onnxruntime"
 
+# Windows on Arm. ONNX Runtime publishes its own Arm build. FFmpeg's own site has no Windows
+# builds; the Arm one is BtbN's 8.1 release-branch build, checked against BtbN's published
+# checksums when it's fetched, the way Linux CI gets FFmpeg.
+[onnxruntime-arm64]
+version = "1.22.0"
+url = "https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-win-arm64-1.22.0.zip"
+sha256 = "7008f7ff82f8e7de563a22f2b590e08e706a1289eba606b93de2b56edfb1e04b"
+files = "onnxruntime-win-arm64-1.22.0/lib/onnxruntime.dll"
+license = "MIT"
+source = "https://github.com/microsoft/onnxruntime"
+
+[ffmpeg-arm64]
+version = "8.1"
+url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-winarm64-gpl-8.1.zip"
+sums = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/checksums.sha256"
+files = "ffmpeg-n8.1-latest-winarm64-gpl-8.1/bin/ffmpeg.exe ffmpeg-n8.1-latest-winarm64-gpl-8.1/bin/ffprobe.exe"
+license = "GPL-3.0-or-later"
+source = "https://github.com/BtbN/FFmpeg-Builds"
+
 # IS-Net general use (DIS), as packaged by rembg. engines/model.py stores its weights at half precision.
 [model]
 version = "isnet-general-use"

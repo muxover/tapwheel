@@ -1,4 +1,6 @@
 # Downloads the pinned engines into target/engines and checks their hashes.
+# -Arch arm64 fetches the Windows on Arm builds of FFmpeg and ONNX Runtime instead.
+param([ValidateSet("x64", "arm64")][string]$Arch = "x64")
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 $root = Split-Path -Parent $PSScriptRoot
@@ -10,7 +12,21 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 function Section($name) {
 	$body = ([regex]::Match($toml, "(?ms)^\[$name\]\s*(.*?)(?=^\[|\z)")).Groups[1].Value
 	$get = { param($key) ([regex]::Match($body, "(?m)^$key\s*=\s*`"([^`"]*)`"")).Groups[1].Value }
-	@{ url = & $get "url"; sha = & $get "sha256"; files = (& $get "files") -split "\s+" | Where-Object { $_ } }
+	$s = @{ url = & $get "url"; sha = & $get "sha256"; sums = & $get "sums"; files = (& $get "files") -split "\s+" | Where-Object { $_ } }
+	if (-not $s.sha -and $s.sums) {
+		# a build that's replaced over time: its hash comes from the maker's published list
+		$file = Split-Path $s.url -Leaf
+		# saved to a file and read as text: the list is served as bytes
+		$sumsFile = Join-Path ([System.IO.Path]::GetTempPath()) "tapwheel-sums.txt"
+		Invoke-WebRequest -Uri $s.sums -UseBasicParsing -OutFile $sumsFile
+		$list = Get-Content $sumsFile
+		Remove-Item $sumsFile
+		$line = $list | Where-Object { ($_ -split "\s+")[1] -eq $file } | Select-Object -First 1
+		if (-not $line) { throw "$file is not in $($s.sums)" }
+		$s.sha = ($line -split "\s+")[0].ToLower()
+	}
+	if (-not $s.sha) { throw "no hash for [$name]" }
+	$s
 }
 
 function Fetch($name, $s) {
@@ -44,8 +60,9 @@ function Fetch($name, $s) {
 	return $true
 }
 
-Fetch "ffmpeg" (Section "ffmpeg") | Out-Null
-Fetch "onnxruntime" (Section "onnxruntime") | Out-Null
+$suffix = if ($Arch -eq "arm64") { "-arm64" } else { "" }
+Fetch "ffmpeg" (Section "ffmpeg$suffix") | Out-Null
+Fetch "onnxruntime" (Section "onnxruntime$suffix") | Out-Null
 
 $model = Section "model"
 $fresh = Fetch "model" $model
