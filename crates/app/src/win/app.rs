@@ -486,24 +486,15 @@ impl App {
 			x: (r.left + r.right) / 2,
 			y: (r.top + r.bottom) / 2,
 		});
-		let (work, scale) = monitor_at(pt);
-		let scale = wheel::fit_scale(
-			scale * self.settings.wheel_size.factor(),
-			work.right - work.left,
-			work.bottom - work.top,
-		);
+		let (work, monitor_scale) = monitor_at(pt);
+		let area = [work.left, work.top, work.right, work.bottom];
+		let (x, y, scale) = wheel::place_at((pt.x, pt.y), area, monitor_scale, self.settings.wheel_size.factor());
 		let (w, h) = wheel::size(scale);
 		self.wheel.scale = scale;
-		if let Some(r) = anchor {
-			(self.wheel.x, self.wheel.y) = wheel::beside(
-				[r.left, r.top, r.right, r.bottom],
-				[work.left, work.top, work.right, work.bottom],
-				scale,
-			);
-		} else {
-			self.wheel.x = (pt.x - (wheel::CX * scale) as i32).clamp(work.left, (work.right - w as i32).max(work.left));
-			self.wheel.y = (pt.y - (wheel::CY * scale) as i32).clamp(work.top, (work.bottom - h as i32).max(work.top));
-		}
+		(self.wheel.x, self.wheel.y) = match anchor {
+			Some(r) => wheel::beside([r.left, r.top, r.right, r.bottom], area, scale),
+			None => (x, y),
+		};
 		unsafe {
 			SetWindowPos(
 				self.wheel_hwnd,
@@ -874,6 +865,10 @@ impl App {
 			windows_sys::Win32::System::ProcessStatus::K32EmptyWorkingSet(
 				windows_sys::Win32::System::Threading::GetCurrentProcess(),
 			);
+		}
+		// what TapWheel holds while it waits in the tray, to set an idle target from real PCs
+		if let Some(mb) = private_mb() {
+			super::log::write(&format!("idle: {mb} MB private memory"));
 		}
 	}
 
@@ -1580,6 +1575,23 @@ pub fn register(inst: HINSTANCE, name: &str, proc: WNDPROC, icon: HICON, cursor:
 		hIconSm: icon,
 	};
 	unsafe { RegisterClassExW(&wc) };
+}
+
+/// Memory this process has committed for itself, in MB.
+fn private_mb() -> Option<u64> {
+	use windows_sys::Win32::System::ProcessStatus::{
+		K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX,
+	};
+	let mut c: PROCESS_MEMORY_COUNTERS_EX = unsafe { std::mem::zeroed() };
+	c.cb = size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32;
+	let ok = unsafe {
+		K32GetProcessMemoryInfo(
+			windows_sys::Win32::System::Threading::GetCurrentProcess(),
+			&mut c as *mut _ as *mut PROCESS_MEMORY_COUNTERS,
+			c.cb,
+		)
+	} != 0;
+	ok.then_some(c.PrivateUsage as u64 / (1024 * 1024))
 }
 
 /// Brings a TapWheel window to the front. Windows only lets the app with the last input do that,
