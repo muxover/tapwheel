@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - A native build for Windows on Arm, with its own FFmpeg and ONNX Runtime.
 - Report a problem in Settings opens a filled-in GitHub issue in the browser; nothing is sent until you post it.
 - Batch rename has Undo.
-- The wheel fits every screen, scaling and monitor layout, and dark title bars work on early Windows 10 builds too.
+- The wheel fits every screen, scaling and monitor layout, and dark title bars use the setting early Windows 10 builds expect.
 - Results can go into a subfolder or one folder instead of next to the original.
 - Keep a tool's settings as a choice on its ring, like "To send" for a smaller video, from the tool's window.
 
