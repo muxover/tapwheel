@@ -196,6 +196,20 @@ fn name_problem(name: &str) -> Option<String> {
 	}
 }
 
+/// Puts renamed files back under their old names, all or none, the way `rename_all` renamed them.
+/// A file renamed or removed since then stops the whole Undo, so nothing ends up half undone.
+pub fn undo_renames(done: &[(PathBuf, PathBuf)]) -> Result<Vec<(PathBuf, PathBuf)>, Error> {
+	let plan: Vec<Renamed> = done
+		.iter()
+		.map(|(from, to)| Renamed {
+			from: to.clone(),
+			to: from.clone(),
+			problem: (!to.exists()).then(|| "was moved or renamed since, so nothing was undone".into()),
+		})
+		.collect();
+	rename_all(&plan)
+}
+
 /// Renames everything in the plan, or nothing: names that swap go through a temporary name, and
 /// a failure halfway puts back what was already renamed. Returns the pairs that changed.
 pub fn rename_all(plan: &[Renamed]) -> Result<Vec<(PathBuf, PathBuf)>, Error> {
@@ -475,6 +489,39 @@ pub fn sniff(b: &[u8]) -> Option<&'static str> {
 
 #[cfg(test)]
 mod tests {
+
+	#[test]
+	fn a_batch_rename_undoes_all_or_nothing() {
+		let dir = std::env::temp_dir().join(format!("tw-undo-rename-{}", std::process::id()));
+		let _ = fs::remove_dir_all(&dir);
+		fs::create_dir_all(&dir).unwrap();
+		let files: Vec<PathBuf> = ["a.txt", "b.txt", "c.txt"]
+			.iter()
+			.map(|n| {
+				let p = dir.join(n);
+				fs::write(&p, n).unwrap();
+				p
+			})
+			.collect();
+		let rule = RenameRule {
+			prefix: "trip ".into(),
+			..RenameRule::default()
+		};
+		let done = rename_all(&rename_plan(&files, &rule)).unwrap();
+		assert_eq!(done.len(), 3);
+		assert!(dir.join("trip a.txt").exists());
+		undo_renames(&done).unwrap();
+		for f in &files {
+			assert!(f.exists(), "{} is back", f.display());
+		}
+		// renamed again by hand in between: Undo refuses and touches nothing
+		let done = rename_all(&rename_plan(&files, &rule)).unwrap();
+		fs::rename(dir.join("trip b.txt"), dir.join("mine.txt")).unwrap();
+		assert!(undo_renames(&done).is_err());
+		assert!(dir.join("trip a.txt").exists() && dir.join("trip c.txt").exists());
+		fs::remove_dir_all(dir).unwrap();
+	}
+
 	use super::*;
 
 	fn dir(tag: &str) -> PathBuf {
