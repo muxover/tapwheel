@@ -722,3 +722,44 @@ fn editor_previews_read_only_what_they_show() {
 	assert!((c.duration - 4.0).abs() < 0.5, "{}", c.duration);
 	let _ = fs::remove_dir_all(dir);
 }
+
+/// A graphics card encoder that isn't there (CI runners have no GPU) is looked for without
+/// hanging, and a compress that asked for it still finishes on the processor.
+#[test]
+fn a_missing_graphics_card_encoder_falls_back_to_the_processor() {
+	use tapwheel_core::ff::HwEncoder;
+	let Some((e, dir)) = engines("hw") else { return };
+	let started = std::time::Instant::now();
+	let found = HwEncoder::find(&e.ffmpeg, None);
+	assert!(
+		started.elapsed().as_secs() < 60,
+		"looking for encoders took {:?}",
+		started.elapsed()
+	);
+	let mp4 = dir.join("clip.mp4");
+	make(
+		&e.ffmpeg,
+		&[
+			"-f",
+			"lavfi",
+			"-i",
+			"testsrc2=s=640x360:d=3:r=30",
+			"-c:v",
+			"libx264",
+			"-crf",
+			"12",
+			"-pix_fmt",
+			"yuv420p",
+		],
+		&mp4,
+	);
+	// whatever this machine has, an encoder that fails must not fail the job
+	let d = Defaults {
+		hw_encoder: Some(found.unwrap_or(HwEncoder::Nvenc)),
+		..Defaults::default()
+	};
+	let r = recipe_for(Op::Compress, None, Some(Kind::Video), &d).unwrap();
+	let job = plan(Op::Compress, &r, std::slice::from_ref(&mp4)).remove(0);
+	let out = run(&job, &e, &d, &mut |_| {}, &AtomicBool::new(false)).unwrap();
+	assert!(decodes(&e.ffmpeg, &out.output));
+}

@@ -123,6 +123,11 @@ pub struct Defaults {
 	pub video_crf_small: u8,
 	/// Use the graphics card's encoder when there is one.
 	pub hardware_video: bool,
+	/// Where finished files go.
+	pub output: crate::plan::OutputRule,
+	/// The graphics card's encoder found on this PC, set by the app at start. Never saved.
+	#[serde(skip)]
+	pub hw_encoder: Option<crate::ff::HwEncoder>,
 	pub audio_kbps: u32,
 	pub gif_fps: u32,
 	pub gif_width: u32,
@@ -150,7 +155,9 @@ impl Default for Defaults {
 			video_crf: 23,
 			video_crf_balanced: 27,
 			video_crf_small: 31,
-			hardware_video: false,
+			hardware_video: true,
+			output: crate::plan::OutputRule::default(),
+			hw_encoder: None,
 			audio_kbps: 192,
 			gif_fps: 15,
 			gif_width: 640,
@@ -215,6 +222,8 @@ impl WheelSize {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+	/// A file without one was written by 0.1.x.
+	#[serde(default = "first_version")]
 	pub version: u32,
 	pub keys: Keys,
 	pub no_drag: NoDrag,
@@ -236,6 +245,10 @@ pub struct Settings {
 	/// Tool settings kept as ring choices, oldest first.
 	#[serde(deserialize_with = "lenient_choices")]
 	pub own_choices: Vec<OwnChoice>,
+}
+
+fn first_version() -> u32 {
+	1
 }
 
 /// Where a wheel's arrangement for a kind of file is kept: `convert/image`. Mixed selections
@@ -267,10 +280,21 @@ impl Default for Settings {
 
 impl Settings {
 	pub fn load(path: &Path) -> Settings {
-		std::fs::read_to_string(path)
+		let mut s: Settings = std::fs::read_to_string(path)
 			.ok()
 			.and_then(|s| toml::from_str(&s).ok())
-			.unwrap_or_default()
+			.unwrap_or_default();
+		s.upgrade();
+		s
+	}
+
+	/// Brings settings an older TapWheel wrote up to this one.
+	fn upgrade(&mut self) {
+		if self.version < 2 {
+			// 0.1.x saved the graphics card switch as off while it did nothing; it's on from 0.2
+			self.defaults.hardware_video = true;
+		}
+		self.version = SETTINGS_VERSION;
 	}
 
 	pub fn save(&self, path: &Path) -> std::io::Result<()> {
@@ -711,6 +735,10 @@ background_style = "sunset"
 		assert_eq!(s.wheel_size, WheelSize::Normal);
 		assert_eq!(s.accent, None);
 		assert_eq!(s.version, SETTINGS_VERSION);
+		assert!(
+			s.defaults.hardware_video,
+			"0.1.1 wrote false while the switch did nothing"
+		);
 		std::fs::remove_dir_all(dir).unwrap();
 	}
 
