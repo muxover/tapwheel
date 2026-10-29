@@ -53,7 +53,7 @@ Data, config and subtitle files only get the text tools that keep their structur
 
 - [Microsoft Store](https://apps.microsoft.com/detail/9MW1GB4106VS): the one to get. Signed by Microsoft and updates itself.
 - winget, from a terminal: `winget install 9MW1GB4106VS` (the Store version).
-- [Portable zip](https://github.com/muxover/tapwheel/releases/latest), for developers and testers: unzip anywhere and run `tapwheel.exe`. No admin rights needed, and it adds a right-click entry. It isn't code-signed, so your browser may flag the download and SmartScreen may ask once before the first run.
+- [Portable zip](https://github.com/muxover/tapwheel/releases/latest), for developers and testers, for x64 PCs or Windows on Arm: unzip anywhere and run `tapwheel.exe`. No admin rights needed, and it adds a right-click entry. It isn't code-signed, so your browser may flag the download and SmartScreen may ask once before the first run.
 
 ---
 
