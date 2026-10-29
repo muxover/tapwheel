@@ -36,7 +36,7 @@
 	--r-card: 8px;
 	--wrap: 1200px;
 	--gutter: clamp(16px, 4vw, 32px);
-	--section: clamp(48px, 6vw, 64px);
+	--section: clamp(80px, 11vw, 136px);
 	--font: "Segoe UI Variable Text", "Segoe UI", "Geist", system-ui, sans-serif;
 	--font-display: "Segoe UI Variable Display", "Segoe UI", "Geist", system-ui, sans-serif;
 	--mono: "Cascadia Mono", "Geist Mono", ui-monospace, monospace;
@@ -50,6 +50,7 @@
 
 html {
 	background: var(--ink);
+	scroll-behavior: smooth;
 	-webkit-text-size-adjust: 100%;
 	scroll-padding-top: 64px;
 }
@@ -278,65 +279,74 @@ code,
 	gap: 8px;
 }
 
-/* hero */
+/* hero: the line, then the wheel itself, playable, then the numbers */
 
 .hero {
-	padding: clamp(32px, 5vw, 56px) 0 var(--section);
+	padding: clamp(56px, 9vw, 112px) 0 clamp(64px, 9vw, 120px);
 	background:
-		radial-gradient(80% 60% at 85% 0%, rgba(0, 120, 212, 0.18), transparent 70%),
+		radial-gradient(60% 50% at 50% 0%, rgba(0, 120, 212, 0.22), transparent 72%),
 		var(--ink);
+	overflow: hidden;
 }
 
-.hero .wrap {
+.hero-copy {
+	text-align: center;
 	display: grid;
-	gap: 32px;
-	grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 1040px) {
-	.hero .wrap {
-		grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
-		align-items: center;
-		gap: 48px;
-	}
+	justify-items: center;
 }
 
 .eyebrow {
 	color: var(--text-2);
 	font-size: 14px;
-	margin: 0 0 12px;
+	margin: 0 0 20px;
+	letter-spacing: 0.01em;
 }
 
 .hero h1 {
-	font-size: clamp(36px, 5.2vw, 56px);
-	line-height: 1.08;
+	font-size: clamp(44px, 8.4vw, 96px);
+	line-height: 1.02;
+	letter-spacing: -0.025em;
+	max-width: 12em;
 }
 
 .hero .lead {
 	color: var(--text-2);
-	font-size: clamp(16px, 1.6vw, 20px);
-	margin: 16px 0 24px;
-	max-width: 34em;
+	font-size: clamp(17px, 1.9vw, 21px);
+	line-height: 1.55;
+	margin: 24px 0 36px;
+	max-width: 32em;
+}
+
+.hero .actions {
+	justify-content: center;
+	gap: 12px;
+}
+
+.hero-stage {
+	margin-top: clamp(48px, 7vw, 88px);
+	max-width: 1080px;
 }
 
 .facts {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, max-content));
-	gap: 8px 32px;
-	margin: 32px 0 0;
-	padding: 16px 0 0;
-	border-top: 1px solid var(--line);
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 24px;
+	max-width: 760px;
+	margin: clamp(48px, 7vw, 80px) auto 0;
+	text-align: center;
 }
 
 .facts div {
 	display: grid;
+	gap: 4px;
 }
 
 .facts dt {
 	font-family: var(--font-display);
-	font-size: 28px;
+	font-size: clamp(32px, 4.4vw, 48px);
 	font-weight: 600;
-	line-height: 1.2;
+	line-height: 1.1;
+	letter-spacing: -0.02em;
 }
 
 .facts dd {
@@ -345,9 +355,163 @@ code,
 	font-size: 14px;
 }
 
+@media (max-width: 560px) {
+	.eyebrow {
+		font-size: 13px;
+	}
+
+	.hero .actions {
+		display: grid;
+		width: 100%;
+		max-width: 360px;
+	}
+
+	.facts {
+		gap: 12px;
+	}
+
+	.facts dd {
+		font-size: 13px;
+	}
+}
+
 .hero-demo {
 	display: grid;
 	gap: 12px;
+}
+
+/* on a phone the stage runs edge to edge and its keys sit in one row */
+@media (max-width: 560px) {
+	.hero-stage {
+		padding: 0;
+	}
+
+	.hero-stage .tw-demo {
+		border-radius: 0;
+		border-inline: 0;
+	}
+
+	.hero-stage .tw-demo .hint {
+		flex-basis: 100%;
+		justify-content: center;
+		text-align: center;
+		font-size: 13px;
+	}
+
+	.hero-stage .tw-demo .keys {
+		flex-wrap: nowrap;
+		gap: 4px;
+	}
+
+	.hero-stage .tw-demo .steps button {
+		padding: 0 10px;
+		font-size: 13px;
+		white-space: nowrap;
+	}
+}
+
+/* scroll reveal, set up by app.js only when motion is welcome */
+.reveal {
+	opacity: 0;
+	transform: translateY(24px);
+	transition:
+		opacity 700ms var(--ease),
+		transform 900ms var(--ease);
+}
+
+.reveal.shown {
+	opacity: 1;
+	transform: none;
+}
+
+/* made yours: three cards */
+
+.cards {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.cards li {
+	display: grid;
+	align-content: start;
+	gap: 12px;
+	padding: clamp(24px, 3vw, 32px);
+	border-radius: 12px;
+	background: linear-gradient(180deg, var(--surface), var(--band));
+	border: 1px solid var(--line);
+	transition:
+		border-color 250ms var(--ease),
+		transform 400ms var(--ease);
+}
+
+.cards .key {
+	justify-self: start;
+	margin-bottom: 8px;
+}
+
+.cards h3 {
+	font-size: 20px;
+}
+
+.cards p {
+	margin: 0;
+	color: var(--text-2);
+}
+
+@media (pointer: fine) {
+	.cards li:hover {
+		border-color: var(--line-strong);
+		transform: translateY(-2px);
+	}
+}
+
+/* privacy: the two ways side by side */
+
+.versus {
+	display: grid;
+	gap: 12px;
+	margin-top: 32px;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.versus > div {
+	padding: 24px;
+	border-radius: 12px;
+	border: 1px solid var(--line);
+	background: var(--band);
+}
+
+.versus h3 {
+	font-size: 14px;
+	color: var(--muted);
+	font-weight: 600;
+}
+
+.versus p {
+	margin: 8px 0 0;
+	color: var(--text-2);
+}
+
+.versus .ours {
+	border-color: rgba(96, 205, 255, 0.4);
+	background: linear-gradient(180deg, rgba(96, 205, 255, 0.1), rgba(96, 205, 255, 0.02));
+}
+
+.versus .ours h3 {
+	color: var(--blue);
+}
+
+.versus .ours p {
+	color: var(--text);
+}
+
+.section-head .looks {
+	justify-content: flex-start;
+	margin-top: 24px;
 }
 
 /* the app's look, scoped to a container, for the wheel demos */
@@ -448,18 +612,21 @@ section.band {
 }
 
 .section-head.wide {
-	margin-bottom: 32px;
+	margin-bottom: clamp(40px, 5vw, 56px);
 }
 
 h2 {
-	font-size: clamp(28px, 3.2vw, 40px);
+	font-size: clamp(32px, 4.4vw, 52px);
+	letter-spacing: -0.02em;
+	line-height: 1.08;
 }
 
 .section-head p,
 .sub {
 	color: var(--text-2);
-	font-size: 16px;
-	margin: 12px 0 0;
+	font-size: clamp(16px, 1.5vw, 18px);
+	line-height: 1.6;
+	margin: 16px 0 0;
 }
 
 /* heading on the left, the content beside it */
@@ -777,6 +944,11 @@ h2 {
 	min-height: 0;
 }
 
+.button.more {
+	min-height: 44px;
+	padding: 0 16px;
+}
+
 .button.ghost {
 	background: none;
 }
@@ -797,10 +969,30 @@ h2 {
 
 .kind-tabs {
 	display: flex;
-	flex-wrap: wrap;
 	gap: 4px;
-	margin-bottom: 24px;
+	margin-bottom: 32px;
 	border-bottom: 1px solid var(--line);
+	overflow-x: auto;
+	scrollbar-width: none;
+	scroll-snap-type: x proximity;
+	-webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+	mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+
+.kind-tabs::-webkit-scrollbar {
+	display: none;
+}
+
+.kind-tabs button {
+	flex: none;
+	scroll-snap-align: start;
+}
+
+@media (min-width: 760px) {
+	.kind-tabs {
+		-webkit-mask-image: none;
+		mask-image: none;
+	}
 }
 
 .kind-tabs button {
@@ -859,7 +1051,20 @@ h2 {
 
 .kind-lists {
 	display: grid;
-	gap: 24px;
+	gap: 40px;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+.clip {
+	display: grid;
+	gap: 12px;
+}
+
+.clip > .more {
+	justify-self: start;
 }
 
 .kind-block h3 {
@@ -872,7 +1077,7 @@ h2 {
 .chips {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px;
+	gap: 6px;
 }
 
 .chip,
@@ -899,8 +1104,8 @@ h2 {
 
 .tools {
 	display: grid;
-	gap: 4px;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+	gap: 8px;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
 
 .tool {
@@ -1260,6 +1465,10 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+
 	*,
 	*::before,
 	*::after {

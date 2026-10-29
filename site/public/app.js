@@ -279,7 +279,7 @@ function chips(list, cls = "chip") {
 function toolRow(t, kind) {
 	// any tool with a window here to try, including ones whose window opens from a ring choice
 	const id = tryFor(kind, t.id);
-	const open = id ? h("a", { class: "try-link", href: "#try", onclick: (e) => tryTool(e, id), "aria-label": `Try the ${t.label} window` }, "Try it") : null;
+	const open = id ? h("a", { class: "try-link", href: "#try", onclick: (e) => tryTool(e, id), "aria-label": `Try it: the ${t.label} window` }, "Try it") : null;
 	return h(
 		"div",
 		{ class: "tool", role: "listitem" },
@@ -298,6 +298,26 @@ function tryTool(e, id) {
 	e.preventDefault();
 	$("#try").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 	openTool(id);
+}
+
+// a long list shows its first few, with one button for the rest
+function clip(list, n, noun) {
+	const kids = [...list.children];
+	if (kids.length <= n + 2) return list;
+	for (const k of kids.slice(n)) k.hidden = true;
+	const b = h("button", { type: "button", class: "button small more" }, `Show all ${kids.length} ${noun}`);
+	b.addEventListener("click", () => {
+		for (const k of kids) k.hidden = false;
+		const next = kids[n];
+		const target = next.matches("a, button") ? next : next.querySelector("a, button");
+		b.remove();
+		if (target) target.focus();
+		else {
+			list.tabIndex = -1;
+			list.focus();
+		}
+	});
+	return h("div", { class: "clip" }, list, b);
 }
 
 async function setupKinds(data) {
@@ -320,9 +340,9 @@ async function setupKinds(data) {
 			h(
 				"div",
 				{ class: "kind-lists" },
-				h("div", { class: "kind-block" }, h("h3", {}, `Opens ${reads.length} formats`), chips(reads, "chip ext")),
+				h("div", { class: "kind-block" }, h("h3", {}, `Opens ${reads.length} formats`), clip(chips(reads, "chip ext"), 18, "formats")),
 				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Shift"), "Convert to"), chips(k.convert.map((c) => c.label))),
-				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Ctrl"), "Tools"), h("div", { class: "tools", role: "list" }, k.tools.map((t) => toolRow(t, k.id)))),
+				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Ctrl"), "Tools"), clip(h("div", { class: "tools", role: "list" }, k.tools.map((t) => toolRow(t, k.id))), 6, "tools")),
 				k.many.length ? h("div", { class: "kind-block" }, h("h3", {}, "With several files"), h("div", { class: "tools", role: "list" }, k.many.map((t) => toolRow(t, k.id)))) : null,
 				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Alt"), "Actions"), chips(k.actions.map((a) => a.label))),
 			),
@@ -354,15 +374,37 @@ function setupStats(data) {
 	set("tools", tools.size);
 }
 
+// sections ease in once as they reach the screen; without script or with reduced motion they are simply there
+function setupReveal() {
+	if (!("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+	const items = [...document.querySelectorAll("main section .wrap > *, .hero-stage, .facts")];
+	const io = new IntersectionObserver(
+		(es) => {
+			for (const e of es) {
+				if (!e.isIntersecting) continue;
+				e.target.classList.add("shown");
+				io.unobserve(e.target);
+			}
+		},
+		{ rootMargin: "0px 0px -8% 0px" },
+	);
+	for (const x of items) {
+		const r = x.getBoundingClientRect();
+		if (r.top < innerHeight) continue;
+		x.classList.add("reveal");
+		io.observe(x);
+	}
+}
+
 function setupLooks() {
 	const grid = $("#looks-grid");
 	if (!grid) return;
 	// each still is the moment just before the drop
 	const looks = [
-		["Windows 11, dark", true, true, 1, 3600],
-		["Windows 11, light", true, false, 0, 2900],
-		["Windows 10, dark", false, true, 2, 3600],
-		["Windows 10, light", false, false, 1, 3600],
+		["Rounded, dark", true, true, 1, 3600],
+		["Rounded, light", true, false, 0, 2900],
+		["Square, dark", false, true, 2, 3600],
+		["Square, light", false, false, 1, 3600],
 	];
 	for (const [name, win11, dark, scene, at] of looks) {
 		const scope = h("div", { class: "tw-scope", "data-tw-scope": true, "data-win11": win11, "data-dark": dark }, demo({ scene, at, labels: false }));
@@ -372,6 +414,7 @@ function setupLooks() {
 
 setupTry();
 setupLooks();
+setupReveal();
 setupNav();
 applyLook();
 fetch("/data/wheel.json")
