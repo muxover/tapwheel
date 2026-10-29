@@ -113,6 +113,28 @@ pub fn size(scale: f32) -> (u32, u32) {
 
 /// The scale to draw at on a work area of `work_w` by `work_h` pixels: the display's own, or
 /// smaller when the wheel wouldn't fit, as on a 1366 by 768 screen at 125%.
+/// Where the wheel's window goes so its petals open just beside a file on screen (`item` is the
+/// file's left, top, right, bottom) rather than under the pointer: to the right of the file's name,
+/// or to its left when the screen ends first, kept inside `work`. A details-view row is as wide as
+/// the window, so only its first part, where the name is, counts.
+pub fn beside(item: [i32; 4], work: [i32; 4], scale: f32) -> (i32, i32) {
+	let [left, top, right, bottom] = item;
+	let [wl, wt, wr, wb] = work;
+	let (w, h) = size(scale);
+	let (w, h) = (w as i32, h as i32);
+	let reach = ((R_OUT + 16.0) * scale) as i32;
+	let name_end = right.min(left + (260.0 * scale) as i32);
+	let mid = (top + bottom) / 2;
+	let cx = if name_end + reach + (R_OUT * scale) as i32 <= wr {
+		name_end + reach
+	} else {
+		left - reach
+	};
+	let x = (cx - (CX * scale) as i32).clamp(wl, (wr - w).max(wl));
+	let y = (mid - (CY * scale) as i32).clamp(wt, (wb - h).max(wt));
+	(x, y)
+}
+
 pub fn fit_scale(scale: f32, work_w: i32, work_h: i32) -> f32 {
 	let room = (work_w.max(1) as f32 / WIDTH).min(work_h.max(1) as f32 / HEIGHT);
 	// a pixel to spare, so rounding the size up never pushes past the edge
@@ -791,6 +813,31 @@ fn draw_keys(pm: &mut Pixmap, v: &WheelView, theme: &Theme, fonts: &Fonts, s: f3
 
 #[cfg(test)]
 mod tests {
+
+	#[test]
+	fn the_wheel_opens_beside_a_file_not_on_it() {
+		let work = [0, 0, 1920, 1040];
+		// an icon on the desktop's left: the petals open to its right, clear of it
+		let icon = [20, 300, 100, 380];
+		let (x, y) = beside(icon, work, 1.0);
+		let centre = (x + CX as i32, y + CY as i32);
+		assert!(centre.0 - R_OUT as i32 >= icon[2], "petals cover the icon: {centre:?}");
+		assert_eq!(centre.1, 340);
+		// near the right edge it opens to the left instead
+		let icon = [1800, 300, 1880, 380];
+		let (x, _) = beside(icon, work, 1.0);
+		assert!(x + CX as i32 + (R_OUT as i32) <= icon[0], "petals cover the icon");
+		// a details-view row spans the window: the wheel sits by the name, still on screen
+		let row = [300, 500, 1900, 522];
+		let (x, y) = beside(row, work, 1.5);
+		let (w, h) = size(1.5);
+		assert!(x >= 0 && x + w as i32 <= 1920 && y >= 0 && y + h as i32 <= 1040);
+		// at the bottom of the screen it stays inside the work area
+		let low = [20, 1000, 100, 1030];
+		let (_, y) = beside(low, work, 1.0);
+		assert!(y + size(1.0).1 as i32 <= 1040);
+	}
+
 	use super::*;
 
 	#[test]
