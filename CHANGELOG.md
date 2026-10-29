@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Compress on Balanced uses the graphics card's video encoder when this PC has one, named on the card. Settings can turn it off.
 - Cards show the time left on long jobs, and say when a job will be slow on this PC.
 - Batch rename has Undo.
+- The wheel fits every screen, scaling and monitor layout, and dark title bars work on early Windows 10 builds too.
 - Results can go into a subfolder or one folder instead of next to the original.
 - Keep a tool's settings as a choice on its ring, like "To send" for a smaller video, from the tool's window.
 
