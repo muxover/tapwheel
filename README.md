@@ -45,7 +45,7 @@ TapWheel puts file tools on a wheel in Windows 10 and 11. Start dragging a file 
 | Code | 90 formats | PNG, HTML, Markdown, TXT | Code shot, Copy as MD, Format, Minify, Indent, Line ends, Clean up, UTF-8, Merge |
 | Archives | 19 formats | ZIP, 7Z, TAR, TAR.GZ, TAR.XZ, TAR.BZ2, TAR.ZST | Extract, Contents, Test, Password, Split |
 
-Data, config and subtitle files only get the text tools that keep their structure whole. Every file also gets ZIP and the Actions wheel: Copy, Copy path, Rename, Move to, Duplicate, Share, File info, Float, Checksum, Properties and Open with, plus Terminal for folders and code. The full list is in [site/public/data/wheel.json](site/public/data/wheel.json), made from the app.
+Data, config and subtitle files only get the text tools that keep their structure whole. Every file also gets ZIP and the Actions wheel: Copy, Copy path, Rename, Move to, Duplicate, Share, File info, Float, Checksum, Properties and Open with. The full list is in [site/public/data/wheel.json](site/public/data/wheel.json), made from the app.
 
 ---
 
@@ -93,7 +93,7 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 
 - No network connections: no account, no telemetry, no update checks.
 - Files are handled on your PC by a bundled FFmpeg and background removal model, and stay in their folder.
-- Errors are written to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on your PC, with a short note about the PC (cores, memory, graphics card and its video encoder, drive type, power, screen rate) and how much memory TapWheel holds while idle, so a problem can be found later. It never leaves your PC.
+- Errors are written to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on your PC, with a short note about the PC (cores, memory, graphics card and its video encoder, drive type, power, screen rate) and how much memory TapWheel holds while idle, so a problem can be found later. It never leaves your PC on its own: Report a problem in Settings opens a GitHub issue in your browser with its last lines, your user name taken out, and nothing is sent until you post it.
 - The keyboard and mouse are watched only to spot a quick tap of Shift, Ctrl or Alt during a drag, or two quick taps on files selected in File Explorer.
 - Nothing you type is recorded, and every key and click passes through untouched.
 

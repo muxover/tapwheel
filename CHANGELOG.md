@@ -16,10 +16,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Cards show the time left on long jobs, and say when a job will be slow on this PC.
 - Screen readers hear the wheel, its slices and ring choices, page turns and finished jobs. On a keyboard-opened wheel, Down reaches the ring choices. The newest job's buttons are in the tray menu.
 - Choice groups in the tool windows and Settings move with the arrow keys and read as radio buttons.
+- Report a problem in Settings opens a filled-in GitHub issue in the browser; nothing is sent until you post it.
 - Batch rename has Undo.
 - The wheel fits every screen, scaling and monitor layout, and dark title bars work on early Windows 10 builds too.
 - Results can go into a subfolder or one folder instead of next to the original.
 - Keep a tool's settings as a choice on its ring, like "To send" for a smaller video, from the tool's window.
+
+### Removed
+
+- Terminal is no longer on the Actions wheel.
 
 ## [0.1.1] - 2026-10-23
 
