@@ -1,5 +1,6 @@
 import { demo } from "./demo.js";
 import { group, h, iconEl, segmented, send, slider, toast, toggle } from "./tw.js";
+import { wheelsPage } from "./wheels.js";
 
 const KEYS = [
 	{ label: "Shift", value: "shift" },
@@ -39,6 +40,7 @@ export default function settings(init) {
 	const pages = {
 		home: { label: "Home", icon: "app_generic", build: home },
 		keys: { label: "Keys", icon: "keyboard", build: keys },
+		wheels: { label: "Wheels", icon: "apps", build: wheels },
 		tools: { label: "Tools", icon: "options", build: tools },
 		general: { label: "General", icon: "settings", build: general },
 		about: { label: "About", icon: "info", build: about },
@@ -136,6 +138,10 @@ export default function settings(init) {
 		s.keys[wheel] = key;
 		save();
 		show("keys");
+	}
+
+	function wheels() {
+		return h("div", {}, title("Wheels", "Make each wheel your own: what's on it, in what order, how big and in what colour."), wheelsPage(s, init.wheels || [], save));
 	}
 
 	function tools() {
