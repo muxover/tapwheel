@@ -3,6 +3,7 @@ pub mod bg;
 pub mod budget;
 pub mod code;
 pub mod codeshot;
+pub mod device;
 pub mod ff;
 pub mod files;
 pub mod format;
