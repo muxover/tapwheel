@@ -4688,6 +4688,7 @@ dependencies = [
  "webview2-com",
  "windows",
  "windows-collections",
+ "windows-core",
  "windows-sys 0.61.2",
  "wry",
 ]

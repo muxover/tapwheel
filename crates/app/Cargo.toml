@@ -62,6 +62,7 @@ windows = { version = "0.62", features = [
 	"Win32_UI_Shell_Common",
 ] }
 windows-collections = "0.3"
+windows-core = "0.62"
 include_dir = "0.7"
 raw-window-handle = "0.6"
 webview2-com = "0.39"
