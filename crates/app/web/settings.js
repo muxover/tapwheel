@@ -125,7 +125,7 @@ export default function settings(init) {
 			save();
 		});
 		return [
-			h("h3", { style: section }, "Without dragging"),
+			h("h2", { style: section }, "Without dragging"),
 			group(null, h("div", { class: "hint", style: { marginTop: 0, marginBottom: "8px" } }, "Select files in File Explorer or on the desktop, then open a wheel on them."), seg, hint),
 		];
 	}
@@ -201,23 +201,23 @@ export default function settings(init) {
 		return h("div", {},
 			title("Tools", "What a plain drop does. Each tool's window can still change these for one file."),
 			whereResultsGo(),
-			h("h3", { style: section }, "Pictures"),
+			h("h2", { style: section }, "Pictures"),
 			slider({ label: "Quality when converting", min: 50, max: 100, value: d.image_quality, format: (v) => `${v}%`, oninput: setD("image_quality") }),
 			slider({ label: "Compress: Balanced", min: 40, max: 95, value: d.image_quality_balanced, format: (v) => `${v}%`, oninput: setD("image_quality_balanced") }),
 			slider({ label: "Compress: Smaller", min: 25, max: 90, value: d.image_quality_small, format: (v) => `${v}%`, oninput: setD("image_quality_small") }),
 			group(null, toggle("Remove location and camera details when converting", d.strip_on_convert, setD("strip_on_convert"), "Off keeps the date and camera so photos sort correctly.")),
 			group("Add background style", segmented(["sunset", "ocean", "lime", "grape", "dusk", "mist"].map((v) => ({ label: v[0].toUpperCase() + v.slice(1), value: v })), d.background_style, setD("background_style"))),
-			h("h3", { style: section }, "Video"),
+			h("h2", { style: section }, "Video"),
 			slider({ label: "Quality when converting", min: 16, max: 32, value: 48 - d.video_crf, format: (v) => quality(48 - v), oninput: (v) => setD("video_crf")(48 - v) }),
 			slider({ label: "Compress: Balanced", min: 16, max: 32, value: 58 - d.video_crf_balanced, format: (v) => quality(58 - v), oninput: (v) => setD("video_crf_balanced")(58 - v) }),
 			group(null, toggle("Exact cuts when trimming", d.trim_exact, setD("trim_exact"), "Off cuts instantly at the nearest keyframe.")),
 			group(null, toggle("Use the graphics card for video", d.hardware_video, setD("hardware_video"), init.encoder ? `Compress on Balanced uses ${init.encoder}: much faster, files a little bigger. Smaller and size targets stay on the processor.` : "No video encoder was found on this PC's graphics card, so the processor does the work.")),
 			group("GIFs", h("div", { class: "label" }, "Frames per second"), segmented([10, 12, 15, 20, 25].map((v) => ({ label: String(v), value: v })), d.gif_fps, setD("gif_fps")), h("div", { class: "label", style: { marginTop: "10px" } }, "Width"), segmented([320, 480, 640, 800, 1080].map((v) => ({ label: String(v), value: v })), d.gif_width, setD("gif_width"))),
-			h("h3", { style: section }, "Audio"),
+			h("h2", { style: section }, "Audio"),
 			group("Bitrate when converting", segmented([128, 160, 192, 256, 320].map((v) => ({ label: `${v}k`, value: v })), d.audio_kbps, setD("audio_kbps"))),
 			slider({ label: "Fade length", min: 0.5, max: 8, step: 0.5, value: d.fade_seconds, format: (v) => `${v} s`, oninput: setD("fade_seconds") }),
 			slider({ label: "Silence is quieter than", min: -60, max: -25, value: d.silence_db, format: (v) => `${v} dB`, oninput: setD("silence_db") }),
-			h("h3", { style: section }, "Text and code"),
+			h("h2", { style: section }, "Text and code"),
 			group("Read aloud voice", voices.length
 				? h("select", { "aria-label": "Voice", onchange: (e) => setD("voice")(e.target.value || null) }, h("option", { value: "" }, "Windows default"), voices.map((v) => h("option", { value: v.id, selected: v.id === d.voice }, v.name)))
 				: h("div", { class: "hint" }, "Windows' own voice is used.")),

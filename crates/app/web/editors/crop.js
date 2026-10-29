@@ -62,7 +62,7 @@ export default async function crop(init) {
 		});
 		media.currentTime = Math.min(1, (info.duration || 0) / 2);
 	} else {
-		media = h("img", { src: info.url, draggable: "false" });
+		media = h("img", { src: info.url, draggable: "false", alt: info.name || "The picture" });
 		await media.decode();
 	}
 	const overlay = h("div", { style: { position: "absolute", inset: "0" } });
