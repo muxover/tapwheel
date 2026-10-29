@@ -314,8 +314,9 @@ fn theme_json(a: &App) -> Value {
 fn style_window(a: &App, hwnd: HWND) {
 	let dark: u32 = a.theme.dark as u32;
 	unsafe {
-		// DWMWA_USE_IMMERSIVE_DARK_MODE
-		DwmSetWindowAttribute(hwnd, 20, &dark as *const u32 as *const _, 4);
+		// DWMWA_USE_IMMERSIVE_DARK_MODE: 20 since Windows 10 2004, 19 on the builds before it
+		let attribute = if super::system::build_number() >= 18985 { 20 } else { 19 };
+		DwmSetWindowAttribute(hwnd, attribute, &dark as *const u32 as *const _, 4);
 		if a.theme.win11 && !a.theme.high_contrast {
 			// DWMWA_SYSTEMBACKDROP_TYPE: Mica behind the page
 			let mica: u32 = 2;
