@@ -1,6 +1,7 @@
 mod actions;
 mod app;
 mod crash;
+mod device;
 mod drop;
 mod editor;
 mod float;
