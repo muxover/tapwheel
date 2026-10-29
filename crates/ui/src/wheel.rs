@@ -113,6 +113,19 @@ pub fn size(scale: f32) -> (u32, u32) {
 
 /// The scale to draw at on a work area of `work_w` by `work_h` pixels: the display's own, or
 /// smaller when the wheel wouldn't fit, as on a 1366 by 768 screen at 125%.
+/// Where the wheel's window goes and how big it is, centred on `pt` on the monitor whose work
+/// area is `work` (left, top, right, bottom in screen pixels, which can be negative on a monitor
+/// left of or above the main one), at that monitor's scale times the size picked in Settings.
+/// The wheel shrinks to fit a small work area and never crosses its edges.
+pub fn place_at(pt: (i32, i32), work: [i32; 4], monitor_scale: f32, size_factor: f32) -> (i32, i32, f32) {
+	let [wl, wt, wr, wb] = work;
+	let scale = fit_scale(monitor_scale * size_factor, wr - wl, wb - wt);
+	let (w, h) = size(scale);
+	let x = (pt.0 - (CX * scale) as i32).clamp(wl, (wr - w as i32).max(wl));
+	let y = (pt.1 - (CY * scale) as i32).clamp(wt, (wb - h as i32).max(wt));
+	(x, y, scale)
+}
+
 /// Where the wheel's window goes so its petals open just beside a file on screen (`item` is the
 /// file's left, top, right, bottom) rather than under the pointer: to the right of the file's name,
 /// or to its left when the screen ends first, kept inside `work`. A details-view row is as wide as
@@ -813,6 +826,62 @@ fn draw_keys(pm: &mut Pixmap, v: &WheelView, theme: &Theme, fonts: &Fonts, s: f3
 
 #[cfg(test)]
 mod tests {
+
+	fn inside(x: i32, y: i32, scale: f32, work: [i32; 4]) -> bool {
+		let (w, h) = size(scale);
+		x >= work[0] && y >= work[1] && x + w as i32 <= work[2] && y + h as i32 <= work[3]
+	}
+
+	#[test]
+	fn the_wheel_fits_every_screen() {
+		// (work area, monitor scale), taskbar along the bottom
+		let screens = [
+			([0, 0, 1366, 708], 1.25, "1366x768 at 125%"),
+			([0, 0, 1280, 680], 1.0, "1280x720 at 100%"),
+			([0, 0, 1920, 1032], 1.5, "1920x1080 at 150%"),
+			([0, 0, 2560, 1392], 1.75, "2560x1440 at 175%"),
+			([0, 0, 3840, 2088], 2.0, "3840x2160 at 200%"),
+			([0, 0, 3840, 2088], 2.25, "3840x2160 at 225%"),
+		];
+		for (work, ms, name) in screens {
+			for factor in [0.85, 1.0, 1.15] {
+				for pt in [
+					(work[0] + 5, work[1] + 5),
+					((work[0] + work[2]) / 2, (work[1] + work[3]) / 2),
+					(work[2] - 5, work[3] - 5),
+				] {
+					let (x, y, scale) = place_at(pt, work, ms, factor);
+					assert!(inside(x, y, scale, work), "{name}, size {factor}, pointer {pt:?}");
+					assert!(scale <= ms * factor + f32::EPSILON, "{name}: never bigger than asked");
+				}
+			}
+		}
+		// on a roomy screen the wheel keeps the size asked for
+		let (_, _, s) = place_at((1000, 500), [0, 0, 3840, 2088], 1.5, 1.0);
+		assert_eq!(s, 1.5);
+		// 1366x768 at 125%: the 750 px wheel shrinks to the 708 px work area
+		let (_, _, s) = place_at((683, 354), [0, 0, 1366, 708], 1.25, 1.0);
+		assert!(s < 1.25 && size(s).1 <= 708);
+	}
+
+	#[test]
+	fn on_two_monitors_the_wheel_stays_on_the_one_under_the_pointer() {
+		// a 4K at 150% on the left of a 1080p main screen at 100%: negative coordinates
+		let left = [-3840, -200, 0, 1912];
+		let main = [0, 0, 1920, 1032];
+		let (x, y, s) = place_at((-20, 900), left, 1.5, 1.0);
+		assert!(
+			inside(x, y, s, left),
+			"near the shared edge it doesn't spill onto the main screen"
+		);
+		assert_eq!(s, 1.5);
+		let (x, y, s) = place_at((10, 10), main, 1.0, 1.0);
+		assert!(inside(x, y, s, main));
+		assert_eq!(s, 1.0);
+		// beside a file near the shared edge, too
+		let (x, y) = beside([-90, 400, -10, 480], left, 1.5);
+		assert!(inside(x, y, 1.5, left));
+	}
 
 	#[test]
 	fn the_wheel_opens_beside_a_file_not_on_it() {
