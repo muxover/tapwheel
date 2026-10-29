@@ -314,6 +314,11 @@ fn theme_json(a: &App) -> Value {
 fn style_window(a: &App, hwnd: HWND) {
 	let dark: u32 = a.theme.dark as u32;
 	unsafe {
+		// the mark in the current accent; the window class only has the packaged one
+		if !a.themed_icon.is_null() {
+			SendMessageW(hwnd, WM_SETICON, ICON_SMALL as usize, a.themed_icon as isize);
+			SendMessageW(hwnd, WM_SETICON, ICON_BIG as usize, a.themed_icon as isize);
+		}
 		// DWMWA_USE_IMMERSIVE_DARK_MODE: 20 since Windows 10 2004, 19 on the builds before it
 		let attribute = if super::system::build_number() >= 18985 { 20 } else { 19 };
 		DwmSetWindowAttribute(hwnd, attribute, &dark as *const u32 as *const _, 4);

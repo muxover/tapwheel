@@ -197,6 +197,8 @@ pub struct App {
 	pub wheel_hwnd: HWND,
 	pub hud_hwnd: HWND,
 	pub icon: HICON,
+	/// The tray and window icon drawn in the Windows accent and theme; replaced when they change.
+	pub themed_icon: HICON,
 	_hooks: Option<Hooks>,
 	pub settings: Settings,
 	pub settings_path: PathBuf,
@@ -1183,7 +1185,11 @@ impl App {
 		nid.uID = 1;
 		nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
 		nid.uCallbackMessage = WM_APP_TRAY;
-		nid.hIcon = self.icon;
+		nid.hIcon = if self.themed_icon.is_null() {
+			self.icon
+		} else {
+			self.themed_icon
+		};
 		fill(&mut nid.szTip, "TapWheel");
 		unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
 	}
@@ -1284,6 +1290,34 @@ impl App {
 		}
 	}
 
+	/// Draws the mark in the accent and the taskbar's light or dark, and puts it on the tray icon and
+	/// every open window. Start, the taskbar and the Store keep the packaged images.
+	fn refresh_icon(&mut self) {
+		let accent = self.theme.accent;
+		let icon = make_icon(&tapwheel_ui::icon::themed(32, accent, system::taskbar_dark()));
+		if icon.is_null() {
+			super::log::write("drawing the themed icon failed");
+			return;
+		}
+		let old = std::mem::replace(&mut self.themed_icon, icon);
+		let mut nid: NOTIFYICONDATAW = unsafe { std::mem::zeroed() };
+		nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+		nid.hWnd = self.main;
+		nid.uID = 1;
+		nid.uFlags = NIF_ICON;
+		nid.hIcon = icon;
+		unsafe {
+			Shell_NotifyIconW(NIM_MODIFY, &nid);
+			for w in &self.web.windows {
+				SendMessageW(w.hwnd, WM_SETICON, ICON_SMALL as usize, icon as isize);
+				SendMessageW(w.hwnd, WM_SETICON, ICON_BIG as usize, icon as isize);
+			}
+			if !old.is_null() {
+				DestroyIcon(old);
+			}
+		}
+	}
+
 	/// Windows' theme, with the wheel colour from Settings in place of the accent. High contrast
 	/// keeps the system's colours.
 	fn read_theme(&self) -> Theme {
@@ -1299,6 +1333,7 @@ impl App {
 
 	pub fn theme_changed(&mut self) {
 		self.theme = self.read_theme();
+		self.refresh_icon();
 		if self.wheel.visible() {
 			self.draw_wheel();
 		}
@@ -1704,6 +1739,46 @@ fn private_mb() -> Option<u64> {
 	ok.then_some(c.PrivateUsage as u64 / (1024 * 1024))
 }
 
+/// An icon Windows can show, from a picture drawn by TapWheel. Null when Windows refuses.
+fn make_icon(pm: &tiny_skia::Pixmap) -> HICON {
+	let (w, h) = (pm.width() as i32, pm.height() as i32);
+	unsafe {
+		let mut info: BITMAPINFO = std::mem::zeroed();
+		info.bmiHeader.biSize = size_of::<BITMAPINFOHEADER>() as u32;
+		info.bmiHeader.biWidth = w;
+		// negative: top row first, as the picture is
+		info.bmiHeader.biHeight = -h;
+		info.bmiHeader.biPlanes = 1;
+		info.bmiHeader.biBitCount = 32;
+		let mut bits: *mut std::ffi::c_void = std::ptr::null_mut();
+		let color = CreateDIBSection(
+			std::ptr::null_mut(),
+			&info,
+			DIB_RGB_COLORS,
+			&mut bits,
+			std::ptr::null_mut(),
+			0,
+		);
+		if color.is_null() || bits.is_null() {
+			return std::ptr::null_mut();
+		}
+		let px = tapwheel_ui::icon::bgra(pm);
+		std::ptr::copy_nonoverlapping(px.as_ptr(), bits as *mut u8, px.len());
+		let mask = CreateBitmap(w, h, 1, 1, std::ptr::null());
+		let ii = ICONINFO {
+			fIcon: 1,
+			xHotspot: 0,
+			yHotspot: 0,
+			hbmMask: mask,
+			hbmColor: color,
+		};
+		let icon = CreateIconIndirect(&ii);
+		DeleteObject(color as _);
+		DeleteObject(mask as _);
+		icon
+	}
+}
+
 /// Brings a TapWheel window to the front. Windows only lets the app with the last input do that,
 /// and a key watched through the hooks isn't TapWheel's input, so it joins the front window's
 /// input for the moment of the switch.
@@ -1849,6 +1924,7 @@ pub fn run() -> i32 {
 		wheel_hwnd,
 		hud_hwnd,
 		icon,
+		themed_icon: std::ptr::null_mut(),
 		_hooks: hooks,
 		settings,
 		settings_path,
@@ -1886,6 +1962,7 @@ pub fn run() -> i32 {
 	}
 
 	with(|a| {
+		a.refresh_icon();
 		a.add_tray();
 		a.apply_no_drag();
 		if !a.settings.welcomed {

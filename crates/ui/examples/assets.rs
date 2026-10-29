@@ -26,15 +26,18 @@ fn main() {
 			icon::padded(310 * mul, 150 * mul, 96 * mul),
 		);
 	}
+	// Start and the taskbar can't take the accent, so they get the brand blue on a dark or light
+	// disc to match the taskbar
+	let windows_blue = tapwheel_ui::theme::Rgba::hex(0x0078d4);
 	for size in [16, 24, 32, 48, 256] {
 		save(&format!("Square44x44Logo.targetsize-{size}.png"), icon::logo(size));
 		save(
 			&format!("Square44x44Logo.altform-unplated_targetsize-{size}.png"),
-			icon::logo(size),
+			icon::themed(size, icon::BLUE, true),
 		);
 		save(
 			&format!("Square44x44Logo.altform-lightunplated_targetsize-{size}.png"),
-			icon::logo(size),
+			icon::themed(size, windows_blue, false),
 		);
 	}
 	std::fs::write(out.join("tapwheel.ico"), icon::ico(&[16, 20, 24, 32, 40, 48, 64, 256])).unwrap();

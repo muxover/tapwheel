@@ -30,6 +30,17 @@ fn high_contrast() -> bool {
 	}
 }
 
+/// Whether the taskbar is dark, which Windows sets apart from the apps' light or dark mode.
+pub fn taskbar_dark() -> bool {
+	reg_dword(
+		HKEY_CURRENT_USER,
+		r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+		"SystemUsesLightTheme",
+	)
+	.unwrap_or(0)
+		== 0
+}
+
 /// Reads light/dark, the accent colour and high contrast the way Settings sets them.
 pub fn theme() -> Theme {
 	let light = reg_dword(
