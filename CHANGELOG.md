@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - RELEASE-DATE
 
 ### Added
 
@@ -23,6 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - The wheel fits every screen, scaling and monitor layout, and dark title bars use the setting early Windows 10 builds expect.
 - Results can go into a subfolder or one folder instead of next to the original.
 - Keep a tool's settings as a choice on its ring, like "To send" for a smaller video, from the tool's window.
+
+### Changed
+
+- Settings has more room, and its choices take only the space they need.
+- A new website, with the wheel to play with on the first screen.
 
 ### Removed
 
@@ -80,6 +85,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Windows 10 and 11 looks that follow light and dark mode, the accent colour and high contrast.
 - Portable zip with a right-click entry, and a Microsoft Store package.
 
-[Unreleased]: https://github.com/muxover/tapwheel/compare/v0.1.1...HEAD
+[0.2.0]: https://github.com/muxover/tapwheel/releases/tag/v0.2.0
 [0.1.1]: https://github.com/muxover/tapwheel/releases/tag/v0.1.1
 [0.1.0]: https://github.com/muxover/tapwheel/releases/tag/v0.1.0

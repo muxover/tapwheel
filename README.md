@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/muxover/tapwheel)](https://github.com/muxover/tapwheel/releases/latest)
 
-**Done before you let go.** The file wheel for Windows.
+**The file wheel for Windows, done before you let go.**
 
 </div>
 
