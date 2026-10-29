@@ -482,7 +482,7 @@ fn execute(
 		// video and sound
 		Recipe::Convert { to } => media::convert(e, d, input, *to, part, progress, cancel),
 		Recipe::CompressImage { quality, .. } if ext == "png" => pngquant::compress(input, part, *quality),
-		_ => media::run(e, d, &job.recipe, input, part, progress, cancel),
+		_ => return media::run_noted(e, d, &job.recipe, input, part, progress, cancel),
 	};
 	done.map(|()| None)
 }

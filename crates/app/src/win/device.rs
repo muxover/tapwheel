@@ -45,7 +45,7 @@ pub fn power() -> Option<Power> {
 		return None;
 	}
 	// 128 is "no system battery"; 255 is "unknown"
-	if s.BatteryFlag & 128 != 0 {
+	if s.BatteryFlag != 255 && s.BatteryFlag & 128 != 0 {
 		return None;
 	}
 	Some(Power {

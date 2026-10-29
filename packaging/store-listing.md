@@ -18,7 +18,7 @@ Shift opens Convert: pick a format for pictures, video, sound, icons, text, code
 
 Tools that need setting up open their own window with a live preview, like Crop, Trim, Annotate, Redact, Add background and Touch up for cut-outs. Rest on a slice for quick choices on an outer ring, like Balanced or 25 MB, and keep your own settings as a choice there too. Pin, hide and reorder slices, and pick the wheel's size and colour.
 
-TapWheel fits the PC it runs on. Compress uses the graphics card's video encoder when there is one, long jobs show the time left, and heavy work waits while Battery saver is on. It runs natively on Arm PCs as well as Intel and AMD, and screen readers hear the wheel and every finished job.
+TapWheel fits the PC it runs on. Compress on Balanced uses the graphics card's video encoder when there is one, long jobs show the time left, and heavy work waits while Battery saver is on. It runs natively on Arm PCs as well as Intel and AMD, and screen readers hear the wheel and every finished job.
 
 Everything runs on your PC. TapWheel makes no network connections: no account, no uploads, no ads and no telemetry. Background removal uses an AI model that ships inside the app.
 
@@ -40,7 +40,7 @@ Up to 20, one per line.
 - Crop, resize, compress, rotate, adjust and annotate pictures
 - Removes backgrounds on your PC, with brushes to touch up the cut-out
 - Trims video and sound on a timeline, with several cuts at once
-- Compresses video to a quality or a size, on the graphics card when it can
+- Compresses video to a quality or a size, Balanced on the graphics card
 - Makes GIFs, saves frames and pulls the sound out of a video
 - Windows icons, macOS icons, favicon packs and PNG sets
 - Formats JSON, XML, YAML, CSS and HTML, and makes code shots

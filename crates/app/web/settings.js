@@ -58,7 +58,15 @@ export default function settings(init) {
 	app.className = "";
 	app.replaceChildren(h("div", { style: { display: "grid", gridTemplateColumns: "220px 1fr", height: "100%" } }, nav, content));
 
+	let shown = "home";
+	// a tool window kept a ring choice while this window was open
+	on("ownChoices", (m) => {
+		s.own_choices = m.list;
+		if (shown === "wheels") show("wheels");
+	});
+
 	function show(id) {
+		shown = id;
 		for (const b of navButtons) {
 			const on = b.dataset.id === id;
 			b.style.background = on ? "var(--hover)" : "";
@@ -180,10 +188,10 @@ export default function settings(init) {
 				if (v === "subfolder") d.output = { put: v, name: name.value.trim() || "TapWheel" };
 				else if (v === "folder") {
 					if (!d.output.path) {
-						// nothing is saved until a folder is chosen
+						// nothing is saved until a folder is chosen with the button, so the arrow
+						// keys can pass over this choice without a dialog opening
 						showRow(sub, false);
 						showRow(fixed, true);
-						send("pickFolder");
 						return;
 					}
 					d.output = { put: v, path: d.output.path };

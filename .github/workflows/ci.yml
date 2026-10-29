@@ -187,6 +187,15 @@ jobs:
       - name: Build
         shell: bash
         run: .github/scripts/report.sh cargo build --release
+      # an x64 toolchain on this runner would build x64 files into the Arm package without a word
+      - name: The build is Arm
+        run: |
+          foreach ($f in "target\release\tapwheel.exe", "target\release\tapwheel_shell.dll") {
+            $b = [IO.File]::ReadAllBytes($f)
+            $machine = [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
+            if ($machine -ne 0xAA64) { throw "$f is built for machine 0x$('{0:X}' -f $machine), not Arm64" }
+            Write-Host "$f is Arm64"
+          }
       - name: Start the app once
         run: |
           $p = Start-Process -FilePath target\release\tapwheel.exe -ArgumentList "--smoke" -Wait -PassThru

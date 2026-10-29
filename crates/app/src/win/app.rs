@@ -28,8 +28,8 @@ use super::jobs::Jobs;
 use super::util::*;
 use super::web::Web;
 use super::{
-	WM_APP_DOUBLE, WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_JOBS, WM_APP_NOTAP, WM_APP_PAGE, WM_APP_PRESS, WM_APP_TAP,
-	WM_APP_TRAY, WM_APP_WEB, shell, system,
+	WM_APP_DOUBLE, WM_APP_DRAG_END, WM_APP_ESCAPE, WM_APP_JOBS, WM_APP_MAIL, WM_APP_NOTAP, WM_APP_PAGE, WM_APP_PRESS,
+	WM_APP_TAP, WM_APP_TRAY, WM_APP_WEB, shell, system,
 };
 
 const MAIN_CLASS: &str = "TapWheel.Main";
@@ -222,6 +222,8 @@ pub struct App {
 
 thread_local! {
 	static APP: RefCell<Option<App>> = const { RefCell::new(None) };
+	// messages from the shell extension or a second launch that came in mid-handler
+	static MAIL: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Runs `f` on the app unless it's already borrowed further up this stack (a window
@@ -273,6 +275,26 @@ fn approach(cur: f32, target: f32, dt_ms: f32, span_ms: f32) -> f32 {
 		(cur + step).min(target)
 	} else {
 		(cur - step).max(target)
+	}
+}
+
+/// Asks Windows for a WM_POWERBROADCAST whenever Battery saver turns on or off, which the power
+/// status broadcast alone doesn't always bring when it is switched by hand.
+fn watch_battery_saver(main: HWND) {
+	// GUID_POWER_SAVING_STATUS
+	const SAVER: windows_sys::core::GUID = windows_sys::core::GUID::from_u128(0xe00958c0_c213_4ace_ac77_fecced2eeea5);
+	let h = unsafe {
+		windows_sys::Win32::System::Power::RegisterPowerSettingNotification(
+			main as _,
+			&SAVER,
+			DEVICE_NOTIFY_WINDOW_HANDLE,
+		)
+	};
+	if h == 0 {
+		super::log::write(&format!(
+			"watching Battery saver failed: {}",
+			std::io::Error::last_os_error()
+		));
 	}
 }
 
@@ -1494,11 +1516,27 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 			let cds = unsafe { &*(l as *const COPYDATASTRUCT) };
 			let bytes = unsafe { std::slice::from_raw_parts(cds.lpData as *const u16, cds.cbData as usize / 2) };
 			let text = String::from_utf16_lossy(bytes);
-			with(|a| a.message(&text));
+			// the app is busy further up this stack (a cross-process call pumping messages):
+			// keep the request and take it once that handler returns
+			if with(|a| a.message(&text)).is_none() {
+				MAIL.with_borrow_mut(|m| m.push(text));
+				unsafe { PostMessageW(hwnd, WM_APP_MAIL, 0, 0) };
+			}
 			return 1;
 		}
-		// plugged in, unplugged, or Battery saver turned on or off
-		WM_POWERBROADCAST if w as u32 == PBT_APMPOWERSTATUSCHANGE => with(|a| {
+		WM_APP_MAIL => {
+			let waiting = MAIL.with_borrow_mut(std::mem::take);
+			for (i, text) in waiting.iter().enumerate() {
+				if with(|a| a.message(text)).is_none() {
+					MAIL.with_borrow_mut(|m| drop(m.splice(0..0, waiting[i..].iter().cloned())));
+					unsafe { PostMessageW(hwnd, WM_APP_MAIL, 0, 0) };
+					break;
+				}
+			}
+			return 0;
+		}
+		// plugged in, unplugged, or Battery saver turned on or off by hand
+		WM_POWERBROADCAST if w as u32 == PBT_APMPOWERSTATUSCHANGE || w as u32 == PBT_POWERSETTINGCHANGE => with(|a| {
 			let power = super::device::power();
 			let saver = power.as_ref().is_some_and(|p| p.saver);
 			a.device.power = power;
@@ -1962,8 +2000,11 @@ pub fn run() -> i32 {
 	}
 
 	with(|a| {
+		// the wheel colour picked in Settings, not only the Windows accent
+		a.theme = a.read_theme();
 		a.refresh_icon();
 		a.add_tray();
+		watch_battery_saver(a.main);
 		a.apply_no_drag();
 		if !a.settings.welcomed {
 			a.settings.welcomed = true;

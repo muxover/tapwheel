@@ -232,7 +232,6 @@ impl Jobs {
 		}
 	}
 
-	/// Adds a finished note card, for actions that need no undo.
 	/// The note for a rename, with Undo to put the old names back.
 	pub fn renamed(&mut self, kind: Option<Kind>, done: Vec<(PathBuf, PathBuf)>, text: String) -> u64 {
 		let names: Vec<PathBuf> = done.iter().map(|(_, to)| to.clone()).collect();
@@ -242,6 +241,7 @@ impl Jobs {
 		self.push(b)
 	}
 
+	/// Adds a finished note card, for actions that need no undo.
 	pub fn note(&mut self, op: Op, kind: Option<Kind>, inputs: &[PathBuf], text: String) -> u64 {
 		let mut b = Self::blank(op, kind, inputs);
 		b.note = Some(text);
