@@ -74,8 +74,10 @@ pub fn themed(size: u32, accent: Rgba, dark: bool) -> Pixmap {
 /// Pixels as Windows wants them for an icon: blue, green, red, alpha, premultiplied, top row first.
 pub fn bgra(pm: &Pixmap) -> Vec<u8> {
 	pm.data()
-		.chunks_exact(4)
-		.flat_map(|p| [p[2], p[1], p[0], p[3]])
+		.as_chunks::<4>()
+		.0
+		.iter()
+		.flat_map(|&[r, g, b, a]| [b, g, r, a])
 		.collect()
 }
 
