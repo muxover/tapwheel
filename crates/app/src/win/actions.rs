@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use tapwheel_core::kind::{ext_of, kind_of};
+use tapwheel_core::kind::ext_of;
 use tapwheel_core::ops::selection_kind;
 use tapwheel_core::recipe::HashKind;
 use tapwheel_core::{Kind, Op};
@@ -58,21 +58,7 @@ impl App {
 				}
 			}
 			Op::OpenWith => shell::open_with(&files[0]),
-			Op::Terminal => {
-				let dir = files
-					.iter()
-					.find(|p| kind_of(p) == Kind::Folder)
-					.cloned()
-					.or_else(|| files[0].parent().map(PathBuf::from))
-					.unwrap_or_default();
-				if shell::terminal(&dir) {
-					self.jobs
-						.note(op, kind, files, format!("Opened a terminal in {}", file_name(&dir)));
-				} else {
-					self.jobs
-						.problem(op, kind, files, "No terminal could be started".into());
-				}
-			}
+
 			Op::CopyMarkdown => {
 				let mut out = String::new();
 				for f in files {

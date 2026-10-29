@@ -1870,14 +1870,6 @@
           "desc": "Pick an app to open it",
           "ring": [],
           "window": false
-        },
-        {
-          "id": "terminal",
-          "label": "Terminal",
-          "icon": "window_console",
-          "desc": "Open a terminal here",
-          "ring": [],
-          "window": false
         }
       ]
     },

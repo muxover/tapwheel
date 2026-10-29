@@ -140,13 +140,6 @@ pub fn open_url(url: &str) -> bool {
 	shell_open(url, None, None)
 }
 
-/// Windows Terminal when it's there, PowerShell otherwise.
-pub fn terminal(dir: &Path) -> bool {
-	let d = dir.to_string_lossy();
-	shell_open("wt.exe", Some(&format!("-d \"{d}\"")), Some(dir))
-		|| shell_open("powershell.exe", Some("-NoExit"), Some(dir))
-}
-
 /// Opens Explorer with these items selected (they must share a folder).
 pub fn reveal(items: &[PathBuf]) -> bool {
 	let Some(first) = items.first() else {

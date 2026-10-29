@@ -534,7 +534,6 @@ pub fn recipe_for(op: Op, preset: Option<&str>, kind: Option<Kind>, d: &Defaults
 		| Op::Share
 		| Op::Float
 		| Op::Hash
-		| Op::Terminal
 		| Op::CopyMarkdown
 		| Op::Stats => return None,
 	};
