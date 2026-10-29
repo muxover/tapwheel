@@ -200,6 +200,8 @@ pub struct App {
 	pub fonts: Fonts,
 	pub packaged: bool,
 	pub jobs: Jobs,
+	/// What this PC can carry, read at start; power is read again when it changes.
+	pub device: tapwheel_core::device::Device,
 	pub wheel: WheelState,
 	pub hud: HudState,
 	pub web: Web,
@@ -405,7 +407,7 @@ impl App {
 		let now = Instant::now();
 		let ms = |t: Instant| now.duration_since(t).as_secs_f32() * 1000.0;
 		let motion = Motion {
-			open: if reduced_motion() {
+			open: if reduced_motion() || self.device.software_gpu {
 				1.0
 			} else {
 				(ms(w.opened) / OPEN_MS).min(1.0)
@@ -602,7 +604,7 @@ impl App {
 			KillTimer(self.wheel_hwnd, T_HIDE);
 			KillTimer(self.wheel_hwnd, T_PROBE);
 		}
-		if was_probe || reduced_motion() {
+		if was_probe || reduced_motion() || self.device.software_gpu {
 			self.finish_close();
 			return;
 		}
@@ -957,7 +959,7 @@ impl App {
 		for id in self.jobs.expired(hovered_id) {
 			self.leave(id);
 		}
-		let still = reduced_motion();
+		let still = reduced_motion() || self.device.software_gpu;
 		let now = Instant::now();
 		let dt = now.duration_since(self.hud.tick).as_secs_f32() * 1000.0;
 		self.hud.tick = now;
@@ -1365,6 +1367,13 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 			with(|a| a.message(&text));
 			return 1;
 		}
+		// plugged in, unplugged, or Battery saver turned on or off
+		WM_POWERBROADCAST if w as u32 == PBT_APMPOWERSTATUSCHANGE => with(|a| {
+			let power = super::device::power();
+			let saver = power.as_ref().is_some_and(|p| p.saver);
+			a.device.power = power;
+			a.jobs.saver.store(saver, std::sync::atomic::Ordering::Relaxed);
+		}),
 		WM_SETTINGCHANGE | WM_THEMECHANGED | WM_SYSCOLORCHANGE | WM_DWMCOLORIZATIONCOLORCHANGED => {
 			with(|a| a.theme_changed())
 		}
@@ -1677,6 +1686,12 @@ pub fn run() -> i32 {
 	let hooks = if smoke { None } else { Some(Hooks::install(main)) };
 	let hooks_ok = hooks.as_ref().is_none_or(Hooks::ok);
 
+	let device = super::device::read();
+	super::log::write(&device.log_line());
+	let jobs = Jobs::new(engines, device.slots());
+	jobs.saver
+		.store(device.heavy_waits(), std::sync::atomic::Ordering::Relaxed);
+
 	let now = Instant::now();
 	let app = App {
 		inst,
@@ -1690,7 +1705,8 @@ pub fn run() -> i32 {
 		theme: system::theme(),
 		fonts: system::fonts(),
 		packaged,
-		jobs: Jobs::new(engines),
+		jobs,
+		device,
 		wheel: WheelState::new(),
 		hud: HudState {
 			visible: false,
