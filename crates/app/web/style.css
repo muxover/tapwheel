@@ -949,3 +949,12 @@ h3.section {
 .keep input[type="text"] {
 	width: 170px;
 }
+
+.path {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-2);
+}

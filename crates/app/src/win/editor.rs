@@ -65,6 +65,7 @@ impl App {
 			"wheels": wheel_catalog(),
 			"device": self.device,
 			"slots": self.device.slots(),
+			"encoder": self.hw_encoder.lock().ok().and_then(|e| e.map(|e| e.name())),
 			"voices": tapwheel_core::speech::voices().into_iter().map(|(id, name)| json!({ "id": id, "name": name })).collect::<Vec<_>>(),
 		})
 	}
@@ -400,12 +401,11 @@ impl App {
 				match files::rename_all(&plan) {
 					Ok(done) => {
 						web::close(self, hwnd);
-						let renamed: Vec<PathBuf> = done.iter().map(|(_, to)| to.clone()).collect();
-						let text = match done.len() {
-							1 => format!("Renamed to {}", file_name(&renamed[0])),
-							n => format!("Renamed {n} items"),
+						let text = match done.as_slice() {
+							[(_, to)] => format!("Renamed to {}", file_name(to)),
+							many => format!("Renamed {} items", many.len()),
 						};
-						self.jobs.note(Op::Rename, kind, &renamed, text);
+						self.jobs.renamed(kind, done, text);
 						self.refresh_hud();
 					}
 					Err(e) => self
@@ -422,6 +422,16 @@ impl App {
 					"The clipboard is busy; try again".to_string()
 				};
 				self.web.send(hwnd, &json!({ "type": "toast", "message": reply }));
+			}
+			// Settings, where results go: one fixed folder
+			"pickFolder" => {
+				let start = match &self.settings.defaults.output {
+					tapwheel_core::plan::OutputRule::Folder { path } => Some(path.clone()),
+					_ => shell::documents(),
+				};
+				if let Some(dir) = super::share::pick_folder(hwnd as isize, start.as_deref()) {
+					self.web.send(hwnd, &json!({ "type": "folderPicked", "path": dir }));
+				}
 			}
 			"settings" => {
 				if let Ok(s) = serde_json::from_value::<Settings>(msg["settings"].clone()) {
