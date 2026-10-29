@@ -381,8 +381,45 @@ pub fn size_change(before: u64, after: u64) -> String {
 	format!("{} to {}{}", human_size(before), human_size(after), tail)
 }
 
+/// "about 4 min left" once enough of the batch has run to tell, and a plain warning when this
+/// PC needs a long time: `None` before that.
+pub fn time_left(elapsed_secs: f64, fraction: f32) -> Option<String> {
+	if elapsed_secs < 5.0 || !(0.03..1.0).contains(&fraction) {
+		return None;
+	}
+	let left = elapsed_secs * (1.0 - fraction as f64) / fraction as f64;
+	let words = if left < 60.0 {
+		"under a minute left".to_string()
+	} else if left < 3600.0 {
+		format!("about {} min left", (left / 60.0).round() as u32)
+	} else {
+		format!("about {:.1} h left", left / 3600.0)
+	};
+	Some(if left >= 20.0 * 60.0 {
+		format!("slow on this PC, {words}")
+	} else {
+		words
+	})
+}
+
 #[cfg(test)]
 mod tests {
+	#[test]
+	fn time_left_waits_for_enough_to_go_on() {
+		assert_eq!(time_left(2.0, 0.5), None, "too early");
+		assert_eq!(time_left(60.0, 0.01), None, "too little done");
+		assert_eq!(time_left(10.0, 0.5).as_deref(), Some("under a minute left"));
+		assert_eq!(time_left(60.0, 0.25).as_deref(), Some("about 3 min left"));
+		assert_eq!(
+			time_left(300.0, 0.18).as_deref(),
+			Some("slow on this PC, about 23 min left")
+		);
+		assert_eq!(
+			time_left(1200.0, 0.1).as_deref(),
+			Some("slow on this PC, about 3.0 h left")
+		);
+	}
+
 	use super::*;
 
 	fn card(state: State, buttons: Vec<Button>, shown: f32) -> Card {
