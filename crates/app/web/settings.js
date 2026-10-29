@@ -45,8 +45,8 @@ export default function settings(init) {
 		general: { label: "General", icon: "settings", build: general },
 		about: { label: "About", icon: "info", build: about },
 	};
-	const content = h("div", { style: { overflowY: "auto", padding: "8px 28px 28px", minHeight: "0" } });
-	const nav = h("nav", { style: { display: "grid", alignContent: "start", gap: "2px", padding: "16px 8px" } });
+	const content = h("div", { class: "settings", style: { overflowY: "auto", padding: "8px 40px 48px", minHeight: "0" } });
+	const nav = h("nav", { style: { display: "grid", alignContent: "start", gap: "4px", padding: "20px 12px" } });
 	const navButtons = Object.entries(pages).map(([id, p]) => {
 		const b = h("button", { class: "btn subtle", type: "button", style: { justifyContent: "flex-start", gap: "12px", padding: "8px 12px", position: "relative" } }, iconEl(p.icon), p.label);
 		b.addEventListener("click", () => show(id));
@@ -70,14 +70,14 @@ export default function settings(init) {
 	}
 
 	function title(text, lead) {
-		return [h("h1", { style: { font: "600 28px/36px var(--font-display)", margin: "20px 0 4px" } }, text), lead ? h("p", { style: { color: "var(--text-2)", margin: "0 0 20px" } }, lead) : null];
+		return [h("h1", { style: { font: "600 28px/36px var(--font-display)", margin: "24px 0 6px" } }, text), h("p", { style: { color: "var(--text-2)", margin: "0 0 28px" } }, lead || "")];
 	}
 
 	function home() {
 		return h("div", {},
 			title("Drag, tap, drop", "Start dragging any file, tap a key, and drop it on the wheel."),
 			demo(),
-			h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", margin: "16px 0" } },
+			h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "12px", margin: "20px 0" } },
 				WHEELS.map(([k, name, what]) =>
 					h("section", { class: "group", style: { margin: 0 } },
 						h("div", { class: "row" }, h("kbd", {}, label(s.keys[k])), h("b", {}, name)),
@@ -228,7 +228,7 @@ export default function settings(init) {
 
 	function general() {
 		return h("div", {},
-			title("General"),
+			title("General", "How TapWheel starts, what it remembers and what it knows about this PC."),
 			group(null,
 				toggle("Start with Windows", s.start_with_windows, (v) => { s.start_with_windows = v; save(); }, "TapWheel waits quietly in the tray."),
 				toggle("Favourites first", s.learn_order, (v) => { s.learn_order = v; save(); }, "Slices you use most move to the top of each wheel."),

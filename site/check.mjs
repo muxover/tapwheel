@@ -45,7 +45,8 @@ const seen = new Set();
 
 for (const page of pages) {
 	for (const width of widths) {
-		const p = await browser.newPage({ viewport: { width, height: 900 } });
+		// reduced motion shows every section in its final place, without the scroll-in mid-way
+		const p = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
 		const errors = [];
 		p.on("pageerror", (e) => errors.push(e.message));
 		p.on("console", (m) => m.type() === "error" && errors.push(m.text()));

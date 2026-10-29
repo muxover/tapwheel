@@ -1,6 +1,6 @@
 # TapWheel
 
-> Free, open-source file tools for Windows 10 and 11. Drag a file, tap Shift, Ctrl or Alt, and drop it on the wheel that opens under the pointer. Convert, crop, trim, compress, add or remove backgrounds, annotate, redact, tag, format code, pack and unpack archives, rename in bulk and see what a file really is, for pictures, video, sound, icons, text, code and archives. Runs offline with a bundled FFmpeg and background removal model. Made by Jax (muxover). Inspired by Tangerine for Mac.
+> The file wheel for Windows: free, open-source file tools on a drag. Drag a file, tap Shift, Ctrl or Alt, and drop it on the wheel that opens under the pointer. Convert, crop, trim, compress, add or remove backgrounds, annotate, redact, tag, format code, pack and unpack archives, rename in bulk and see what a file really is, for pictures, video, sound, icons, text, code and archives. Runs offline with a bundled FFmpeg and background removal model. Made by Jax (muxover). Inspired by Tangerine for Mac.
 
 - [Home](https://tapwheel.app/): what it does, a wheel to play with, the tool windows to try with sample files, every format and tool, safety, FAQ, download
 - [Privacy](https://tapwheel.app/privacy): the app connects to nothing; the site sets no cookies

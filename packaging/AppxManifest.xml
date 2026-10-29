@@ -24,7 +24,7 @@
     <Application Id="TapWheel" Executable="tapwheel.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="TapWheel"
-        Description="Drag a file, tap a key, drop it on the wheel. Converts images, audio, video, subtitles and archives on your PC."
+        Description="The file wheel for Windows. Drag a file, tap a key and drop it on the wheel to convert or edit it on your PC."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

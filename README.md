@@ -6,13 +6,13 @@
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/muxover/tapwheel)](https://github.com/muxover/tapwheel/releases/latest)
 
-**Drag a file, tap a key, drop it on the wheel.**
+**Done before you let go.** The file wheel for Windows.
 
 </div>
 
 ---
 
-TapWheel puts file tools on a wheel in Windows 10 and 11. Start dragging a file in File Explorer or on the desktop, tap Shift, Ctrl or Alt, and a wheel opens under your pointer. Drop the file on JPG, Trim, Remove BG or ZIP and the new file appears next to the old one. Pictures, video, sound, icons, text, code and archives, all done on your PC, with nothing uploaded. It's inspired by [Tangerine](https://tangerineformac.com/) for Mac and built natively for Windows. Try the tool windows at [tapwheel.app](https://tapwheel.app/#try).
+TapWheel puts file tools on a wheel in Windows. Start dragging a file in File Explorer or on the desktop, tap Shift, Ctrl or Alt, and a wheel opens under your pointer. Drop the file on JPG, Trim, Remove BG or ZIP and the new file appears next to the old one. Pictures, video, sound, icons, text, code and archives, all done on your PC, with nothing uploaded. It's inspired by [Tangerine](https://tangerineformac.com/) for Mac and built natively for Windows. Try the tool windows at [tapwheel.app](https://tapwheel.app/#try).
 
 ---
 
@@ -28,7 +28,7 @@ TapWheel puts file tools on a wheel in Windows 10 and 11. Start dragging a file 
 - Compact cards show the size before and after, with Open, Show, Undo, Cancel and Retry. Undo only removes a file TapWheel made, and only if you haven't changed it since.
 - A job checks the file can be read and the disk has room before it starts. If TapWheel is closed mid-job, the leftover part-files are cleared next time.
 - Tools never change the original, and a new file never replaces an existing one. Only Rename and Move to touch the original, when you pick them.
-- Follows light or dark mode, your accent colour, high contrast, and the Windows 10 or 11 look.
+- Follows light or dark mode, your accent colour, high contrast, and the rounded or square Windows look.
 - Works offline. Nothing is uploaded, and there's no account.
 
 ---
@@ -106,7 +106,7 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 - No documents, PDFs or Office files yet; they're planned for 0.3.
 - MIDI files hold notes, not sound, so they aren't opened.
 - AVIF and WebM are slow on large files.
-- Tool windows need WebView2, which comes with Windows 10 and 11.
+- Tool windows need WebView2, which comes with Windows.
 
 ---
 

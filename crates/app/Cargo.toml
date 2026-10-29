@@ -6,7 +6,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 publish = false
-description = "Drag a file, tap a key, drop it on the wheel."
+description = "The file wheel for Windows: done before you let go."
 
 [dependencies]
 tapwheel-core = { path = "../core" }

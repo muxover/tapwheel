@@ -18,6 +18,6 @@ fn main() {
 
 #[cfg(not(windows))]
 fn main() {
-	eprintln!("TapWheel runs on Windows 10 and 11.");
+	eprintln!("TapWheel runs on Windows.");
 	std::process::exit(1);
 }
