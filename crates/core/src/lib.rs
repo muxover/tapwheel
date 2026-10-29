@@ -26,10 +26,10 @@ mod winicon;
 
 pub use format::Format;
 pub use kind::Kind;
-pub use ops::{Mode, Op, Preset, Wheel, choices};
+pub use ops::{Mode, Op, Preset, Wheel, catalog, choices};
 pub use plan::{Job, plan};
 pub use recipe::{Recipe, recipe_for};
-pub use settings::{Defaults, Key, NoDrag, Settings};
+pub use settings::{Defaults, Key, Layout, NoDrag, Settings, WheelSize};
 
 #[derive(Debug)]
 pub enum Error {
