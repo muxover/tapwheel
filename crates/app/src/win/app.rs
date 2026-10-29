@@ -74,6 +74,8 @@ const MENU_OPEN: usize = 1;
 const MENU_PAUSE: usize = 2;
 const MENU_QUIT: usize = 3;
 const MENU_REMOVE: usize = 4;
+/// The newest card's buttons in the tray menu start here.
+const MENU_CARD: usize = 100;
 
 pub const HEIC_SAMPLE: &[u8] = include_bytes!("../../../core/tests/fixtures/photo.heic");
 
@@ -185,6 +187,8 @@ pub struct HudState {
 	expand: HashMap<u64, f32>,
 	cards: Vec<Card>,
 	tick: Instant,
+	/// Finished cards a screen reader was told about.
+	said: std::collections::HashSet<u64>,
 }
 
 pub struct App {
@@ -566,6 +570,24 @@ impl App {
 		}
 		hooks::WHEEL_OPEN.store(true, std::sync::atomic::Ordering::Relaxed);
 		self.draw_wheel();
+		let how = if mode == Mode::Pick {
+			"Left and Right move, Down opens a slice's choices, Enter picks, Escape closes"
+		} else {
+			"Drop on a slice"
+		};
+		let first = self
+			.hover_words(self.wheel.hover)
+			.map(|w| format!(" {w}."))
+			.unwrap_or_default();
+		self.say(
+			&format!(
+				"{} wheel for {}. {} choices. {how}.{first}",
+				wh.title(),
+				self.wheel.subtitle,
+				self.wheel.ops.len()
+			),
+			false,
+		);
 		// how long the wheel takes to appear, for finding slow spots on real PCs
 		let took = self.wheel.opened.elapsed().as_millis();
 		if took > 60 {
@@ -686,6 +708,38 @@ impl App {
 		self.wheel.hover_since = Instant::now();
 		self.draw_wheel();
 		self.animate();
+		self.say(&format!("Page {} of {pages}", self.wheel.page + 1), false);
+	}
+
+	/// How many ring choices the slice at `i` on this page has.
+	fn ring_len(&self, i: usize) -> usize {
+		let (items, _) = wheel::page_items(self.wheel.ops.len(), self.wheel.page);
+		items.get(i).and_then(|&k| self.wheel.rings.get(k)).map_or(0, Vec::len)
+	}
+
+	/// Tells a screen reader about the wheel.
+	fn say(&self, text: &str, done: bool) {
+		super::access::announce(self.wheel_hwnd, super::access::Role::Wheel, text, done);
+	}
+
+	/// What a screen reader hears for the slice or ring choice under the pointer or keyboard.
+	fn hover_words(&self, h: Hover) -> Option<String> {
+		let (items, _) = wheel::page_items(self.wheel.ops.len(), self.wheel.page);
+		match h {
+			Hover::Slice(i) => {
+				let op = self.wheel.ops.get(*items.get(i)?)?;
+				let ring = self.wheel.rings.get(*items.get(i)?).map_or(0, Vec::len);
+				let more = if ring > 0 {
+					format!(", {ring} choices on the ring")
+				} else {
+					String::new()
+				};
+				Some(format!("{}: {}{more}", op.label(), op.describe(self.wheel.kind)))
+			}
+			Hover::Ring(i, j) => Some(self.wheel.rings.get(*items.get(i)?)?.get(j)?.1.clone()),
+			Hover::More => Some("More, next page".into()),
+			_ => None,
+		}
 	}
 
 	fn tap(&mut self, key: usize) {
@@ -810,6 +864,9 @@ impl App {
 			}
 			self.wheel.hover = h;
 			self.wheel.hover_since = Instant::now();
+			if let Some(words) = self.hover_words(h) {
+				self.say(&words, false);
+			}
 			self.animate();
 		}
 	}
@@ -969,6 +1026,10 @@ impl App {
 		let mut moving = false;
 		let mut gone = Vec::new();
 		for (id, mut card) in self.jobs.cards() {
+			if matches!(card.state, State::Done | State::Failed) && self.hud.said.insert(id) {
+				let text = format!("{}. {}", card.title, card.detail);
+				super::access::announce(self.hud_hwnd, super::access::Role::Cards, &text, true);
+			}
 			let (arrived, leaving) = *self.hud.anim.entry(id).or_insert((now, None));
 			let ms = |t: Instant| now.duration_since(t).as_secs_f32() * 1000.0;
 			card.shown = match leaving {
@@ -1139,6 +1200,27 @@ impl App {
 		unsafe {
 			let menu = CreatePopupMenu();
 			let paused = hooks::PAUSED.load(std::sync::atomic::Ordering::Relaxed);
+			// the newest card's buttons, so a job can be opened or undone from the keyboard
+			// (Win+B reaches the tray); the cards themselves never take the keyboard
+			let newest = self.hud.ids.len().checked_sub(1).and_then(|i| {
+				let id = *self.hud.ids.get(i)?;
+				let card = self.jobs.cards().into_iter().find(|(c, _)| *c == id)?.1;
+				Some((i, card))
+			});
+			let mut card_buttons = Vec::new();
+			if let Some((_, card)) = &newest {
+				AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, wide(&card.title).as_ptr());
+				for b in card.buttons.iter().filter(|b| **b != Button::Close) {
+					AppendMenuW(
+						menu,
+						MF_STRING,
+						MENU_CARD + card_buttons.len(),
+						wide(b.label()).as_ptr(),
+					);
+					card_buttons.push(*b);
+				}
+				AppendMenuW(menu, MF_SEPARATOR, 0, std::ptr::null());
+			}
 			AppendMenuW(menu, MF_STRING, MENU_OPEN, wide("Open TapWheel").as_ptr());
 			AppendMenuW(
 				menu,
@@ -1166,6 +1248,11 @@ impl App {
 			);
 			DestroyMenu(menu);
 			match cmd as usize {
+				c if c >= MENU_CARD && c < MENU_CARD + card_buttons.len() => {
+					if let Some((i, _)) = newest {
+						self.hud_click(i, card_buttons[c - MENU_CARD]);
+					}
+				}
 				MENU_OPEN => self.show_settings(),
 				MENU_PAUSE => hooks::PAUSED.store(!paused, std::sync::atomic::Ordering::Relaxed),
 				MENU_QUIT => {
@@ -1403,6 +1490,11 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 }
 
 unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
+	if msg == WM_GETOBJECT
+		&& let Some(r) = super::access::get_object(hwnd, super::access::Role::Wheel, w, l)
+	{
+		return r;
+	}
 	let handled = match msg {
 		WM_MOUSEACTIVATE => {
 			let pick = with(|a| a.wheel.mode == Mode::Pick).unwrap_or(false);
@@ -1467,6 +1559,19 @@ unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM)
 				VK_ESCAPE => a.close(None),
 				VK_NEXT if more => a.turn_page(1),
 				VK_PRIOR if more => a.turn_page(-1),
+				// Down goes into a slice's ring and along it, Up comes back out
+				VK_DOWN if n > 0 && a.ring_len(cur) > 0 => {
+					let len = a.ring_len(cur);
+					let next = match a.wheel.hover {
+						Hover::Ring(_, j) => (j + 1) % len,
+						_ => 0,
+					};
+					a.set_hover(Hover::Ring(cur, next));
+				}
+				VK_UP if matches!(a.wheel.hover, Hover::Ring(..)) => {
+					let Hover::Ring(i, j) = a.wheel.hover else { return };
+					a.set_hover(if j == 0 { Hover::Slice(i) } else { Hover::Ring(i, j - 1) });
+				}
 				VK_RIGHT | VK_DOWN | VK_TAB if n > 0 => {
 					let back = vk == VK_TAB && unsafe { GetKeyState(VK_SHIFT as i32) } < 0;
 					if !back && cur + 1 == n && more {
@@ -1500,6 +1605,11 @@ unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM)
 }
 
 unsafe extern "system" fn hud_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
+	if msg == WM_GETOBJECT
+		&& let Some(r) = super::access::get_object(hwnd, super::access::Role::Cards, w, l)
+	{
+		return r;
+	}
 	let handled = match msg {
 		WM_MOUSEACTIVATE => return MA_NOACTIVATE as isize,
 		WM_TIMER => with(|a| a.refresh_hud()),
@@ -1761,6 +1871,7 @@ pub fn run() -> i32 {
 			expand: HashMap::new(),
 			cards: Vec::new(),
 			tick: now,
+			said: std::collections::HashSet::new(),
 		},
 		web: Web::new(local.join("WebView")),
 		last: None,
