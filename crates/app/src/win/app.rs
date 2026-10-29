@@ -202,6 +202,8 @@ pub struct App {
 	pub jobs: Jobs,
 	/// What this PC can carry, read at start; power is read again when it changes.
 	pub device: tapwheel_core::device::Device,
+	/// The graphics card's video encoder, once a test encode found one; looked for at start.
+	pub hw_encoder: std::sync::Arc<std::sync::Mutex<Option<tapwheel_core::ff::HwEncoder>>>,
 	pub wheel: WheelState,
 	pub hud: HudState,
 	pub web: Web,
@@ -909,7 +911,11 @@ impl App {
 			kind,
 			files,
 			recipe,
-			self.settings.defaults.clone(),
+			{
+				let mut d = self.settings.defaults.clone();
+				d.hw_encoder = self.hw_encoder.lock().ok().and_then(|e| *e);
+				d
+			},
 			move || unsafe {
 				PostMessageW(main as HWND, WM_APP_JOBS, 0, 0);
 			},
@@ -1060,6 +1066,13 @@ impl App {
 			Button::Show => {
 				shell::reveal(&batch.outputs);
 			}
+			Button::Undo if !batch.renamed.is_empty() => match tapwheel_core::files::undo_renames(&batch.renamed) {
+				Ok(_) => {}
+				Err(e) => {
+					self.jobs
+						.problem(op, kind, &[], format!("Couldn't undo the rename: {e}"));
+				}
+			},
 			Button::Undo => {
 				// only what TapWheel made and nobody has touched since goes to the Recycle Bin
 				let mut gone = Vec::new();
@@ -1688,6 +1701,21 @@ pub fn run() -> i32 {
 
 	let device = super::device::read();
 	super::log::write(&device.log_line());
+	let hw_encoder = std::sync::Arc::new(std::sync::Mutex::new(None));
+	if !smoke {
+		// a one-second test encode per encoder, off the UI thread
+		let (found, ffmpeg, gpu) = (hw_encoder.clone(), engines.ffmpeg.clone(), device.gpu.clone());
+		std::thread::spawn(move || {
+			let e = tapwheel_core::ff::HwEncoder::find(&ffmpeg, gpu.as_deref());
+			super::log::write(&format!(
+				"video encoder on the graphics card: {}",
+				e.map_or("none found", |e| e.name())
+			));
+			if let Ok(mut slot) = found.lock() {
+				*slot = e;
+			}
+		});
+	}
 	let jobs = Jobs::new(engines, device.slots());
 	jobs.saver
 		.store(device.heavy_waits(), std::sync::atomic::Ordering::Relaxed);
@@ -1707,6 +1735,7 @@ pub fn run() -> i32 {
 		packaged,
 		jobs,
 		device,
+		hw_encoder,
 		wheel: WheelState::new(),
 		hud: HudState {
 			visible: false,

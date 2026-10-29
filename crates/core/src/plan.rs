@@ -55,6 +55,65 @@ pub fn unique_path(dir: &Path, stem: &str, ext: &str) -> PathBuf {
 	(0..).map(make).find(|p| !p.exists()).expect("unbounded range")
 }
 
+/// Where finished files go. Next to the original is the default; a subfolder beside it or one
+/// fixed folder keep results together.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "put", rename_all = "snake_case")]
+pub enum OutputRule {
+	#[default]
+	NextToSource,
+	Subfolder {
+		name: String,
+	},
+	Folder {
+		path: PathBuf,
+	},
+}
+
+/// Moves each job's output to where the rule says, making the folder if it's missing. Jobs that
+/// only report, and a duplicate (which is a copy beside its original), stay where they are.
+pub fn place(jobs: &mut [Job], rule: &OutputRule) -> Result<(), crate::Error> {
+	for job in jobs.iter_mut() {
+		if job.output.as_os_str().is_empty() || matches!(job.recipe, Recipe::Duplicate) {
+			continue;
+		}
+		let dir = match rule {
+			OutputRule::NextToSource => continue,
+			OutputRule::Subfolder { name } => {
+				let name = name.trim();
+				if name.is_empty() || name.contains(['/', '\\', ':']) || name == "." || name == ".." {
+					return Err(crate::Error::Engine(format!(
+						"\"{name}\" can't be a folder name; change it in Settings"
+					)));
+				}
+				parent(&job.output).join(name)
+			}
+			OutputRule::Folder { path } => path.clone(),
+		};
+		std::fs::create_dir_all(&dir)
+			.map_err(|e| crate::Error::Engine(format!("couldn't make the folder {}: {e}", dir.display())))?;
+		let file = job.output.file_name().map(PathBuf::from).unwrap_or_default();
+		let stem = file
+			.file_stem()
+			.map(|s| s.to_string_lossy().into_owned())
+			.unwrap_or_default();
+		let ext = if job.output.is_dir() || file.extension().is_none() {
+			String::new()
+		} else {
+			file.extension()
+				.map(|e| e.to_string_lossy().into_owned())
+				.unwrap_or_default()
+		};
+		let stem = if ext.is_empty() {
+			file.to_string_lossy().into_owned()
+		} else {
+			stem
+		};
+		job.output = unique_path(&dir, &stem, &ext);
+	}
+	Ok(())
+}
+
 /// Where a job writes until it finishes, so a half-done file never has the final name. Each call
 /// gives a new name, so two jobs aiming at the same output never share one.
 pub fn part_path(output: &Path) -> PathBuf {
@@ -362,6 +421,67 @@ fn file_job(op: Op, recipe: &Recipe, input: &Path) -> Option<Job> {
 
 #[cfg(test)]
 mod tests {
+
+	fn job_for(dir: &Path, name: &str) -> (PathBuf, Job) {
+		let src = dir.join(name);
+		std::fs::write(&src, "x").unwrap();
+		let r = Recipe::Convert {
+			to: crate::Format::Webp,
+		};
+		let job = plan(Op::Convert(crate::Format::Webp), &r, std::slice::from_ref(&src)).remove(0);
+		(src, job)
+	}
+
+	#[test]
+	fn results_go_where_the_rule_says() {
+		let dir = std::env::temp_dir().join(format!("tw-place-{}", std::process::id()));
+		let _ = std::fs::remove_dir_all(&dir);
+		std::fs::create_dir_all(&dir).unwrap();
+		let (_, job) = job_for(&dir, "photo.png");
+		let mut next = vec![job.clone()];
+		place(&mut next, &OutputRule::NextToSource).unwrap();
+		assert_eq!(next[0].output, dir.join("photo.webp"));
+
+		let mut sub = vec![job.clone()];
+		place(&mut sub, &OutputRule::Subfolder { name: "Done".into() }).unwrap();
+		assert_eq!(sub[0].output, dir.join("Done").join("photo.webp"));
+		assert!(dir.join("Done").is_dir(), "the subfolder is made");
+
+		let fixed = dir.join("All results");
+		std::fs::create_dir_all(&fixed).unwrap();
+		std::fs::write(fixed.join("photo.webp"), "taken").unwrap();
+		let mut one = vec![job.clone()];
+		place(&mut one, &OutputRule::Folder { path: fixed.clone() }).unwrap();
+		assert_eq!(
+			one[0].output,
+			fixed.join("photo (1).webp"),
+			"never over a file already there"
+		);
+
+		for bad in ["", "  ", "a/b", "..", "C:"] {
+			let mut j = vec![job.clone()];
+			assert!(
+				place(&mut j, &OutputRule::Subfolder { name: bad.into() }).is_err(),
+				"{bad:?}"
+			);
+		}
+		std::fs::remove_dir_all(dir).unwrap();
+	}
+
+	#[test]
+	fn a_duplicate_stays_beside_its_original() {
+		let dir = std::env::temp_dir().join(format!("tw-place-dup-{}", std::process::id()));
+		let _ = std::fs::remove_dir_all(&dir);
+		std::fs::create_dir_all(&dir).unwrap();
+		let src = dir.join("notes.txt");
+		std::fs::write(&src, "x").unwrap();
+		let mut jobs = plan(Op::Duplicate, &Recipe::Duplicate, std::slice::from_ref(&src));
+		let before = jobs[0].output.clone();
+		place(&mut jobs, &OutputRule::Subfolder { name: "Done".into() }).unwrap();
+		assert_eq!(jobs[0].output, before);
+		std::fs::remove_dir_all(dir).unwrap();
+	}
+
 	use super::*;
 	use crate::recipe::Span;
 	use std::fs;

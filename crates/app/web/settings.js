@@ -1,5 +1,5 @@
 import { demo } from "./demo.js";
-import { group, h, iconEl, segmented, send, slider, toast, toggle } from "./tw.js";
+import { group, h, iconEl, on, segmented, send, slider, toast, toggle } from "./tw.js";
 import { wheelsPage } from "./wheels.js";
 
 const KEYS = [
@@ -144,10 +144,63 @@ export default function settings(init) {
 		return h("div", {}, title("Wheels", "Make each wheel your own: what's on it, in what order, how big and in what colour."), wheelsPage(s, init.wheels || [], save));
 	}
 
+	/** Next to the original, a subfolder beside it, or one fixed folder. */
+	function whereResultsGo() {
+		d.output ||= { put: "next_to_source" };
+		const name = h("input", { type: "text", maxlength: "60", "aria-label": "Subfolder name", value: d.output.name || "TapWheel", style: { width: "220px" } });
+		const path = h("span", { class: "path" }, d.output.path || "No folder chosen yet");
+		const choose = h("button", { class: "btn", type: "button", onclick: () => send("pickFolder") }, "Choose folder");
+		const sub = h("div", { class: "row", style: { marginTop: "10px" } }, h("span", { style: { flex: "1", color: "var(--text-2)" } }, "Folder name"), name);
+		const fixed = h("div", { class: "row", style: { marginTop: "10px" } }, path, choose);
+		// .row sets display, which outranks the hidden attribute
+		const showRow = (el, on) => (el.style.display = on ? "" : "none");
+		const show = () => {
+			showRow(sub, d.output.put === "subfolder");
+			showRow(fixed, d.output.put === "folder");
+		};
+		name.addEventListener("change", () => {
+			d.output = { put: "subfolder", name: name.value.trim() || "TapWheel" };
+			name.value = d.output.name;
+			save();
+		});
+		on("folderPicked", (m) => {
+			d.output = { put: "folder", path: m.path };
+			path.textContent = m.path;
+			show();
+			save();
+		});
+		const seg = segmented(
+			[
+				{ label: "Next to the original", value: "next_to_source" },
+				{ label: "In a subfolder", value: "subfolder" },
+				{ label: "In one folder", value: "folder" },
+			],
+			d.output.put,
+			(v) => {
+				if (v === "subfolder") d.output = { put: v, name: name.value.trim() || "TapWheel" };
+				else if (v === "folder") {
+					if (!d.output.path) {
+						// nothing is saved until a folder is chosen
+						showRow(sub, false);
+						showRow(fixed, true);
+						send("pickFolder");
+						return;
+					}
+					d.output = { put: v, path: d.output.path };
+				} else d.output = { put: v };
+				show();
+				save();
+			},
+		);
+		show();
+		return group("Where results go", seg, sub, fixed, h("div", { class: "hint", style: { marginTop: "8px" } }, "A duplicate always stays next to its original. A file already there is never replaced."));
+	}
+
 	function tools() {
 		const voices = init.voices || [];
 		return h("div", {},
 			title("Tools", "What a plain drop does. Each tool's window can still change these for one file."),
+			whereResultsGo(),
 			h("h3", { style: section }, "Pictures"),
 			slider({ label: "Quality when converting", min: 50, max: 100, value: d.image_quality, format: (v) => `${v}%`, oninput: setD("image_quality") }),
 			slider({ label: "Compress: Balanced", min: 40, max: 95, value: d.image_quality_balanced, format: (v) => `${v}%`, oninput: setD("image_quality_balanced") }),
@@ -158,6 +211,7 @@ export default function settings(init) {
 			slider({ label: "Quality when converting", min: 16, max: 32, value: 48 - d.video_crf, format: (v) => quality(48 - v), oninput: (v) => setD("video_crf")(48 - v) }),
 			slider({ label: "Compress: Balanced", min: 16, max: 32, value: 58 - d.video_crf_balanced, format: (v) => quality(58 - v), oninput: (v) => setD("video_crf_balanced")(58 - v) }),
 			group(null, toggle("Exact cuts when trimming", d.trim_exact, setD("trim_exact"), "Off cuts instantly at the nearest keyframe.")),
+			group(null, toggle("Use the graphics card for video", d.hardware_video, setD("hardware_video"), init.encoder ? `Compress on Balanced uses ${init.encoder}: much faster, files a little bigger. Smaller and size targets stay on the processor.` : "No video encoder was found on this PC's graphics card, so the processor does the work.")),
 			group("GIFs", h("div", { class: "label" }, "Frames per second"), segmented([10, 12, 15, 20, 25].map((v) => ({ label: String(v), value: v })), d.gif_fps, setD("gif_fps")), h("div", { class: "label", style: { marginTop: "10px" } }, "Width"), segmented([320, 480, 640, 800, 1080].map((v) => ({ label: String(v), value: v })), d.gif_width, setD("gif_width"))),
 			h("h3", { style: section }, "Audio"),
 			group("Bitrate when converting", segmented([128, 160, 192, 256, 320].map((v) => ({ label: `${v}k`, value: v })), d.audio_kbps, setD("audio_kbps"))),
@@ -207,6 +261,7 @@ export default function settings(init) {
 			row("Drive for work in progress", drive),
 			row("Power", power),
 			row("Screen", d.refresh_hz ? `${d.refresh_hz} Hz` : "Not known"),
+			row("Video encoder", init.encoder || "Processor only"),
 			h("div", { class: "hint", style: { marginTop: "8px" } },
 				`TapWheel runs up to ${init.slots} ${init.slots === 1 ? "batch" : "batches"} at once on this PC. Video and background removal wait while Battery saver is on.`),
 		);

@@ -35,6 +35,12 @@ pub struct Batch {
 	pub failed: Vec<PathBuf>,
 	/// Why a waiting batch hasn't started, when it's something other than another batch.
 	pub waiting_for: Option<String>,
+	/// The graphics card encoder doing the work, named on the card.
+	pub using: Option<String>,
+	/// When the batch started running, for the time left.
+	pub started: Option<Instant>,
+	/// A batch rename, old and new names, so Undo can put them back.
+	pub renamed: Vec<(PathBuf, PathBuf)>,
 }
 
 fn name(p: &Path) -> String {
@@ -65,6 +71,8 @@ impl Batch {
 				progress: None,
 				buttons: if self.copy.is_some() {
 					vec![Button::Copy, Button::Close]
+				} else if !self.renamed.is_empty() {
+					vec![Button::Undo, Button::Close]
 				} else {
 					vec![Button::Close]
 				},
@@ -86,8 +94,23 @@ impl Batch {
 				.waiting_for
 				.clone()
 				.unwrap_or_else(|| "Waiting for another job to finish".into()),
-			State::Running if single => self.inputs.first().map(|p| name(p)).unwrap_or_default(),
-			State::Running => format!("{} of {}", (self.done + 1).min(self.total), self.total),
+			State::Running => {
+				let what = if single {
+					self.inputs.first().map(|p| name(p)).unwrap_or_default()
+				} else {
+					format!("{} of {}", (self.done + 1).min(self.total), self.total)
+				};
+				let fraction = (self.done as f32 + self.progress.unwrap_or(0.0)) / self.total.max(1) as f32;
+				let left = self
+					.started
+					.and_then(|t| hud::time_left(t.elapsed().as_secs_f64(), fraction));
+				[Some(what), self.using.clone(), left]
+					.into_iter()
+					.flatten()
+					.filter(|s| !s.is_empty())
+					.collect::<Vec<_>>()
+					.join(" · ")
+			}
 			State::Done if self.outputs.is_empty() => self.error.clone().unwrap_or_default(),
 			State::Done => {
 				let sizes = hud::size_change(self.bytes_in, self.bytes_out);
@@ -203,10 +226,22 @@ impl Jobs {
 			recipe: None,
 			failed: Vec::new(),
 			waiting_for: None,
+			using: None,
+			started: None,
+			renamed: Vec::new(),
 		}
 	}
 
 	/// Adds a finished note card, for actions that need no undo.
+	/// The note for a rename, with Undo to put the old names back.
+	pub fn renamed(&mut self, kind: Option<Kind>, done: Vec<(PathBuf, PathBuf)>, text: String) -> u64 {
+		let names: Vec<PathBuf> = done.iter().map(|(_, to)| to.clone()).collect();
+		let mut b = Self::blank(Op::Rename, kind, &names);
+		b.note = Some(text);
+		b.renamed = done;
+		self.push(b)
+	}
+
 	pub fn note(&mut self, op: Op, kind: Option<Kind>, inputs: &[PathBuf], text: String) -> u64 {
 		let mut b = Self::blank(op, kind, inputs);
 		b.note = Some(text);
@@ -299,7 +334,17 @@ impl Jobs {
 					f(b);
 				}
 			};
-			let jobs: Vec<Job> = tapwheel_core::plan(op, &recipe, &inputs);
+			let mut jobs: Vec<Job> = tapwheel_core::plan(op, &recipe, &inputs);
+			if let Err(e) = tapwheel_core::plan::place(&mut jobs, &defaults.output) {
+				super::log::write(&format!("{op:?}: {e}"));
+				update(&mut |b| {
+					b.error = Some(capitalize(&e.to_string()));
+					b.state = State::Failed;
+					b.finished = Some(Instant::now());
+				});
+				wake();
+				return;
+			}
 			if jobs.is_empty() {
 				super::log::write(&format!("{op:?}: Nothing to do for these files"));
 				update(&mut |b| {
@@ -328,7 +373,19 @@ impl Jobs {
 				}
 				*free -= 1;
 			}
-			update(&mut |b| b.state = State::Running);
+			let using = match &recipe {
+				Recipe::CompressVideo {
+					target_mb: None,
+					max_height,
+					..
+				} => tapwheel_core::media::hw_encoder_for(&defaults, *max_height).map(|e| e.name().to_string()),
+				_ => None,
+			};
+			update(&mut |b| {
+				b.state = State::Running;
+				b.started = Some(Instant::now());
+				b.using = using.clone();
+			});
 			wake();
 
 			let mut failures = Vec::new();
