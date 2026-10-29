@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use tapwheel_core::files::{self, RenameRule};
 use tapwheel_core::kind::ext_of;
 use tapwheel_core::ops::selection_kind;
-use tapwheel_core::{Kind, Op, Recipe, Settings, ff, media};
+use tapwheel_core::{Kind, Op, Recipe, Settings, ff, media, recipe_for};
 use windows_sys::Win32::Foundation::HWND;
 
 use super::app::{App, HEIC_SAMPLE, file_name};
@@ -34,6 +34,26 @@ fn size_for(op: Op) -> (f32, f32) {
 /// How much of a video the page plays at a time when it can't play the file itself.
 const CLIP_SECS: f64 = 8.0;
 
+/// Every slice each wheel can show, by kind of file, for the Wheels page in Settings.
+fn wheel_catalog() -> Value {
+	let list: Vec<Value> = tapwheel_core::catalog()
+		.into_iter()
+		.map(|(wheel, kind, ops)| {
+			json!({
+				"key": tapwheel_core::settings::layout_key(wheel, Some(kind)),
+				"wheel": wheel.id(),
+				"kind": kind.id(),
+				"slices": ops.iter().map(|op| json!({
+					"id": op.id(),
+					"label": op.label(),
+					"icon": op.icon(Some(kind)),
+				})).collect::<Vec<_>>(),
+			})
+		})
+		.collect();
+	Value::Array(list)
+}
+
 impl App {
 	pub fn settings_payload(&self) -> Value {
 		json!({
@@ -42,6 +62,7 @@ impl App {
 			"settings": self.settings,
 			"paused": hooks::PAUSED.load(std::sync::atomic::Ordering::Relaxed),
 			"packaged": self.packaged,
+			"wheels": wheel_catalog(),
 			"voices": tapwheel_core::speech::voices().into_iter().map(|(id, name)| json!({ "id": id, "name": name })).collect::<Vec<_>>(),
 		})
 	}
@@ -77,6 +98,8 @@ impl App {
 			"files": list,
 			"defaults": self.settings.defaults,
 			"presets": presets,
+			// the window offers to keep its settings as a ring choice when they'd mean the same on any file
+			"keepable": op.presets(kind).first().and_then(|p| recipe_for(op, Some(p.id), kind, &self.settings.defaults)).is_some_and(|r| r.reusable()),
 		});
 		let Some(hwnd) = web::open_sized(self, Page::Editor, init, files.clone(), size_for(op)) else {
 			return;
@@ -323,6 +346,15 @@ impl App {
 				let op = w.init["tool"].as_str().and_then(Op::from_id).unwrap_or(Op::Crop);
 				match serde_json::from_value::<Recipe>(msg["recipe"].clone()) {
 					Ok(recipe) => {
+						if let Some(label) = msg["keep"].as_str() {
+							let kind = selection_kind(&inputs);
+							if let Err(why) = self.settings.keep_choice(op, kind, label, recipe.clone()) {
+								// nothing runs, so the name can be changed and saved again
+								self.web.send(hwnd, &json!({ "type": "error", "message": why }));
+								return;
+							}
+							self.save();
+						}
 						if let Some(d) = msg.get("defaults")
 							&& let Ok(d) = serde_json::from_value(d.clone())
 						{
@@ -393,6 +425,7 @@ impl App {
 				if let Ok(s) = serde_json::from_value::<Settings>(msg["settings"].clone()) {
 					let autostart = s.start_with_windows != self.settings.start_with_windows;
 					let no_drag = s.no_drag != self.settings.no_drag;
+					let accent = s.accent != self.settings.accent;
 					// usage counts and recent folders change outside the page; keep ours
 					let usage = std::mem::take(&mut self.settings.usage);
 					let recent = std::mem::take(&mut self.settings.recent_folders);
@@ -401,6 +434,9 @@ impl App {
 					self.settings.recent_folders = recent;
 					if autostart {
 						shell::set_autostart(self.settings.start_with_windows, self.packaged);
+					}
+					if accent {
+						self.theme_changed();
 					}
 					if no_drag && !self.apply_no_drag() {
 						self.web.send(

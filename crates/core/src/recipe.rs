@@ -275,6 +275,39 @@ impl Recipe {
 
 /// What a plain drop (or a ring choice) on a slice means, using the saved settings.
 /// `None` means the slice needs its window first.
+impl Recipe {
+	/// Whether the recipe means the same thing on any file of its kind, so it can be kept as a
+	/// ring choice. Cuts, crops and drawings belong to one file, and a password is never stored.
+	pub fn reusable(&self) -> bool {
+		matches!(
+			self,
+			Recipe::Convert { .. }
+				| Recipe::CompressImage { .. }
+				| Recipe::ResizeImage { .. }
+				| Recipe::RotateImage { .. }
+				| Recipe::CompressVideo { .. }
+				| Recipe::ResizeVideo { .. }
+				| Recipe::Speed { .. }
+				| Recipe::MakeGif { .. }
+				| Recipe::RotateVideo { .. }
+				| Recipe::Fade { .. }
+				| Recipe::Volume { .. }
+				| Recipe::Channels { .. }
+				| Recipe::CompressAudio { .. }
+				| Recipe::RemoveSilence { .. }
+				| Recipe::ReadAloud { .. }
+				| Recipe::LineEndings { .. }
+				| Recipe::SortLines { .. }
+				| Recipe::ChangeCase { .. }
+				| Recipe::Indent { .. }
+				| Recipe::SplitText { .. }
+				| Recipe::Pack { .. }
+				| Recipe::SplitArchive { .. }
+				| Recipe::IconSet { .. }
+		)
+	}
+}
+
 pub fn recipe_for(op: Op, preset: Option<&str>, kind: Option<Kind>, d: &Defaults) -> Option<Recipe> {
 	let preset = preset.or_else(|| op.presets(kind).first().map(|p| p.id));
 	if preset == Some("custom") {

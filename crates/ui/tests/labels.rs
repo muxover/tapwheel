@@ -134,3 +134,70 @@ fn every_label_stays_inside_its_shape() {
 		bad.join("\n")
 	);
 }
+
+/// A ring with three choices of your own, at the longest name Settings allow, still fits: names
+/// made of the widest letters and of ordinary words.
+#[test]
+fn rings_with_your_own_choices_stay_inside_their_chips() {
+	let fonts = fonts();
+	let longest = tapwheel_core::settings::MAX_CHOICE_LABEL;
+	let mut bad = Vec::new();
+	for own in [
+		vec!["W".repeat(longest), "M".repeat(longest), "Q".repeat(longest)],
+		vec![
+			"To send by email".into(),
+			"Phone wallpaper".into(),
+			"Small for chats".into(),
+		],
+	] {
+		let mut ring = vec!["Balanced".to_string(), "Smaller".into(), "Best".into()];
+		ring.extend(own.iter().map(|s| s.chars().take(longest).collect::<String>()));
+		ring.push("Custom".into());
+		let slices: Vec<Slice> = (0..6)
+			.map(|i| Slice {
+				label: if i == 0 { "Compress".into() } else { format!("Tool {i}") },
+				icon: "arrow_minimize".into(),
+				desc: String::new(),
+				ring: if i == 0 { ring.clone() } else { Vec::new() },
+			})
+			.collect();
+		for at in 0..slices.len() {
+			let mut slices = slices.clone();
+			slices.rotate_right(at);
+			let v = WheelView {
+				slices,
+				page: 0,
+				hover: Hover::Slice(at),
+				keyboard: false,
+				title: "Tools".into(),
+				subtitle: String::new(),
+				keys: Vec::new(),
+				message: None,
+				hint: None,
+				motion: Default::default(),
+			};
+			for win11 in [true, false] {
+				for (label, text, region) in label_shapes(&v, &fonts, win11) {
+					let (t, r) = (mask(&text), mask(&region));
+					let outside = t
+						.data()
+						.iter()
+						.zip(r.data())
+						.filter(|(t, r)| **t > 40 && **r < 128)
+						.count();
+					if outside > 0 {
+						bad.push(format!("{label:?} at slice {at} ({outside} px outside)"));
+					}
+				}
+			}
+		}
+	}
+	bad.sort();
+	bad.dedup();
+	assert!(
+		bad.is_empty(),
+		"{} labels leave their shape:\n{}",
+		bad.len(),
+		bad.join("\n")
+	);
+}
