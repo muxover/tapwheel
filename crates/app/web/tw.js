@@ -258,8 +258,16 @@ export function shell({ title, lead, panel = [], primary = "Save", onSave, out =
 			toast(e.message || String(e), true);
 		}
 	});
+	// "Keep as a ring choice": these settings become a choice on the slice's ring, by name
+	const keepName = h("input", { type: "text", maxlength: "16", placeholder: "Name, like To send", "aria-label": "Name of the ring choice", hidden: true });
+	const keep = TW.init?.keepable
+		? h("label", { class: "keep" }, h("input", { type: "checkbox", onchange: (e) => {
+			keepName.hidden = !e.target.checked;
+			if (e.target.checked) keepName.focus();
+		} }), "Keep as a ring choice", keepName)
+		: null;
 	const side = h("aside", { class: "panel" }, h("h2", {}, title), lead ? h("p", { class: "lead" }, lead) : null, ...panel);
-	const root = h("div", { class: "editor rise" }, stage, side, h("footer", { class: "bar" }, outEl, cancel, save));
+	const root = h("div", { class: "editor rise" }, stage, side, h("footer", { class: "bar" }, outEl, keep, cancel, save));
 	const app = document.getElementById("app");
 	app.className = "";
 	app.replaceChildren(root);
@@ -276,6 +284,7 @@ export function shell({ title, lead, panel = [], primary = "Save", onSave, out =
 		setOut,
 		save,
 		busy,
+		keepAs: () => (keepName.hidden ? "" : keepName.value.trim()),
 		ready() {
 			ready = true;
 			save.disabled = false;
@@ -297,7 +306,8 @@ export function escapeHtml(s) {
 }
 
 export function apply(recipe, extra = {}) {
-	send("apply", { recipe, ...extra });
+	const keep = current?.keepAs?.();
+	send("apply", { recipe, ...extra, ...(keep ? { keep } : {}) });
 }
 
 /**
