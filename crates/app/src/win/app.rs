@@ -43,6 +43,8 @@ const T_NUDGE: usize = 2;
 const T_HIDE: usize = 3;
 const T_PROBE: usize = 4;
 const T_PICK: usize = 10;
+/// Waits for Ctrl and Shift to come up after the shortcut, then opens the wheel.
+const T_HOTKEY: usize = 12;
 /// On the main window: TapWheel has been quiet for a while, so it gives memory back.
 const T_IDLE: usize = 11;
 /// The Ctrl+Shift+Space shortcut, when Settings choose it over the double tap.
@@ -1271,7 +1273,18 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM) 
 				a.no_drag(wh);
 			}
 		}),
-		WM_HOTKEY if w as i32 == HOTKEY_NO_DRAG => with(|a| a.no_drag(Wheel::Convert)),
+		// The wheel opens once Ctrl and Shift are up, the way a double tap does: taking the
+		// keyboard from the desktop while they're still held didn't stick
+		WM_HOTKEY if w as i32 == HOTKEY_NO_DRAG => with(|_| unsafe {
+			SetTimer(hwnd, T_HOTKEY, 15, None);
+		}),
+		WM_TIMER if w == T_HOTKEY => with(|a| unsafe {
+			let held = |vk: u16| GetAsyncKeyState(vk as i32) < 0;
+			if !held(VK_CONTROL) && !held(VK_SHIFT) {
+				KillTimer(hwnd, T_HOTKEY);
+				a.no_drag(Wheel::Convert);
+			}
+		}),
 		WM_APP_PRESS => with(|a| a.press(w)),
 		WM_APP_NOTAP => with(|a| a.no_tap()),
 		WM_APP_ESCAPE => with(|a| a.close(None)),
@@ -1383,6 +1396,9 @@ unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM)
 		}),
 		WM_ACTIVATE if (w & 0xffff) as u32 == WA_INACTIVE => with(|a| {
 			if a.wheel.mode == Mode::Pick {
+				if a.wheel.phase == Phase::Open && a.wheel.opened.elapsed().as_millis() < 500 {
+					super::log::write("the wheel lost the keyboard right after it opened");
+				}
 				a.close(None);
 			}
 		}),
