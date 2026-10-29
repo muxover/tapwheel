@@ -108,7 +108,6 @@ pub enum Op {
 	Share,
 	Float,
 	Hash,
-	Terminal,
 }
 
 /// How a slice runs once something is dropped on it.
@@ -203,7 +202,6 @@ impl Op {
 			Op::Share => "Share",
 			Op::Float => "Float",
 			Op::Hash => "Checksum",
-			Op::Terminal => "Terminal",
 		}
 	}
 
@@ -282,7 +280,6 @@ impl Op {
 			Op::Share => "Send with Windows share".into(),
 			Op::Float => "Keep it handy for later".into(),
 			Op::Hash => "Copy a checksum".into(),
-			Op::Terminal => "Open a terminal here".into(),
 		}
 	}
 
@@ -354,7 +351,6 @@ impl Op {
 			Op::Share => "share",
 			Op::Float => "pin",
 			Op::Hash => "fingerprint",
-			Op::Terminal => "window_console",
 		}
 	}
 
@@ -381,7 +377,6 @@ impl Op {
 			| Op::Share
 			| Op::Float
 			| Op::Hash
-			| Op::Terminal
 			| Op::CopyMarkdown
 			| Op::Stats => Mode::Action,
 			_ => Mode::Run,
@@ -754,12 +749,6 @@ pub fn choices(wheel: Wheel, paths: &[impl AsRef<Path>]) -> Vec<Op> {
 				// file info describes one item
 				a.retain(|o| *o != Op::Info);
 			}
-			if paths
-				.iter()
-				.any(|p| matches!(kind_of(p.as_ref()), Kind::Folder | Kind::Code))
-			{
-				a.push(Op::Terminal);
-			}
 			a
 		}
 	}
@@ -871,9 +860,13 @@ mod tests {
 	}
 
 	#[test]
-	fn terminal_only_for_folders_and_code() {
-		assert!(!choices(Wheel::Actions, &p(&["x.png"])).contains(&Op::Terminal));
-		assert!(choices(Wheel::Actions, &p(&["main.rs"])).contains(&Op::Terminal));
+	fn the_actions_wheel_has_no_terminal() {
+		for f in ["x.png", "main.rs", "notes.txt"] {
+			assert!(
+				choices(Wheel::Actions, &p(&[f])).iter().all(|o| o.id() != "terminal"),
+				"{f}"
+			);
+		}
 	}
 
 	#[test]
