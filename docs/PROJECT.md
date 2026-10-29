@@ -200,7 +200,7 @@ Each version has one theme and builds on the last.
 - Fits your PC: TapWheel reads the PC's cores, memory, graphics card, free space, battery and screen once, then sizes batches to match, waits on Battery saver, and keeps the wheel smooth on weaker hardware.
 - Hardware video encoding, with the encoder shown on the card, and a time estimate before long jobs.
 - Undo for batch rename, and rules for where results are saved.
-- The wheel fits every screen, checked at high scaling, on two monitors and on older Windows versions.
+- The wheel fits every screen, scaling and monitor layout.
 - Screen readers and full keyboard use everywhere.
 - Report a problem: a button that opens a filled-in GitHub issue for you to post. Nothing is sent on its own.
 - winget support, checked before it's advertised.
