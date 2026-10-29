@@ -77,6 +77,8 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 | Convert key | Shift | Key to tap during a drag for the Convert wheel |
 | Tools key | Ctrl | Key for the Tools wheel |
 | Actions key | Alt | Key for the Actions wheel |
+| Where results go | Next to the original | Next to the original, in a subfolder beside it, or in one folder |
+| Graphics card for video | On | Compress on Balanced uses the graphics card's encoder when this PC has one |
 | Wheels | As shipped | Per wheel and kind of file: pinned slices first in your order, hidden slices, and tool settings kept as ring choices |
 | Wheel size | Normal | Small, Normal or Large |
 | Wheel colour | Windows accent | Follows the Windows accent, or a colour you pick |
@@ -91,7 +93,7 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 
 - No network connections: no account, no telemetry, no update checks.
 - Files are handled on your PC by a bundled FFmpeg and background removal model, and stay in their folder.
-- Errors are written to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on your PC, with one line about the PC (cores, memory, graphics card, drive type, power, screen rate), so a problem can be found later. It never leaves your PC.
+- Errors are written to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on your PC, with a short note about the PC (cores, memory, graphics card and its video encoder, drive type, power, screen rate), so a problem can be found later. It never leaves your PC.
 - The keyboard and mouse are watched only to spot a quick tap of Shift, Ctrl or Alt during a drag, or two quick taps on files selected in File Explorer.
 - Nothing you type is recorded, and every key and click passes through untouched.
 

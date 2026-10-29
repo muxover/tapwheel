@@ -31,6 +31,8 @@ TapWheel will never have cloud accounts, online conversion, an AI chat window or
 - Slices with choices grow an outer ring on hover, for example Compress: Balanced, Smaller, Best, Custom. Dropping on the slice uses the first choice, dropping on the ring uses that one, and Custom opens the tool's window.
 - With more than eight slices the last one becomes More. Hover it, press Tab or roll the mouse wheel to turn the page.
 - Tap the same key twice to repeat your last choice. The slices you use most move to the top.
+- Results go next to the original by default. Settings can put them in a subfolder beside it or in one folder instead; a duplicate always stays next to its original.
+- A batch rename has Undo on its card, which puts every old name back or, if a file was renamed again since, none.
 - Each wheel can be arranged for each kind of file in Settings: pin slices to the front in your order, hide the ones you never use, and keep a tool's settings as a choice on its ring (up to three per slice, before Custom). The wheel's size and colour can be changed too; its colour follows the Windows accent until you pick one.
 - Several files are handled in one go, with one card for the batch. Folders and mixed selections get the Actions wheel.
 - TapWheel is in Explorer's right-click menu; on Windows 11 the Store version's entry is at the top of the menu. Choosing it opens the Convert wheel on the selection, ready for the keyboard.
@@ -38,6 +40,8 @@ TapWheel will never have cloud accounts, online conversion, an AI chat window or
 ### Fits your PC
 
 When it starts, TapWheel reads the PC once: processor cores and family, memory, the graphics card, whether the drive for work in progress is an SSD, battery and Battery saver, and the screen's refresh rate. It runs one batch at a time on PCs with 8 GB of memory or less, two cores or a hard drive, two on mid-range PCs and three on roomy ones. Video work and background removal wait while Battery saver is on and say so on their card. Without a graphics driver, or with Windows animations off, the wheel fades instead of scaling. Settings, General shows what it read.
+
+At start TapWheel also tries a one-second test encode with the graphics card's own H.264 encoder (NVIDIA NVENC, Intel Quick Sync or AMD AMF). When one works, Compress on Balanced uses it and the card names it: much faster, with files a little bigger. Smaller and size targets stay on the processor, which packs more into each megabyte, and a card that turns a job down hands it to the processor. Running cards show the time left once enough has run to tell, and say plainly when a job will be slow on this PC.
 
 ### Cards
 

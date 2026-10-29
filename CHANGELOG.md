@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - The Store version is in Explorer's right-click menu too, at the top of the menu on Windows 11.
 - Wheels page in Settings: arrange each wheel for each kind of file by pinning, hiding and moving slices, and pick the wheel's size and colour.
 - TapWheel reads the PC when it starts and fits its work to it: how many batches run at once, video and background removal waiting while Battery saver is on, and a lighter wheel animation without a graphics driver. Settings, General shows what it read.
+- Compress on Balanced uses the graphics card's video encoder when this PC has one, named on the card. Settings can turn it off.
+- Cards show the time left on long jobs, and say when a job will be slow on this PC.
+- Batch rename has Undo.
+- Results can go into a subfolder or one folder instead of next to the original.
 - Keep a tool's settings as a choice on its ring, like "To send" for a smaller video, from the tool's window.
 
 ## [0.1.1] - 2026-10-23
