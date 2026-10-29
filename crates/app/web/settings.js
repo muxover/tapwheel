@@ -180,12 +180,35 @@ export default function settings(init) {
 				toggle("Favourites first", s.learn_order, (v) => { s.learn_order = v; save(); }, "Slices you use most move to the top of each wheel."),
 				toggle("Pause TapWheel", init.paused, (v) => send("pause", { on: v }), "Ignores key taps until you turn this off or restart."),
 			),
+			thisPc(),
 			group("History",
 				h("div", { class: "row" },
 					h("span", { style: { flex: "1", color: "var(--text-2)" } }, "Favourite counts and recent Move to folders."),
 					h("button", { class: "btn", type: "button", onclick: () => { send("clearUsage"); toast("Cleared"); } }, "Clear"),
 				),
 			),
+		);
+	}
+
+	/** What TapWheel read about this PC when it started, and what it does with it. */
+	function thisPc() {
+		const d = init.device;
+		if (!d) return null;
+		const gb = (b) => `${Math.round(b / 1024 ** 3)} GB`;
+		const row = (name, value) => h("div", { class: "row" }, h("span", { style: { flex: "1", color: "var(--text-2)" } }, name), h("span", {}, value));
+		const power = !d.power
+			? "Plugged in, no battery"
+			: `${d.power.on_battery ? "On battery" : "Plugged in"}${d.power.percent != null ? `, ${d.power.percent}%` : ""}${d.power.saver ? ", Battery saver on" : ""}`;
+		const drive = d.ssd === true ? "SSD" : d.ssd === false ? "Hard drive" : "Not known";
+		return group("This PC",
+			row("Processor", `${d.cores} cores, ${d.arch}${d.emulated ? " (emulated)" : ""}`),
+			row("Memory", gb(d.memory)),
+			row("Graphics", d.gpu || "Not known"),
+			row("Drive for work in progress", drive),
+			row("Power", power),
+			row("Screen", d.refresh_hz ? `${d.refresh_hz} Hz` : "Not known"),
+			h("div", { class: "hint", style: { marginTop: "8px" } },
+				`TapWheel runs up to ${init.slots} ${init.slots === 1 ? "batch" : "batches"} at once on this PC. Video and background removal wait while Battery saver is on.`),
 		);
 	}
 
