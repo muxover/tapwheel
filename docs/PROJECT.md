@@ -186,25 +186,13 @@ Every tool has a test with real files in CI, on Linux and Windows. Each fix in a
 | --- | --- | --- |
 | [v0.1.0](https://github.com/muxover/tapwheel/releases/tag/v0.1.0) | 2026-10-18 | The first release: three wheels and seven kinds of files |
 | [v0.1.1](https://github.com/muxover/tapwheel/releases/tag/v0.1.1) | 2026-10-23 | Bug fixes: steadier on big files, no crashes on broken inputs, right output everywhere, memory given back when idle |
+| [v0.2.0](https://github.com/muxover/tapwheel/releases/tag/v0.2.0) | RELEASE-DATE | Reach and control: the wheel without dragging, your own wheels, graphics card video, screen readers and a native Arm build |
 
 The full list is in the [CHANGELOG](../CHANGELOG.md). Patch releases (v0.x.1 and up) only fix bugs; new features come in the next minor version.
 
 ## Roadmap
 
 Each version has one theme and builds on the last.
-
-### v0.2.0: reach and control
-
-- Open the wheel without dragging: two quick taps of a wheel's key on files selected in File Explorer, and TapWheel in Explorer's right-click menu for the Store version too.
-- Your own wheels: hide, pin and reorder slices, save a tool's settings as your own ring choice (for example "Compress to 2 MB"), choose which key opens which wheel, and set the wheel's size and colour.
-- Fits your PC: TapWheel reads the PC's cores, memory, graphics card, free space, battery and screen once, then sizes batches to match, waits on Battery saver, and keeps the wheel smooth on weaker hardware.
-- Hardware video encoding, with the encoder shown on the card, and a time estimate before long jobs.
-- Undo for batch rename, and rules for where results are saved.
-- The wheel fits every screen, scaling and monitor layout.
-- Screen readers and full keyboard use everywhere.
-- Report a problem: a button that opens a filled-in GitHub issue for you to post. Nothing is sent on its own.
-- winget support, checked before it's advertised.
-- A new website and brand identity.
 
 ### v0.3.0: languages
 
