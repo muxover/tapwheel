@@ -10,6 +10,7 @@ TapWheel runs `engines/ffmpeg.exe` as a separate program for images, audio and v
 - License: GNU General Public License v3.0 or later (built with `--enable-gpl --enable-version3`)
 - Source of this version: https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz
 - Build recipe and the libraries it includes: https://github.com/GyanD/codexffmpeg/releases/tag/8.1.1
+- The Windows on Arm version ships FFmpeg 8.1 from BtbN's release-branch builds instead (https://github.com/BtbN/FFmpeg-Builds), under the same license, checked against BtbN's published checksums when it's fetched. Its source and build scripts are at that address.
 
 FFmpeg is a trademark of Fabrice Bellard, originator of the FFmpeg project.
 
@@ -17,7 +18,7 @@ FFmpeg is a trademark of Fabrice Bellard, originator of the FFmpeg project.
 
 TapWheel loads `engines/onnxruntime.dll` to run the Remove BG model on your PC.
 
-- Version: 1.22.0 (https://github.com/microsoft/onnxruntime/releases/tag/v1.22.0)
+- Version: 1.22.0 (https://github.com/microsoft/onnxruntime/releases/tag/v1.22.0), the x64 or Arm64 build to match TapWheel
 - License: MIT, Copyright (c) Microsoft Corporation
 
 ## Background removal model

@@ -165,7 +165,7 @@ The app makes no network connections: no account, no telemetry, no crash reports
 
 ## How it's built
 
-- A Rust workspace, licensed GPL-3.0-or-later.
+- A Rust workspace, licensed GPL-3.0-or-later, built natively for x64 and for Windows on Arm, each with the engines built for it.
 - `crates/core`: formats, tools, output naming and the engines (the FFmpeg runner, pictures, metadata, icons, text, code, archives, background removal). Plain Rust, tested on Linux and Windows.
 - `crates/ui`: draws the wheel, cards and app icon with tiny-skia, so every surface renders to PNG in tests.
 - `crates/app`: the Windows app: keyboard and mouse hooks on their own thread, the wheel as a layered drop-target window, the tray, cards, and WebView2 windows for the editors and settings.
@@ -202,7 +202,6 @@ Each version has one theme and builds on the last.
 - The wheel fits every screen, checked at high scaling, on two monitors and on older Windows versions.
 - Screen readers and full keyboard use everywhere.
 - A logo that follows your Windows accent colour and light or dark mode.
-- A native build for Windows on Arm.
 - Report a problem: a button that opens a filled-in GitHub issue for you to post. Nothing is sent on its own.
 - winget support, checked before it's advertised.
 - A new website and brand identity.
