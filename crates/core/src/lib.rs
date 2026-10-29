@@ -17,6 +17,7 @@ pub mod ops;
 pub mod plan;
 pub mod pngquant;
 pub mod recipe;
+pub mod report;
 pub mod run;
 pub mod settings;
 pub mod speech;

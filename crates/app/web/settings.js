@@ -272,7 +272,11 @@ export default function settings(init) {
 		return h("div", {},
 			title("About", `Version ${init.version}`),
 			group(null, h("p", { style: { margin: "0 0 8px" } }, "Free and open source under GPL-3.0. Everything runs on your PC; nothing is uploaded and there's no account."), h("p", { class: "hint", style: { margin: 0 } }, "Inspired by Tangerine for Mac. Made by Jax (muxover).")),
-			group(null, link("Website", "https://tapwheel.app"), link("Privacy", "https://tapwheel.app/privacy"), link("Source code", "https://github.com/muxover/tapwheel"), link("Report a problem", "https://github.com/muxover/tapwheel/issues")),
+			group(null, link("Website", "https://tapwheel.app"), link("Privacy", "https://tapwheel.app/privacy"), link("Source code", "https://github.com/muxover/tapwheel")),
+			group("Report a problem",
+				h("p", { class: "hint", style: { margin: "0 0 10px" } }, "Opens a new GitHub issue in your browser, filled in with TapWheel's version, your Windows version, your screens and the end of the log, with your user name taken out. Nothing is sent until you read it and post it."),
+				h("button", { class: "btn", type: "button", onclick: () => send("report") }, iconEl("error_circle", 16), "Report a problem"),
+			),
 		);
 	}
 

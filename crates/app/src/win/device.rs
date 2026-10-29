@@ -148,3 +148,40 @@ fn temp_drive_is_ssd() -> Option<bool> {
 		ok.then_some(!out.IncursSeekPenalty)
 	}
 }
+
+/// Every screen as "1920x1080 at 150%", main one first, for a problem report.
+pub fn displays() -> String {
+	use windows_sys::Win32::Foundation::{LPARAM, RECT};
+	use windows_sys::Win32::Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR};
+	use windows_sys::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
+	unsafe extern "system" fn each(mon: HMONITOR, _: HDC, r: *mut RECT, data: LPARAM) -> windows_sys::core::BOOL {
+		let list = unsafe { &mut *(data as *mut Vec<(i32, i32, i32, u32)>) };
+		let r = unsafe { *r };
+		let (mut dx, mut dy) = (96u32, 96u32);
+		unsafe { GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &mut dx, &mut dy) };
+		list.push((
+			r.left.abs() + r.top.abs(),
+			r.right - r.left,
+			r.bottom - r.top,
+			dx * 100 / 96,
+		));
+		1
+	}
+	let mut list: Vec<(i32, i32, i32, u32)> = Vec::new();
+	unsafe {
+		EnumDisplayMonitors(
+			std::ptr::null_mut(),
+			std::ptr::null(),
+			Some(each),
+			&mut list as *mut _ as LPARAM,
+		)
+	};
+	// the main screen sits at 0,0
+	list.sort_by_key(|m| m.0);
+	let all: Vec<String> = list.iter().map(|(_, w, h, pct)| format!("{w}x{h} at {pct}%")).collect();
+	if all.is_empty() {
+		"not known".into()
+	} else {
+		all.join(", ")
+	}
+}
