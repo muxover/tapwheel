@@ -423,6 +423,36 @@ impl App {
 				};
 				self.web.send(hwnd, &json!({ "type": "toast", "message": reply }));
 			}
+			// About, Report a problem: a filled-in issue in the browser, posted by the user or not at all
+			"report" => {
+				let log: Vec<String> = std::fs::read_to_string(super::log::path())
+					.unwrap_or_default()
+					.lines()
+					.rev()
+					.take(200)
+					.map(str::to_string)
+					.collect::<Vec<_>>()
+					.into_iter()
+					.rev()
+					.collect();
+				let build = super::system::build_number();
+				let windows = format!(
+					"Windows {}, build {build}",
+					if super::system::is_win11() { 11 } else { 10 }
+				);
+				let home = std::env::var("USERPROFILE").ok();
+				let url = tapwheel_core::report::issue_url(&tapwheel_core::report::Report {
+					version: env!("CARGO_PKG_VERSION"),
+					windows: &windows,
+					edition: if self.packaged { "Store" } else { "Portable" },
+					displays: &super::device::displays(),
+					log: &log,
+					home: home.as_deref(),
+				});
+				if !shell::open_url(&url) {
+					self.web.send(hwnd, &json!({ "type": "error", "message": "The browser didn't open; the report can also be emailed to contact@muxover.com" }));
+				}
+			}
 			// Settings, where results go: one fixed folder
 			"pickFolder" => {
 				let start = match &self.settings.defaults.output {
