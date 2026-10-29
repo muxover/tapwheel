@@ -343,10 +343,20 @@ impl App {
 			r.push(("choose".into(), "Choose".into()));
 			return r;
 		}
-		op.presets(self.wheel.kind)
+		let mut ring: Vec<(String, String)> = op
+			.presets(self.wheel.kind)
 			.iter()
 			.map(|p| (p.id.to_string(), p.label.to_string()))
-			.collect()
+			.collect();
+		// choices kept from the tool's window go before Custom, which stays last
+		let at = ring.iter().position(|(id, _)| id == "custom").unwrap_or(ring.len());
+		let own = self
+			.settings
+			.choices_for(op, self.wheel.kind)
+			.into_iter()
+			.map(|(i, c)| (format!("own{i}"), c.label.clone()));
+		ring.splice(at..at, own);
+		ring
 	}
 
 	fn refresh_ops(&mut self) {
@@ -358,7 +368,8 @@ impl App {
 			},
 			Some(files) => {
 				let mut ops = choices(self.wheel.wheel, files);
-				self.settings.order(&mut ops);
+				let kind = tapwheel_core::kind::common_kind(files);
+				self.settings.arrange(self.wheel.wheel, kind, &mut ops);
 				ops
 			}
 		};
@@ -472,7 +483,11 @@ impl App {
 			y: (r.top + r.bottom) / 2,
 		});
 		let (work, scale) = monitor_at(pt);
-		let scale = wheel::fit_scale(scale, work.right - work.left, work.bottom - work.top);
+		let scale = wheel::fit_scale(
+			scale * self.settings.wheel_size.factor(),
+			work.right - work.left,
+			work.bottom - work.top,
+		);
 		let (w, h) = wheel::size(scale);
 		self.wheel.scale = scale;
 		if let Some(r) = anchor {
@@ -864,7 +879,15 @@ impl App {
 		self.last = Some((op, preset.clone()));
 		self.hud.anchor = cursor();
 		let kind = selection_kind(&files);
-		if op.mode() == OpMode::Action {
+		let own = preset
+			.as_deref()
+			.and_then(|p| p.strip_prefix("own"))
+			.and_then(|i| i.parse::<usize>().ok())
+			.and_then(|i| self.settings.own_choices.get(i))
+			.map(|c| c.recipe.clone());
+		if let Some(recipe) = own {
+			self.run_recipe(op, recipe, files);
+		} else if op.mode() == OpMode::Action {
 			self.action(op, preset.as_deref(), &files);
 		} else {
 			match recipe_for(op, preset.as_deref(), kind, &self.settings.defaults) {
@@ -1164,8 +1187,21 @@ impl App {
 		}
 	}
 
-	fn theme_changed(&mut self) {
-		self.theme = system::theme();
+	/// Windows' theme, with the wheel colour from Settings in place of the accent. High contrast
+	/// keeps the system's colours.
+	fn read_theme(&self) -> Theme {
+		let mut t = system::theme();
+		if !t.high_contrast
+			&& let Some((r, g, b)) = self.settings.accent_rgb()
+		{
+			t.accent = tapwheel_ui::theme::Rgba::from_u8(r, g, b);
+			t.shade = None;
+		}
+		t
+	}
+
+	pub fn theme_changed(&mut self) {
+		self.theme = self.read_theme();
 		if self.wheel.visible() {
 			self.draw_wheel();
 		}
