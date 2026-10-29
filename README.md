@@ -91,7 +91,7 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 
 - No network connections: no account, no telemetry, no update checks.
 - Files are handled on your PC by a bundled FFmpeg and background removal model, and stay in their folder.
-- Errors are written to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on your PC, so a problem can be found later. It never leaves your PC.
+- Errors are written to `%LOCALAPPDATA%\TapWheel\tapwheel.log` on your PC, with one line about the PC (cores, memory, graphics card, drive type, power, screen rate), so a problem can be found later. It never leaves your PC.
 - The keyboard and mouse are watched only to spot a quick tap of Shift, Ctrl or Alt during a drag, or two quick taps on files selected in File Explorer.
 - Nothing you type is recorded, and every key and click passes through untouched.
 

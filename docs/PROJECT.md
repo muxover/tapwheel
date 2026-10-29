@@ -35,6 +35,10 @@ TapWheel will never have cloud accounts, online conversion, an AI chat window or
 - Several files are handled in one go, with one card for the batch. Folders and mixed selections get the Actions wheel.
 - TapWheel is in Explorer's right-click menu; on Windows 11 the Store version's entry is at the top of the menu. Choosing it opens the Convert wheel on the selection, ready for the keyboard.
 
+### Fits your PC
+
+When it starts, TapWheel reads the PC once: processor cores and family, memory, the graphics card, whether the drive for work in progress is an SSD, battery and Battery saver, and the screen's refresh rate. It runs one batch at a time on PCs with 8 GB of memory or less, two cores or a hard drive, two on mid-range PCs and three on roomy ones. Video work and background removal wait while Battery saver is on and say so on their card. Without a graphics driver, or with Windows animations off, the wheel fades instead of scaling. Settings, General shows what it read.
+
 ### Cards
 
 - Compact cards above the taskbar, on the monitor where you dropped the file.
