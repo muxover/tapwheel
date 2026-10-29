@@ -743,6 +743,9 @@ impl App {
 	pub fn apply_no_drag(&self) -> bool {
 		let how = self.settings.no_drag;
 		hooks::DOUBLE_TAP.store(how == NoDrag::DoubleTap, std::sync::atomic::Ordering::Relaxed);
+		if how != NoDrag::Off {
+			super::selection::warm();
+		}
 		unsafe {
 			UnregisterHotKey(self.main, HOTKEY_NO_DRAG);
 			if how == NoDrag::Shortcut
