@@ -31,6 +31,7 @@ TapWheel will never have cloud accounts, online conversion, an AI chat window or
 - Slices with choices grow an outer ring on hover, for example Compress: Balanced, Smaller, Best, Custom. Dropping on the slice uses the first choice, dropping on the ring uses that one, and Custom opens the tool's window.
 - With more than eight slices the last one becomes More. Hover it, press Tab or roll the mouse wheel to turn the page.
 - Tap the same key twice to repeat your last choice. The slices you use most move to the top.
+- The mark in the tray and on TapWheel's windows takes the accent colour (Windows' or the one picked in Settings) and the taskbar's light or dark, and changes with them. Start, the taskbar and the Store, which can't take an accent, get the brand blue on a dark or light disc to match the taskbar.
 - The wheel fits whichever screen the pointer is on: it takes that monitor's scaling, shrinks to fit a small work area (1366×768 at 125%, for one) and never crosses onto a neighbouring monitor.
 - Results go next to the original by default. Settings can put them in a subfolder beside it or in one folder instead; a duplicate always stays next to its original.
 - A batch rename has Undo on its card, which puts every old name back or, if a file was renamed again since, none.
@@ -201,7 +202,6 @@ Each version has one theme and builds on the last.
 - Undo for batch rename, and rules for where results are saved.
 - The wheel fits every screen, checked at high scaling, on two monitors and on older Windows versions.
 - Screen readers and full keyboard use everywhere.
-- A logo that follows your Windows accent colour and light or dark mode.
 - Report a problem: a button that opens a filled-in GitHub issue for you to post. Nothing is sent on its own.
 - winget support, checked before it's advertised.
 - A new website and brand identity.
