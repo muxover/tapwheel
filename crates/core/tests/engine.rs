@@ -763,3 +763,41 @@ fn a_missing_graphics_card_encoder_falls_back_to_the_processor() {
 	let out = run(&job, &e, &d, &mut |_| {}, &AtomicBool::new(false)).unwrap();
 	assert!(decodes(&e.ffmpeg, &out.output));
 }
+
+#[test]
+fn a_graphics_card_that_turns_a_video_down_hands_it_to_the_processor_and_says_so() {
+	let Some((e, dir)) = engines("hw-fallback") else { return };
+	let mp4 = dir.join("clip.mp4");
+	make(
+		&e.ffmpeg,
+		&[
+			"-f",
+			"lavfi",
+			"-i",
+			"testsrc2=s=320x180:d=2:r=30",
+			"-c:v",
+			"libx264",
+			"-pix_fmt",
+			"yuv420p",
+		],
+		&mp4,
+	);
+	// CI runners have no AMD card, so AMF can't take the job
+	let d = Defaults {
+		hardware_video: true,
+		hw_encoder: Some(tapwheel_core::ff::HwEncoder::Amf),
+		..Defaults::default()
+	};
+	let r = Recipe::CompressVideo {
+		crf: 26,
+		max_height: None,
+		target_mb: None,
+	};
+	let job = plan(Op::Compress, &r, std::slice::from_ref(&mp4)).remove(0);
+	let out = run(&job, &e, &d, &mut |_| {}, &AtomicBool::new(false)).unwrap();
+	assert!(decodes(&e.ffmpeg, &out.output));
+	assert_eq!(
+		out.warning.as_deref(),
+		Some("AMD AMF turned this video down, so the processor made it")
+	);
+}

@@ -111,8 +111,6 @@ pub fn size(scale: f32) -> (u32, u32) {
 	((WIDTH * scale).ceil() as u32, (HEIGHT * scale).ceil() as u32)
 }
 
-/// The scale to draw at on a work area of `work_w` by `work_h` pixels: the display's own, or
-/// smaller when the wheel wouldn't fit, as on a 1366 by 768 screen at 125%.
 /// Where the wheel's window goes and how big it is, centred on `pt` on the monitor whose work
 /// area is `work` (left, top, right, bottom in screen pixels, which can be negative on a monitor
 /// left of or above the main one), at that monitor's scale times the size picked in Settings.
@@ -148,6 +146,8 @@ pub fn beside(item: [i32; 4], work: [i32; 4], scale: f32) -> (i32, i32) {
 	(x, y)
 }
 
+/// The scale to draw at on a work area of `work_w` by `work_h` pixels: the display's own, or
+/// smaller when the wheel wouldn't fit, as on a 1366 by 768 screen at 125%.
 pub fn fit_scale(scale: f32, work_w: i32, work_h: i32) -> f32 {
 	let room = (work_w.max(1) as f32 / WIDTH).min(work_h.max(1) as f32 / HEIGHT);
 	// a pixel to spare, so rounding the size up never pushes past the edge

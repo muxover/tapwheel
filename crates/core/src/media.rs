@@ -358,6 +358,29 @@ fn reverse_in(
 	run.args(a).args(out(part)).go(pr, c).map(drop)
 }
 
+/// Like `run`, with a note for the card when the work went differently than the card said:
+/// the graphics card turned a compress down and the processor did it.
+pub fn run_noted(
+	e: &Engines,
+	d: &Defaults,
+	r: &Recipe,
+	input: &Path,
+	part: &Path,
+	pr: Progress,
+	c: &AtomicBool,
+) -> Result<Option<String>, Error> {
+	if let Recipe::CompressVideo {
+		crf,
+		max_height,
+		target_mb,
+	} = r
+	{
+		let p = ff::probe(&e.ffprobe, input)?;
+		return compress_video(e, d, &p, input, *crf, *max_height, *target_mb, part, pr, c);
+	}
+	run(e, d, r, input, part, pr, c).map(|()| None)
+}
+
 /// Runs a recipe that reads one video or sound file and writes `part`.
 pub fn run(
 	e: &Engines,
@@ -386,7 +409,7 @@ pub fn run(
 			crf,
 			max_height,
 			target_mb,
-		} => compress_video(e, d, &p, input, *crf, *max_height, *target_mb, part, pr, c),
+		} => compress_video(e, d, &p, input, *crf, *max_height, *target_mb, part, pr, c).map(drop),
 		Recipe::ResizeVideo { height, vertical } => {
 			let vf = if *vertical {
 				format!(
@@ -686,7 +709,7 @@ fn compress_video(
 	part: &Path,
 	pr: Progress,
 	c: &AtomicBool,
-) -> Result<(), Error> {
+) -> Result<Option<String>, Error> {
 	let mut vf = Vec::new();
 	if let Some(h) = max_height {
 		vf.push(format!("scale=-2:'min({h},ih)':flags=lanczos"));
@@ -711,13 +734,19 @@ fn compress_video(
 			let mut a = hw.video_args(crf);
 			a.extend(cpu().into_iter().skip_while(|x| x != "-c:a" && x != "-an"));
 			match run(a, &mut *pr) {
-				Ok(()) => return Ok(()),
+				Ok(()) => return Ok(None),
 				Err(Error::Cancelled) => return Err(Error::Cancelled),
 				// the card turned it down (busy, a size it can't take): the processor does it
-				Err(_) => {}
+				Err(_) => {
+					run(cpu(), pr)?;
+					return Ok(Some(format!(
+						"{} turned this video down, so the processor made it",
+						hw.name()
+					)));
+				}
 			}
 		}
-		return run(cpu(), pr);
+		return run(cpu(), pr).map(|()| None);
 	};
 	if p.duration <= 0.0 {
 		return Err(Error::Engine(
@@ -792,7 +821,7 @@ fn compress_video(
 	for ext in ["-0.log", "-0.log.mbtree"] {
 		let _ = fs::remove_file(format!("{}{ext}", passlog.display()));
 	}
-	result.map(drop)
+	result.map(|_| None)
 }
 
 fn snapshot(

@@ -49,11 +49,8 @@ pub fn warm() {
 /// (an address bar, a rename box, a search box, a file dialog or another app), or nothing on
 /// disk is selected. Items with no file behind them, such as This PC, are left out.
 pub fn selected() -> Option<Vec<PathBuf>> {
-	let Some((root, view)) = focused_view() else {
-		// a line in the log says why nothing opened, for a report from a PC we can't see
-		super::log::write(&format!("no wheel without a drag: the keyboard is on {}", focus_name()));
-		return None;
-	};
+	// nothing about other apps goes in the log: a double tap there is ordinary typing
+	let (root, view) = focused_view()?;
 	let files = files_in(root, view)
 		.or_else(|_| {
 			// Explorer restarted since the list was made: make it again, once
@@ -66,27 +63,6 @@ pub fn selected() -> Option<Vec<PathBuf>> {
 		super::log::write("no wheel without a drag: no file on disk is selected");
 	}
 	(!files.is_empty()).then_some(files)
-}
-
-/// The class of the window with the keyboard and of its top window, for the log.
-fn focus_name() -> String {
-	unsafe {
-		let fg = GetForegroundWindow();
-		if fg.is_null() {
-			return "no window".into();
-		}
-		let thread = GetWindowThreadProcessId(fg, std::ptr::null_mut());
-		let mut info = GUITHREADINFO {
-			cbSize: size_of::<GUITHREADINFO>() as u32,
-			..std::mem::zeroed()
-		};
-		let focus = if GetGUIThreadInfo(thread, &mut info) != 0 && !info.hwndFocus.is_null() {
-			class(info.hwndFocus)
-		} else {
-			"nothing".into()
-		};
-		format!("{focus} in {}", class(GetAncestor(fg, GA_ROOT)))
-	}
 }
 
 /// Where the focused file sits on screen, when Explorer or the desktop has the keyboard, so the

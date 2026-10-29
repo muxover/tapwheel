@@ -1,6 +1,6 @@
 // Pack with a password: AES-256 ZIP, or 7Z which also hides the file names.
 
-import { apply, group, h, iconEl, segmented, shell, stem } from "../tw.js";
+import { apply, group, h, iconEl, savesAs, segmented, shell, stem } from "../tw.js";
 
 export default function protect(init) {
 	const files = init.files;
@@ -28,7 +28,7 @@ export default function protect(init) {
 		panel: [
 			group("Format", segmented([{ label: "ZIP (opens anywhere)", value: "zip" }, { label: "7Z (hides names too)", value: "7z" }], "zip", (f) => {
 				format = f;
-				ui.setOut(`Saves as <b>${name()}</b> next to the original`);
+				ui.setOut(savesAs(name()));
 			})),
 			group("Password", pw, strength, h("div", { style: { height: "8px" } }), again, h("label", { class: "toggle-row" }, h("span", {}, "Show password"), show)),
 		],
@@ -39,6 +39,6 @@ export default function protect(init) {
 		},
 	});
 	ui.stage.replaceChildren(h("div", { class: "loading" }, iconEl("lock_closed", 56), h("div", {}, files.length === 1 ? files[0].name : `${files.length} items`)));
-	ui.setOut(`Saves as <b>${name()}</b> next to the original`);
+	ui.setOut(savesAs(name()));
 	pw.focus();
 }

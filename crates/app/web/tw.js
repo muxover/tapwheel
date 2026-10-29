@@ -159,10 +159,11 @@ export function slider({ label, min, max, step = 1, value, format = (v) => v, on
 export function segmented(options, value, onchange) {
 	const box = h("div", { class: "seg", role: "radiogroup" });
 	// one tab stop for the group; the arrow keys move between choices, as in Windows
+	// with no choice made the first one still takes the tab stop, unchecked
 	const mark = (picked) => {
 		buttons.forEach((x, i) => {
 			x.setAttribute("aria-checked", String(i === picked));
-			x.tabIndex = i === picked ? 0 : -1;
+			x.tabIndex = i === Math.max(0, picked) ? 0 : -1;
 		});
 	};
 	const buttons = options.map((o, i) => {
@@ -182,8 +183,8 @@ export function segmented(options, value, onchange) {
 		return b;
 	});
 	box.append(...buttons);
-	mark(Math.max(0, options.findIndex((o) => o.value === value)));
-	box.select = (v) => mark(Math.max(0, options.findIndex((o) => o.value === v)));
+	mark(options.findIndex((o) => o.value === value));
+	box.select = (v) => mark(options.findIndex((o) => o.value === v));
 	return box;
 }
 
@@ -259,12 +260,19 @@ export function shell({ title, lead, panel = [], primary = "Save", onSave, out =
 	// nothing is saved until the editor has its files in front of it
 	const save = h("button", { class: "btn primary", type: "button", disabled: true }, primary);
 	let ready = false;
+	// "Keep as a ring choice": these settings become a choice on the slice's ring, by name
+	const keepName = h("input", { type: "text", maxlength: "16", placeholder: "Name, like To send", "aria-label": "Name of the ring choice", hidden: true });
 	const cancel = h("button", { class: "btn", type: "button", onclick: () => send("close") }, "Cancel");
 	const busy = (on) => {
 		save.disabled = on || !ready;
 		save.textContent = on ? "Saving" : primary;
 	};
 	save.addEventListener("click", async () => {
+		if (!keepName.hidden && !keepName.value.trim()) {
+			toast("Give the ring choice a name, or untick Keep as a ring choice", true);
+			keepName.focus();
+			return;
+		}
 		busy(true);
 		try {
 			await onSave();
@@ -273,8 +281,6 @@ export function shell({ title, lead, panel = [], primary = "Save", onSave, out =
 			toast(e.message || String(e), true);
 		}
 	});
-	// "Keep as a ring choice": these settings become a choice on the slice's ring, by name
-	const keepName = h("input", { type: "text", maxlength: "16", placeholder: "Name, like To send", "aria-label": "Name of the ring choice", hidden: true });
 	const keep = TW.init?.keepable
 		? h("label", { class: "keep" }, h("input", { type: "checkbox", onchange: (e) => {
 			keepName.hidden = !e.target.checked;
@@ -312,8 +318,12 @@ export function shell({ title, lead, panel = [], primary = "Save", onSave, out =
 /** The editor on screen, so the loader can unlock Save once it has finished loading. */
 let current = null;
 
+/** Where a result lands, from the rule in Settings, Tools. */
 export function savesAs(name) {
-	return `Saves as <b>${escapeHtml(name)}</b> next to the original`;
+	const o = TW.init?.output || { put: "next_to_source" };
+	const where =
+		o.put === "subfolder" ? `in the ${escapeHtml(o.name || "TapWheel")} folder beside the original` : o.put === "folder" && o.path ? `in ${escapeHtml(o.path)}` : "next to the original";
+	return `Saves as <b>${escapeHtml(name)}</b> ${where}`;
 }
 
 export function escapeHtml(s) {

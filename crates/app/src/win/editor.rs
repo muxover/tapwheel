@@ -100,6 +100,7 @@ impl App {
 			"kind": kind.map(Kind::id),
 			"files": list,
 			"defaults": self.settings.defaults,
+			"output": self.settings.defaults.output,
 			"presets": presets,
 			// the window offers to keep its settings as a ring choice when they'd mean the same on any file
 			"keepable": op.presets(kind).first().and_then(|p| recipe_for(op, Some(p.id), kind, &self.settings.defaults)).is_some_and(|r| r.reusable()),
@@ -357,6 +358,18 @@ impl App {
 								return;
 							}
 							self.save();
+							// an open Settings window must not save its older list over the new choice
+							let list = json!({ "type": "ownChoices", "list": self.settings.own_choices });
+							let open: Vec<HWND> = self
+								.web
+								.windows
+								.iter()
+								.filter(|w| w.page == Page::Settings)
+								.map(|w| w.hwnd)
+								.collect();
+							for w in open {
+								self.web.send(w, &list);
+							}
 						}
 						if let Some(d) = msg.get("defaults")
 							&& let Ok(d) = serde_json::from_value(d.clone())

@@ -90,7 +90,7 @@ impl Shelf {
 
 	fn hit(&self, x: f32, y: f32) -> Hit {
 		let (x, y) = (x - MARGIN, y - MARGIN);
-		if x < 0.0 || x > W || y < 0.0 || y > height(self.items.len()) {
+		if !(0.0..=W).contains(&x) || !(0.0..=height(self.items.len())).contains(&y) {
 			return Hit::None;
 		}
 		if y < HEAD {

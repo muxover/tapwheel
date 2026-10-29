@@ -32,6 +32,8 @@ pub const WM_APP_PRESS: u32 = WM_APP + 8;
 pub const WM_APP_NOTAP: u32 = WM_APP + 9;
 /// Two quick taps of a key with no drag: open its wheel on Explorer's selection.
 pub const WM_APP_DOUBLE: u32 = WM_APP + 10;
+/// A message from another TapWheel process that arrived while the app was busy, tried again.
+pub const WM_APP_MAIL: u32 = WM_APP + 11;
 
 pub use crash::Logged;
 

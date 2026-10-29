@@ -41,7 +41,7 @@ TapWheel will never have cloud accounts, online conversion, an AI chat window or
 
 ### Fits your PC
 
-When it starts, TapWheel reads the PC once: processor cores and family, memory, the graphics card, whether the drive for work in progress is an SSD, battery and Battery saver, and the screen's refresh rate. It runs one batch at a time on PCs with 8 GB of memory or less, two cores or a hard drive, two on mid-range PCs and three on roomy ones. Video work and background removal wait while Battery saver is on and say so on their card. Without a graphics driver, or with Windows animations off, the wheel fades instead of scaling. Settings, General shows what it read.
+When it starts, TapWheel reads the PC once: processor cores, memory, the graphics card, whether the drive for work in progress is an SSD, battery and Battery saver, and the screen's refresh rate. It runs one batch at a time on PCs with 8 GB of memory or less, two cores or a hard drive, two on mid-range PCs and three on roomy ones. Video work and background removal wait while Battery saver is on and say so on their card. Without a graphics driver, or with Windows animations off, the wheel opens and closes without animation. Settings, General shows what it read.
 
 At start TapWheel also tries a one-second test encode with the graphics card's own H.264 encoder (NVIDIA NVENC, Intel Quick Sync or AMD AMF). When one works, Compress on Balanced uses it and the card names it: much faster, with files a little bigger. Smaller and size targets stay on the processor, which packs more into each megabyte, and a card that turns a job down hands it to the processor. Running cards show the time left once enough has run to tell, and say plainly when a job will be slow on this PC.
 

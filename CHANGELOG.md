@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Select files in File Explorer or on the desktop and tap a wheel's key twice to open that wheel without dragging. Settings can switch it to Ctrl+Shift+Space or turn it off.
 - The Store version is in Explorer's right-click menu too, at the top of the menu on Windows 11.
 - Wheels page in Settings: arrange each wheel for each kind of file by pinning, hiding and moving slices, and pick the wheel's size and colour.
-- TapWheel reads the PC when it starts and fits its work to it: how many batches run at once, video and background removal waiting while Battery saver is on, and a lighter wheel animation without a graphics driver. Settings, General shows what it read.
+- TapWheel reads the PC when it starts and fits its work to it: how many batches run at once, video and background removal waiting while Battery saver is on, and a wheel without animation when there is no graphics driver. Settings, General shows what it read.
 - Compress on Balanced uses the graphics card's video encoder when this PC has one, named on the card. Settings can turn it off.
 - Cards show the time left on long jobs, and say when a job will be slow on this PC.
 - Screen readers hear the wheel, its slices and ring choices, page turns and finished jobs. On a keyboard-opened wheel, Down reaches the ring choices. The newest job's buttons are in the tray menu.

@@ -55,12 +55,6 @@ impl Device {
 		self.power.as_ref().is_some_and(|p| p.saver)
 	}
 
-	/// The wheel only fades in and out, without its scale and pulse, when Windows animations are
-	/// off or there's no graphics driver to draw them smoothly.
-	pub fn light_motion(&self) -> bool {
-		!self.animations || self.software_gpu
-	}
-
 	/// One line for the log, so a report from someone's PC says what it was running on.
 	pub fn log_line(&self) -> String {
 		let power = match &self.power {
@@ -139,17 +133,6 @@ mod tests {
 			saver: true,
 		});
 		assert!(d.heavy_waits());
-	}
-
-	#[test]
-	fn the_wheel_keeps_full_motion_unless_windows_or_the_gpu_says_not() {
-		let mut d = pc(8, 16);
-		assert!(!d.light_motion());
-		d.animations = false;
-		assert!(d.light_motion());
-		d.animations = true;
-		d.software_gpu = true;
-		assert!(d.light_motion());
 	}
 
 	#[test]
