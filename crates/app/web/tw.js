@@ -158,19 +158,32 @@ export function slider({ label, min, max, step = 1, value, format = (v) => v, on
 /** Choices side by side; one is always picked. */
 export function segmented(options, value, onchange) {
 	const box = h("div", { class: "seg", role: "radiogroup" });
-	const buttons = options.map((o) => {
-		const b = h("button", { type: "button", "aria-pressed": String(o.value === value), role: "radio" }, o.icon ? iconEl(o.icon, 16) : null, o.label);
+	// one tab stop for the group; the arrow keys move between choices, as in Windows
+	const mark = (picked) => {
+		buttons.forEach((x, i) => {
+			x.setAttribute("aria-checked", String(i === picked));
+			x.tabIndex = i === picked ? 0 : -1;
+		});
+	};
+	const buttons = options.map((o, i) => {
+		const b = h("button", { type: "button", role: "radio", "aria-checked": String(o.value === value) }, o.icon ? iconEl(o.icon, 16) : null, o.label);
 		b.addEventListener("click", () => {
-			for (const x of buttons) x.setAttribute("aria-pressed", "false");
-			b.setAttribute("aria-pressed", "true");
+			mark(i);
 			onchange(o.value);
+		});
+		b.addEventListener("keydown", (e) => {
+			const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+			if (!step) return;
+			e.preventDefault();
+			const next = buttons[(i + step + buttons.length) % buttons.length];
+			next.focus();
+			next.click();
 		});
 		return b;
 	});
 	box.append(...buttons);
-	box.select = (v) => {
-		options.forEach((o, i) => buttons[i].setAttribute("aria-pressed", String(o.value === v)));
-	};
+	mark(Math.max(0, options.findIndex((o) => o.value === value)));
+	box.select = (v) => mark(Math.max(0, options.findIndex((o) => o.value === v)));
 	return box;
 }
 
@@ -209,6 +222,8 @@ export function loadImage(url) {
 	const load = (cors) =>
 		new Promise((resolve, reject) => {
 			const img = new Image();
+			// shown as the picture being worked on; the window's title names the file
+			img.alt = "The picture";
 			if (cors) img.crossOrigin = "anonymous";
 			img.onload = () => resolve(img);
 			img.onerror = reject;
@@ -266,7 +281,7 @@ export function shell({ title, lead, panel = [], primary = "Save", onSave, out =
 			if (e.target.checked) keepName.focus();
 		} }), "Keep as a ring choice", keepName)
 		: null;
-	const side = h("aside", { class: "panel" }, h("h2", {}, title), lead ? h("p", { class: "lead" }, lead) : null, ...panel);
+	const side = h("aside", { class: "panel" }, h("h1", {}, title), lead ? h("p", { class: "lead" }, lead) : null, ...panel);
 	const root = h("div", { class: "editor rise" }, stage, side, h("footer", { class: "bar" }, outEl, keep, cancel, save));
 	const app = document.getElementById("app");
 	app.className = "";

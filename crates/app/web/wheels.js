@@ -144,7 +144,7 @@ export function wheelsPage(s, catalog, save) {
 			save();
 		})),
 		group("Colour", h("div", { class: "swatches compact" }, swatches), h("div", { class: "row", style: { marginTop: "10px" } }, h("span", { style: { flex: "1", color: "var(--text-2)" } }, "Your own colour"), custom), h("div", { class: "hint", style: { marginTop: "8px" } }, "Windows accent follows the colour set in Windows. High contrast always uses the system's colours.")),
-		h("h3", { class: "section" }, "Arrange"),
+		h("h2", { class: "section" }, "Arrange"),
 		h("p", { class: "hint" }, "Pinned slices come first, in the order you set. Hidden ones leave the wheel. Each kind of file keeps its own arrangement."),
 		group(null,
 			segmented(Object.entries(WHEEL_NAMES).map(([value, label]) => ({ label, value })), wheel, (v) => {
@@ -160,7 +160,7 @@ export function wheelsPage(s, catalog, save) {
 			list,
 			h("div", { class: "row", style: { marginTop: "12px", gap: "8px", justifyContent: "flex-end" } }, resetOne, resetAll),
 		),
-		h("h3", { class: "section" }, "Your ring choices"),
+		h("h2", { class: "section" }, "Your ring choices"),
 		h("p", { class: "hint" }, "Tool settings you kept, shown on the slice's ring before Custom. Each slice keeps up to three for each kind of file."),
 		group(null, own),
 	);

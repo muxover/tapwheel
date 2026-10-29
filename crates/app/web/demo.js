@@ -878,6 +878,8 @@ export function demo({ scenes = SCENES, labels = true, scene = 0, at = null, pla
 		addEventListener("keydown", () => wake());
 	}
 	if (labels) {
+		// with buttons inside, the demo is a group named by its description, not a single picture
+		root.setAttribute("role", "group");
 		const steps = document.createElement("div");
 		steps.className = "steps";
 		if (hint) steps.append(hint);

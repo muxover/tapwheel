@@ -131,7 +131,7 @@ textarea {
 	min-height: 0;
 }
 
-.panel h2 {
+.panel h1 {
 	font: 600 20px/28px var(--font-display);
 	margin: 4px 0 2px;
 }
@@ -305,7 +305,7 @@ select:focus-visible,
 	background: var(--hover);
 }
 
-.seg button[aria-pressed="true"] {
+.seg button[aria-checked="true"] {
 	background: var(--accent);
 	color: var(--on-accent);
 	border-color: transparent;
@@ -932,7 +932,7 @@ input.cp-hue::-webkit-slider-thumb {
 	background: conic-gradient(#0078d4 0 25%, #00b294 0 50%, #ca5010 0 75%, #8764b8 0);
 }
 
-h3.section {
+.section {
 	font: 600 16px var(--font-display);
 	margin: 22px 0 10px;
 }
