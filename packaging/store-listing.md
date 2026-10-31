@@ -82,7 +82,7 @@ Redo them when a wheel or window changes, so the listing never shows something t
 
 ## Store logos and listing art
 
-The package already carries its tiles and icons, drawn from the app's own mark. A 2160 × 1080 hero image is optional and can wait.
+The package already carries its tiles and icons, drawn from the app's own mark. A 2160 × 1080 hero image is optional.
 
 ## Support and privacy
 
