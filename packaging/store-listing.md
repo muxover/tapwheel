@@ -67,21 +67,22 @@ Up to 7. Another app's name (like Tangerine) isn't allowed as a keyword.
 
 ## Screenshots
 
-Upload `packaging/store/tapwheel-1.png` to `tapwheel-7.png` in this order (1920 × 1080 PNG). Each is a headline beside the real app: the wheels are drawn by TapWheel's own code from its real tool lists (`cargo run -p tapwheel-ui --example store_wheels`), and the windows are the app's own pages with the site's sample files. Nothing in them is mocked up or generated.
+Upload `packaging/store/tapwheel-1.png` to `tapwheel-8.png` in this order (1920 × 1080 PNG). Each is a headline beside the real app: the wheels are drawn by TapWheel's own code from its real tool lists (`cargo run -p tapwheel-ui --example store_wheels`), and the windows are the app's own pages with the site's sample files. Nothing in them is mocked up or generated.
 
-1. Drag a file. Tap a key. (the Tools wheel, Compress's ring open)
-2. Convert to any format (the Convert wheel on a HEIC photo)
-3. Remove backgrounds on your PC (Touch up)
-4. Trim video and sound (Trim)
-5. Tools with a live preview (Crop)
-6. Actions for any file (the Actions wheel, Copy path's ring open)
-7. Code shots in one drop (Code shot)
+1. Done before you let go (the Tools wheel, Compress's ring open)
+2. No drag needed (a selected photo and the Tools wheel beside it)
+3. Convert to any format (the Convert wheel on a HEIC photo)
+4. Remove backgrounds on your PC (Touch up)
+5. Trim video and sound (Trim)
+6. Make the wheel your own (Settings, Wheels page)
+7. Actions for any file (the Actions wheel, Copy path's ring open)
+8. Code shots in one drop (Code shot)
 
 Redo them when a wheel or window changes, so the listing never shows something the app doesn't.
 
 ## Store logos and listing art
 
-The package already carries its tiles and icons, drawn from the app's own mark. A 2160 × 1080 hero image is optional and can wait.
+The package already carries its tiles and icons, drawn from the app's own mark. A 2160 × 1080 hero image is optional.
 
 ## Support and privacy
 
@@ -100,3 +101,20 @@ TapWheel is a desktop app (full trust). It watches the keyboard and mouse with l
 The package adds one File Explorer context menu entry, TapWheel, through a packaged IExplorerCommand handler (a COM surrogate DLL in the package). Choosing it opens the Convert wheel on the selected files.
 
 It starts with Windows by default (the user can turn this off in its window), so the wheel is ready when a drag begins.
+
+## Restricted capabilities
+
+The `runFullTrust` box on Submission options, under 500 characters:
+
+TapWheel is a Win32 desktop app. It needs full trust to watch for a quick key tap while a file is dragged anywhere in Windows (low-level keyboard and mouse hooks), to draw its wheel above other windows, to ask File Explorer which files are selected, to run its bundled FFmpeg and other converters on the user's files, and to add its right-click menu entry. It records nothing and makes no network connections.
+
+## Screenshot captions
+
+1. Drag any file, tap Shift, Ctrl or Alt, and drop it on the wheel. Done before you let go.
+2. No drag needed. Select a file and tap a key twice, and the wheel opens beside it.
+3. Convert pictures, video, audio, icons, text, code and archives. The original stays as it was.
+4. Remove the background on your PC with an offline AI model, then touch up the cut-out.
+5. Trim video and sound on a timeline with every frame and the sound wave.
+6. Make the wheel your own: pin, hide and reorder slices, pick the size and colour, choose where results go.
+7. Copy a name or path, rename a batch, share, or see what a file really is.
+8. Turn code into a sharp picture with a theme, a backdrop and a window frame.
