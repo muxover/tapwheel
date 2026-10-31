@@ -12,7 +12,7 @@ The file wheel for Windows. Drag a file, tap Shift, Ctrl or Alt, and drop it on 
 
 ## Description
 
-TapWheel puts file tools on a wheel that opens while you drag. Start dragging a file in File Explorer or on the desktop, tap a key, and drop it on what you want. The new file lands next to the old one. No drag needed either: select files and tap the key twice, or right-click them and choose TapWheel.
+TapWheel puts file tools on a wheel that opens while you drag. Start dragging a file in File Explorer or on the desktop, tap a key, and drop it on what you want. The new file lands next to the old one, or in a folder you choose. No drag needed either: select files and tap the key twice, or right-click them and choose TapWheel.
 
 Shift opens Convert: pick a format for pictures, video, audio, icons, text, code or archives. Ctrl opens Tools: crop, trim, compress, resize, remove the background, make GIFs, rotate, add a backdrop and more, with only the tools that fit the file you're holding. Alt opens Actions: copy, rename, move, duplicate, share, file info, Properties and Open with.
 

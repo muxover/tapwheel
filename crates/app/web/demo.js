@@ -406,21 +406,80 @@ function card(c, shown, progress, win11, time) {
 	return `${s}</g>`;
 }
 
+/** A file as Explorer would show it: a picture's or video's frame, or what each other kind looks like. */
 function thumb(file, x, y, size) {
 	const id = `g-${file.name.replace(/\W/g, "")}`;
-	let s = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${file.tint[0]}"/><stop offset="1" stop-color="${file.tint[1]}"/></linearGradient></defs>`;
-	s += `<rect x="${x}" y="${y}" width="${size}" height="${size * 0.78}" rx="4" fill="url(#${id})"/>`;
-	if (file.kind === "video") {
-		const cx = x + size / 2;
-		const cy = y + size * 0.39;
-		s += `<circle cx="${cx}" cy="${cy}" r="${size * 0.16}" fill="rgba(0,0,0,.35)"/><path d="M${cx - size * 0.05} ${cy - size * 0.08}l${size * 0.13} ${size * 0.08}-${size * 0.13} ${size * 0.08}z" fill="#fff"/>`;
-	} else {
-		// a sun and hills, so it reads as a photo
-		s += `<circle cx="${x + size * 0.7}" cy="${y + size * 0.24}" r="${size * 0.09}" fill="rgba(255,255,255,.85)"/>`;
-		s += `<path d="M${x} ${y + size * 0.78}L${x + size * 0.34} ${y + size * 0.4}L${x + size * 0.58} ${y + size * 0.62}L${x + size * 0.74} ${y + size * 0.48}L${x + size} ${y + size * 0.78}Z" fill="rgba(255,255,255,.45)"/>`;
+	const h = size * 0.78;
+	const u = size / 80;
+	const grad = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${file.tint[0]}"/><stop offset="1" stop-color="${file.tint[1]}"/></linearGradient></defs>`;
+	const tile = `${grad}<rect x="${x}" y="${y}" width="${size}" height="${h}" rx="${4 * u}" fill="url(#${id})"/>`;
+	switch (file.kind) {
+		case "video": {
+			const cx = x + size / 2;
+			const cy = y + size * 0.39;
+			return `${tile}<circle cx="${cx}" cy="${cy}" r="${size * 0.16}" fill="rgba(0,0,0,.35)"/><path d="M${cx - size * 0.05} ${cy - size * 0.08}l${size * 0.13} ${size * 0.08}-${size * 0.13} ${size * 0.08}z" fill="#fff"/>`;
+		}
+		case "audio": {
+			// a waveform across a cover
+			const bars = [0.25, 0.5, 0.8, 0.55, 0.95, 0.65, 0.4, 0.7, 0.3];
+			const bw = size * 0.06;
+			const gap = (size * 0.7 - bars.length * bw) / (bars.length - 1);
+			let s = tile;
+			bars.forEach((b, k) => {
+				const bh = h * 0.6 * b;
+				s += `<rect x="${(x + size * 0.15 + k * (bw + gap)).toFixed(2)}" y="${(y + h / 2 - bh / 2).toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" rx="${bw / 2}" fill="rgba(255,255,255,.9)"/>`;
+			});
+			return s;
+		}
+		case "icon": {
+			// an app icon on a checkerboard
+			const ix = x + size / 2 - h * 0.32;
+			const iy = y + h * 0.18;
+			const sz = h * 0.64;
+			let s = `<rect x="${x}" y="${y}" width="${size}" height="${h}" rx="${4 * u}" fill="#f1f1f4"/>`;
+			for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) if ((r + c) % 2) s += `<rect x="${x + c * (size / 5)}" y="${y + r * (h / 4)}" width="${size / 5}" height="${h / 4}" fill="#e2e2e8"/>`;
+			s += `${grad}<rect x="${ix}" y="${iy}" width="${sz}" height="${sz}" rx="${sz * 0.24}" fill="url(#${id})"/>`;
+			s += `<circle cx="${ix + sz / 2}" cy="${iy + sz / 2}" r="${sz * 0.2}" fill="rgba(255,255,255,.92)"/>`;
+			return s;
+		}
+		case "text": {
+			// a page with lines, its corner folded
+			const pw = h * 0.78;
+			const px = x + size / 2 - pw / 2;
+			const f = pw * 0.22;
+			let s = `<path d="M${px} ${y}h${pw - f}l${f} ${f}v${h - f}h-${pw}z" fill="#ffffff" stroke="rgba(0,0,0,.14)"/>`;
+			s += `<path d="M${px + pw - f} ${y}v${f}h${f}" fill="#e9e9ee" stroke="rgba(0,0,0,.14)"/>`;
+			for (let k = 0; k < 5; k++) s += `<rect x="${px + pw * 0.16}" y="${y + h * (0.32 + k * 0.12)}" width="${pw * (k === 4 ? 0.4 : 0.68)}" height="${Math.max(1.5, 2.2 * u)}" rx="1" fill="#b7bac4"/>`;
+			return s;
+		}
+		case "code": {
+			// an editor with coloured lines
+			const cols = ["#ff7ab2", "#7cc8ff", "#9be15d", "#ffd76b", "#c49bff"];
+			let s = `<rect x="${x}" y="${y}" width="${size}" height="${h}" rx="${4 * u}" fill="#1e2230"/>`;
+			const lines = [[0.12, 0.3, 0.32], [0.18, 0.42, 0.2], [0.18, 0.26, 0.36], [0.24, 0.34, 0.18], [0.12, 0.2, 0]];
+			lines.forEach(([ind, a, b], k) => {
+				const ly = y + h * (0.2 + k * 0.15);
+				s += `<rect x="${x + size * ind}" y="${ly}" width="${size * a}" height="${3 * u}" rx="${1.5 * u}" fill="${cols[k % 5]}"/>`;
+				if (b) s += `<rect x="${x + size * (ind + a + 0.04)}" y="${ly}" width="${size * b}" height="${3 * u}" rx="${1.5 * u}" fill="rgba(255,255,255,.55)"/>`;
+			});
+			return s;
+		}
+		case "archive": {
+			// a box with a zipper down the middle
+			let s = tile;
+			const zx = x + size / 2 - 3 * u;
+			for (let k = 0; k < 6; k++) s += `<rect x="${zx + (k % 2 ? 3 * u : 0)}" y="${y + h * 0.08 + k * h * 0.09}" width="${3 * u}" height="${h * 0.06}" fill="rgba(0,0,0,.35)"/>`;
+			s += `<rect x="${zx - 2 * u}" y="${y + h * 0.62}" width="${10 * u}" height="${h * 0.24}" rx="${2 * u}" fill="rgba(255,255,255,.9)"/>`;
+			return s;
+		}
+		default:
+			// a picture: a sun and hills
+			return `${tile}<circle cx="${x + size * 0.7}" cy="${y + size * 0.24}" r="${size * 0.09}" fill="rgba(255,255,255,.85)"/><path d="M${x} ${y + h}L${x + size * 0.34} ${y + size * 0.4}L${x + size * 0.58} ${y + size * 0.62}L${x + size * 0.74} ${y + size * 0.48}L${x + size} ${y + h}Z" fill="rgba(255,255,255,.45)"/>`;
 	}
-	return s;
 }
+
+/** The folder a kind of file is usually found in, for the Explorer window's title. */
+const FOLDER = { video: "Videos", audio: "Music", icon: "Design", text: "Documents", code: "Projects", archive: "Downloads" };
 
 /** A small Explorer window holding the files; the scene's file is the one picked up. */
 function explorer(scene, pressed, lifted, win11) {
@@ -432,16 +491,17 @@ function explorer(scene, pressed, lifted, win11) {
 	let s = `<g filter="url(#tw-demo-shadow)"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ${shape(P.surface, P.strong)}/></g>`;
 	s += `<rect x="${x}" y="${y}" width="${w}" height="40" rx="${r}" ${shape(P.raised)}/><rect x="${x}" y="${y + 30}" width="${w}" height="10" ${shape(P.raised)}/>`;
 	s += glyph("folder", x + 14, y + 10, 20, [232, 177, 48, 1]);
-	s += text(scene.file.kind === "video" ? "Videos" : "Pictures", x + 42, y + 20, 13, 600, P.text, "start");
+	s += text(FOLDER[scene.file.kind] || "Pictures", x + 42, y + 20, 13, 600, P.text, "start");
 	s += `<line x1="${x}" y1="${y + 40}" x2="${x + w}" y2="${y + 40}" ${shape(NONE, P.stroke)}/>`;
 	const others = [
-		{ name: "notes.txt", doc: true },
+		{ name: "notes.txt", kind: "text", tint: ["#fff", "#fff"] },
 		{ name: "trip.png", kind: "image", tint: ["#ffd76b", "#ff7a45"] },
-		{ name: "song.mp3", doc: "music_note_2" },
-		{ name: "logo.svg", kind: "image", tint: ["#c49bff", "#6a4cff"] },
-		{ name: "album.zip", doc: "folder_zip" },
+		{ name: "song.mp3", kind: "audio", tint: ["#ff9a8b", "#ff6a88"] },
+		{ name: "logo.svg", kind: "icon", tint: ["#c49bff", "#6a4cff"] },
+		{ name: "album.zip", kind: "archive", tint: ["#ffd76b", "#e8a33a"] },
+		{ name: "app.ts", kind: "code", tint: ["#1e2230", "#1e2230"] },
 	];
-	const items = [scene.file, ...others];
+	const items = [scene.file, ...others.filter((f) => f.name !== scene.file.name)].slice(0, 6);
 	items.forEach((f, i) => {
 		const col = i % 3;
 		const row = Math.floor(i / 3);
@@ -450,12 +510,7 @@ function explorer(scene, pressed, lifted, win11) {
 		const me = i === 0;
 		if (me && pressed) s += `<rect x="${ix - 8}" y="${iy - 8}" width="96" height="112" rx="${win11 ? 6 : 0}" ${shape(alpha(P.accent, 0.18), alpha(P.accent, 0.55))}/>`;
 		s += `<g opacity="${me && lifted ? 0.45 : 1}">`;
-		if (f.doc) {
-			s += `<rect x="${ix + 10}" y="${iy}" width="60" height="70" rx="4" ${shape(P.raised, P.strong)}/>`;
-			s += glyph(f.doc === true ? "document_text" : f.doc, ix + 26, iy + 21, 28, P.text2);
-		} else {
-			s += thumb(f, ix, iy + 6, 80);
-		}
+		s += thumb(f, ix, iy + 6, 80);
 		s += text(f.name, ix + 40, iy + 88, 12, 400, P.text);
 		s += "</g>";
 	});

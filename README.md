@@ -12,7 +12,7 @@
 
 ---
 
-TapWheel puts file tools on a wheel in Windows. Start dragging a file in File Explorer or on the desktop, tap Shift, Ctrl or Alt, and a wheel opens under your pointer. Drop the file on JPG, Trim, Remove BG or ZIP and the new file appears next to the old one. Pictures, video, sound, icons, text, code and archives, all done on your PC, with nothing uploaded. It's inspired by [Tangerine](https://tangerineformac.com/) for Mac and built natively for Windows. Try the tool windows at [tapwheel.app](https://tapwheel.app/#try).
+TapWheel puts file tools on a wheel in Windows. Start dragging a file in File Explorer or on the desktop, tap Shift, Ctrl or Alt, and a wheel opens under your pointer. Drop the file on JPG, Trim, Remove BG or ZIP and the new file appears next to the old one, or in the folder you choose. Pictures, video, sound, icons, text, code and archives, all done on your PC, with nothing uploaded. It's inspired by [Tangerine](https://tangerineformac.com/) for Mac and built natively for Windows. Play with the wheel at [tapwheel.app](https://tapwheel.app).
 
 ---
 
