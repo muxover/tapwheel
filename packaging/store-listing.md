@@ -67,15 +67,16 @@ Up to 7. Another app's name (like Tangerine) isn't allowed as a keyword.
 
 ## Screenshots
 
-Upload `packaging/store/tapwheel-1.png` to `tapwheel-7.png` in this order (1920 × 1080 PNG). Each is a headline beside the real app: the wheels are drawn by TapWheel's own code from its real tool lists (`cargo run -p tapwheel-ui --example store_wheels`), and the windows are the app's own pages with the site's sample files. Nothing in them is mocked up or generated.
+Upload `packaging/store/tapwheel-1.png` to `tapwheel-8.png` in this order (1920 × 1080 PNG). Each is a headline beside the real app: the wheels are drawn by TapWheel's own code from its real tool lists (`cargo run -p tapwheel-ui --example store_wheels`), and the windows are the app's own pages with the site's sample files. Nothing in them is mocked up or generated.
 
-1. Drag a file. Tap a key. (the Tools wheel, Compress's ring open)
-2. Convert to any format (the Convert wheel on a HEIC photo)
-3. Remove backgrounds on your PC (Touch up)
-4. Trim video and sound (Trim)
-5. Tools with a live preview (Crop)
-6. Actions for any file (the Actions wheel, Copy path's ring open)
-7. Code shots in one drop (Code shot)
+1. Done before you let go (the Tools wheel, Compress's ring open)
+2. No drag needed (a selected photo and the Tools wheel beside it)
+3. Convert to any format (the Convert wheel on a HEIC photo)
+4. Remove backgrounds on your PC (Touch up)
+5. Trim video and sound (Trim)
+6. Make the wheel your own (Settings, Wheels page)
+7. Actions for any file (the Actions wheel, Copy path's ring open)
+8. Code shots in one drop (Code shot)
 
 Redo them when a wheel or window changes, so the listing never shows something the app doesn't.
 
