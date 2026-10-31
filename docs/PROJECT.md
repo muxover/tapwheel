@@ -162,7 +162,7 @@ Keys for each wheel, how the wheel opens without a drag, how each wheel is arran
 
 ## Privacy
 
-The app makes no network connections: no account, no telemetry, no crash reports, no update checks. Files never leave your PC. TapWheel watches the keyboard only to notice Shift, Ctrl, Alt, Tab and Esc during a drag, and double taps of Shift, Ctrl or Alt on files selected in File Explorer. It keeps no record of what you type and passes every other key on unchanged. Errors go to a log on your PC that is never sent anywhere. Report a problem in Settings opens a GitHub issue in your browser, filled in with the version, Windows, the screens and the end of the log with your user name taken out; nothing leaves the PC unless you post it. The full policy is at [tapwheel.app/privacy](https://tapwheel.app/privacy).
+The app makes no network connections: no account, no telemetry, no crash reports, no update checks. Files never leave your PC. TapWheel watches the keyboard only to notice Shift, Ctrl, Alt, Tab and Esc during a drag, and double taps of Shift, Ctrl or Alt on files selected in File Explorer. It keeps no record of what you type and passes every other key on unchanged. On a double tap it asks File Explorer which files are selected, and on a double tap or the right-click entry where the selected one is on screen; it asks only at that moment and keeps nothing. Errors go to a log on your PC that is never sent anywhere. Report a problem in Settings opens a GitHub issue in your browser, filled in with the version, Windows, the screens and the end of the log with your user name taken out; nothing leaves the PC unless you post it. The full policy is at [tapwheel.app/privacy](https://tapwheel.app/privacy).
 
 ## How it's built
 

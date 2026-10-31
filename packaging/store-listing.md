@@ -95,7 +95,7 @@ Productivity, subcategory none. Also fits Utilities and tools.
 
 ## Notes for certification
 
-TapWheel is a desktop app (full trust). It watches the keyboard and mouse with low-level hooks for one reason: to notice a quick tap of Shift, Ctrl or Alt, plus Tab and Esc, while a file is being dragged, and two quick taps of one of those keys on files selected in File Explorer. It records nothing and sends nothing. To try it: run TapWheel, start dragging any picture in File Explorer, and tap Shift while still holding the mouse button. Or select the picture and tap Shift twice.
+TapWheel is a desktop app (full trust). It watches the keyboard and mouse with low-level hooks for one reason: to notice a quick tap of Shift, Ctrl or Alt, plus Tab and Esc, while a file is being dragged, and two quick taps of one of those keys on files selected in File Explorer. It records nothing and sends nothing. On a double tap it asks File Explorer which files are selected and where the selected one is on screen, and keeps nothing. To try it: run TapWheel, start dragging any picture in File Explorer, and tap Shift while still holding the mouse button. Or select the picture and tap Shift twice.
 
 The package adds one File Explorer context menu entry, TapWheel, through a packaged IExplorerCommand handler (a COM surrogate DLL in the package). Choosing it opens the Convert wheel on the selected files.
 
