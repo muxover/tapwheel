@@ -55,7 +55,7 @@ export default async function trim(init) {
 					segmented([320, 480, 640, 800, 1080].map((v) => ({ label: String(v), value: v })), st.width, (v) => (st.width = v)),
 					h("div", { class: "hint" }, "Shorter clips and smaller widths make lighter GIFs."),
 				)
-			: group(null, toggle("Exact cuts", st.exact, (v) => (st.exact = v), "Off cuts at the nearest keyframe instantly, without re-encoding.")),
+			: group(null, toggle("Exact cuts", st.exact, (v) => (st.exact = v), "Off cuts instantly at the nearest keyframe, without re-encoding.")),
 	];
 	const ui = shell({
 		title: gif ? "Make GIF" : "Trim",

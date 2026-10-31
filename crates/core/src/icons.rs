@@ -293,7 +293,7 @@ pub fn extract_icons(e: &Engines, input: &Path, part: &Path) -> Result<(), Error
 		_ => program_icons(input)?,
 	};
 	if pics.is_empty() {
-		return Err(Error::Engine("no icon inside".into()));
+		return Err(Error::Engine("there's no icon inside".into()));
 	}
 	fs::create_dir_all(part)?;
 	for (w, h, rgba) in &pics {

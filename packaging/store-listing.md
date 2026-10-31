@@ -14,7 +14,7 @@ The file wheel for Windows. Drag a file, tap Shift, Ctrl or Alt, and drop it on 
 
 TapWheel puts file tools on a wheel that opens while you drag. Start dragging a file in File Explorer or on the desktop, tap a key, and drop it on what you want. The new file lands next to the old one. No drag needed either: select files and tap the key twice, or right-click them and choose TapWheel.
 
-Shift opens Convert: pick a format for pictures, video, sound, icons, text, code or archives. Ctrl opens Tools: crop, trim, compress, resize, remove the background, make GIFs, rotate, add a backdrop and more, with only the tools that fit the file you're holding. Alt opens Actions: copy, rename, move, duplicate, share, file info, Properties and Open with.
+Shift opens Convert: pick a format for pictures, video, audio, icons, text, code or archives. Ctrl opens Tools: crop, trim, compress, resize, remove the background, make GIFs, rotate, add a backdrop and more, with only the tools that fit the file you're holding. Alt opens Actions: copy, rename, move, duplicate, share, file info, Properties and Open with.
 
 Tools that need setting up open their own window with a live preview, like Crop, Trim, Annotate, Redact, Add background and Touch up for cut-outs. Rest on a slice for quick choices on an outer ring, like Balanced or 25 MB, and keep your own settings as a choice there too. Pin, hide and reorder slices, and pick the wheel's size and colour.
 
@@ -42,7 +42,7 @@ Up to 20, one per line.
 - Trims video and sound on a timeline, with several cuts at once
 - Compresses video to a quality or a size, Balanced on the graphics card
 - Makes GIFs, saves frames and pulls the sound out of a video
-- Windows icons, macOS icons, favicon packs and PNG sets
+- Makes Windows icons, macOS icons, favicon packs and PNG sets
 - Formats JSON, XML, YAML, CSS and HTML, and makes code shots
 - Extracts, tests, splits and password-protects ZIP and 7Z
 - Renames many files at once, with a preview and Undo

@@ -146,7 +146,7 @@ fn draw_text(pm: &mut Pixmap, font: &FontRef, size: f32, x: f32, baseline: f32, 
 
 /// Draws the code. Long files are cut at 400 lines and lines at 160 characters.
 pub fn render(code: &str, ext: &str, style: &Style) -> Result<Pixmap, Error> {
-	let font = FontRef::try_from_slice(FONT).map_err(|_| Error::Engine("font".into()))?;
+	let font = FontRef::try_from_slice(FONT).map_err(|_| Error::Engine("the code font couldn't be loaded".into()))?;
 	let s = style.scale.clamp(1.0, 4.0);
 	let size = style.font_size.clamp(8.0, 40.0) * s;
 	let scaled = font.as_scaled(PxScale::from(size));

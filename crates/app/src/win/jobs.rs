@@ -86,7 +86,7 @@ impl Batch {
 			State::Done if self.outputs.is_empty() => doing.clone(),
 			State::Done if single => self.outputs.first().map(|p| name(p)).unwrap_or_default(),
 			State::Done => format!("{} files ready", self.outputs.len()),
-			State::Failed => format!("Couldn't {}", lower_first(&doing)),
+			State::Failed => format!("{} didn't work", self.op.label()),
 			State::Cancelled => "Cancelled".into(),
 		};
 		let detail = match self.state {
@@ -148,14 +148,6 @@ impl Batch {
 			icon,
 			shown: 1.0,
 		}
-	}
-}
-
-fn lower_first(s: &str) -> String {
-	let mut c = s.chars();
-	match c.next() {
-		Some(f) => f.to_lowercase().collect::<String>() + c.as_str(),
-		None => String::new(),
 	}
 }
 

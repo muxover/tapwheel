@@ -578,7 +578,7 @@ mod tests {
 			&AtomicBool::new(false),
 		)
 		.unwrap_err();
-		assert!(err.to_string().starts_with("This file is too big"), "{err}");
+		assert!(err.to_string().starts_with("this file is too big"), "{err}");
 	}
 
 	/// Runs both jobs at the same moment and returns what each made.

@@ -119,7 +119,7 @@ Every tool works offline with what ships inside TapWheel: FFmpeg, TapWheel's own
 | --- | --- | --- |
 | Trim | | Waveform with play; keep or cut parts, or split into files |
 | Fade | Both, In, Out | Length of each fade |
-| Normalize | | Even loudness at -14 LUFS |
+| Normalise | | Even loudness at -14 LUFS |
 | Compress | 128k, 96k, 64k, 192k | |
 | Volume | +6 dB, +3 dB, -3 dB, -6 dB | |
 | Speed | 2×, 1.5×, 4×, 0.5× | Pitch kept |

@@ -22,7 +22,7 @@ fn main() {
 	let kinds = [
 		(
 			"images",
-			"Images",
+			"Pictures",
 			"photo.heic",
 			&["photo.heic", "shot.png"][..],
 			kind::IMAGE_EXTS,

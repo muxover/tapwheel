@@ -13,7 +13,7 @@ pub fn compress(input: &Path, output: &Path, quality: u8) -> Result<(), Error> {
 		.map_err(|e| Error::Engine(format!("can't read PNG: {e}")))?;
 	let size = reader
 		.output_buffer_size()
-		.ok_or_else(|| Error::Engine("PNG is too large".into()))?;
+		.ok_or_else(|| Error::Engine("the PNG is too large".into()))?;
 	let mut buf = vec![0; size];
 	let info = reader
 		.next_frame(&mut buf)
