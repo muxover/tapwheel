@@ -19,12 +19,17 @@ TapWheel puts file tools on a wheel in Windows. Start dragging a file in File Ex
 ## Features
 
 - Three wheels on three keys: Shift converts, Ctrl opens tools, Alt opens actions.
-- The wheel only opens while you're dragging files, and shows only what fits them.
+- The wheel opens while you drag files, or on files selected in File Explorer or on the desktop when you tap a key twice or use the right-click entry, and shows only what fits them.
 - Rest on a slice for its choices on the outer ring, like Balanced or 25 MB.
 - Tools that need setting up open their own window with a live preview: crop, backgrounds, adjust, annotate, redact, trim, GIFs, frame snapshots, combine, code shots, photo details, song tags, archive contents, passwords, rename and file info.
 - Remove BG runs on your PC with a bundled model. Touch up opens the cut-out with Keep and Remove brushes that can follow edges.
 - More than eight slices turn into pages. Rest on More, press Tab, or roll the mouse wheel.
-- Tap the same key twice to repeat your last choice; favourites move to the top.
+- During a drag, tap the same key twice to repeat your last choice; favourites move to the top.
+- Make each wheel your own: pin, hide and reorder slices for each kind of file, keep a tool's settings as a ring choice, and pick the wheel's size and colour.
+- Results go next to the original, into a subfolder or into one folder you pick. Batch rename has Undo.
+- Fits the PC it runs on: Compress on Balanced uses the graphics card's video encoder when there is one, long jobs show the time left, and heavy jobs wait while Battery saver is on.
+- Screen readers hear the wheel, its choices and every finished job, and every choice works from the keyboard.
+- Native builds for x64 and Windows on Arm.
 - Compact cards show the size before and after, with Open, Show, Undo, Cancel and Retry. Undo only removes a file TapWheel made, and only if you haven't changed it since.
 - A job checks the file can be read and the disk has room before it starts. If TapWheel is closed mid-job, the leftover part-files are cleared next time.
 - Tools never change the original, and a new file never replaces an existing one. Only Rename and Move to touch the original, when you pick them.
@@ -104,9 +109,9 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 
 - Drags from apps running as administrator can't reach the wheel.
 - Files Explorer shows inside a ZIP or on a phone need copying to a folder first.
-- No documents, PDFs or Office files yet; they're planned for 0.3.
+- No documents, PDFs or Office files yet; they're planned for 0.4.
 - MIDI files hold notes, not sound, so they aren't opened.
-- AVIF and WebM are slow on large files.
+- AVIF and WebM are slow on large files. On Windows on Arm, WebM uses AV1 instead of VP9, and pictures under 16 pixels can't become AVIF.
 - Tool windows need WebView2, which comes with Windows.
 
 ---
