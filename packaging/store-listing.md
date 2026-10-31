@@ -101,3 +101,20 @@ TapWheel is a desktop app (full trust). It watches the keyboard and mouse with l
 The package adds one File Explorer context menu entry, TapWheel, through a packaged IExplorerCommand handler (a COM surrogate DLL in the package). Choosing it opens the Convert wheel on the selected files.
 
 It starts with Windows by default (the user can turn this off in its window), so the wheel is ready when a drag begins.
+
+## Restricted capabilities
+
+The `runFullTrust` box on Submission options, under 500 characters:
+
+TapWheel is a Win32 desktop app. It needs full trust to watch for a quick key tap while a file is dragged anywhere in Windows (low-level keyboard and mouse hooks), to draw its wheel above other windows, to ask File Explorer which files are selected, to run its bundled FFmpeg and other converters on the user's files, and to add its right-click menu entry. It records nothing and makes no network connections.
+
+## Screenshot captions
+
+1. Drag any file, tap Shift, Ctrl or Alt, and drop it on the wheel. Done before you let go.
+2. No drag needed. Select a file and tap a key twice, and the wheel opens beside it.
+3. Convert pictures, video, audio, icons, text, code and archives. The original stays as it was.
+4. Remove the background on your PC with an offline AI model, then touch up the cut-out.
+5. Trim video and sound on a timeline with every frame and the sound wave.
+6. Make the wheel your own: pin, hide and reorder slices, pick the size and colour, choose where results go.
+7. Copy a name or path, rename a batch, share, or see what a file really is.
+8. Turn code into a sharp picture with a theme, a backdrop and a window frame.
