@@ -42,8 +42,8 @@
 				<a class="brand" href="/" aria-label="TapWheel home"><img src="/favicon.svg" alt="" width="28" height="28" />TapWheel</a>
 				<nav class="nav" aria-label="Sections" data-order="page">
 					<a href="#wheels">Wheels</a>
-					<a href="#try">Try it</a>
 					<a href="#kinds">Files</a>
+					<a href="#try">Try it</a>
 					<a href="#safe">Safety</a>
 					<a href="#faq">FAQ</a>
 				</nav>
@@ -78,45 +78,32 @@
 
 			<section id="wheels" class="band">
 				<div class="wrap">
-					<div class="split">
-						<div class="section-head">
-							<h2>Three keys, three&nbsp;wheels</h2>
-							<p>Start dragging any file from File Explorer or the desktop, then tap a key. The wheel opens under your pointer with only what fits that file. Drop on a slice and the result shows up on a&nbsp;card.</p>
-						</div>
-						<ol class="wheels">
-							<li><span class="key">Shift</span><div><h3>Convert</h3><p>Pick a format. The new file lands next to the old one, named so nothing gets&nbsp;replaced.</p></div></li>
-							<li><span class="key">Ctrl</span><div><h3>Tools</h3><p>Crop, trim, compress, resize, remove the background and more, for that kind of&nbsp;file.</p></div></li>
-							<li><span class="key">Alt</span><div><h3>Actions</h3><p>Copy, rename, move, share, see what a file really is, or float it on screen for&nbsp;later.</p></div></li>
-						</ol>
+					<div class="section-head center">
+						<h2>Three keys, three&nbsp;wheels</h2>
+						<p>Start dragging any file, tap a key, and a wheel opens under your pointer with only what fits that&nbsp;file.</p>
 					</div>
+					<ol class="trio" id="trio">
+						<li>
+							<div class="trio-pic" data-scene="0" data-at="2900"></div>
+							<div class="trio-text"><span class="key">Shift</span><h3>Convert</h3><p>Pick a format. The new file lands next to the old&nbsp;one.</p></div>
+						</li>
+						<li>
+							<div class="trio-pic" data-scene="1" data-at="3600"></div>
+							<div class="trio-text"><span class="key">Ctrl</span><h3>Tools</h3><p>Crop, trim, compress, remove backgrounds and more, for that kind of&nbsp;file.</p></div>
+						</li>
+						<li>
+							<div class="trio-pic" data-scene="2" data-at="3600"></div>
+							<div class="trio-text"><span class="key">Alt</span><h3>Actions</h3><p>Copy a path, rename, move, share, or see what a file really&nbsp;is.</p></div>
+						</li>
+					</ol>
 				</div>
 			</section>
 
-			<section id="try">
+			<section id="kinds">
 				<div class="wrap">
-					<div class="section-head wide">
-						<h2>Every tool has its own&nbsp;window</h2>
-						<p>These are TapWheel's real windows, running here with sample files. Pictures are made in your browser and you can keep them. For video, sound and archives, the window tells you what the app would&nbsp;save.</p>
-					</div>
-					<div class="try">
-						<div class="try-tools" role="tablist" aria-label="Tool windows" id="try-tools"></div>
-						<div class="try-frame">
-							<div class="frame-bar" aria-hidden="true"><span class="frame-title" id="try-title">Crop · photo.jpg</span><span class="frame-buttons"><i></i><i></i><i></i></span></div>
-							<div class="frame-body" id="try-body">
-								<iframe id="try-window" title="TapWheel tool window" loading="lazy"></iframe>
-							</div>
-							<div class="try-card" id="try-card" role="status" aria-live="polite" hidden></div>
-						</div>
-						<p class="try-note" id="try-note">Best with a mouse on a bigger screen. Every window works with the keyboard&nbsp;too.</p>
-					</div>
-				</div>
-			</section>
-
-			<section id="kinds" class="band">
-				<div class="wrap">
-					<div class="section-head wide">
+					<div class="section-head center">
 						<h2>Seven kinds of file, one&nbsp;wheel</h2>
-						<p>The wheel only shows what makes sense for the file you're holding. When there are more than eight tools, roll the mouse wheel or press Tab for the next&nbsp;page.</p>
+						<p>Pick a kind to see its wheel and everything on&nbsp;it.</p>
 					</div>
 					<div class="kinds">
 						<div class="kind-tabs" role="tablist" aria-label="Kinds of file" id="kind-tabs"></div>
@@ -125,48 +112,68 @@
 				</div>
 			</section>
 
+			<section id="try" class="band">
+				<div class="wrap">
+					<div class="section-head center">
+						<h2>Every tool has its own&nbsp;window</h2>
+						<p>The real windows from the app, running here with sample files. Pictures you make here are yours to&nbsp;keep.</p>
+					</div>
+					<div class="try">
+						<div class="try-frame">
+							<div class="frame-bar" aria-hidden="true"><span class="frame-title" id="try-title">Crop · photo.jpg</span><span class="frame-buttons"><i></i><i></i><i></i></span></div>
+							<div class="try-inner">
+								<div class="try-rail" id="try-tools" aria-label="Tool windows"></div>
+								<div class="frame-body" id="try-body">
+									<iframe id="try-window" title="TapWheel tool window" loading="lazy"></iframe>
+								</div>
+							</div>
+							<div class="try-card" id="try-card" role="status" aria-live="polite" hidden></div>
+						</div>
+						<p class="try-note" id="try-note">For video, sound and archives, the window says what the app would save. Every window works with the keyboard&nbsp;too.</p>
+					</div>
+				</div>
+			</section>
+
 			<section id="yours">
 				<div class="wrap">
-					<div class="section-head wide">
+					<div class="section-head center">
 						<h2>Made to fit how you&nbsp;work</h2>
 						<p>The wheel comes to the file, wherever you are in&nbsp;Windows.</p>
 					</div>
 					<ul class="cards">
-						<li><span class="key">Shift Shift</span><h3>No drag needed</h3><p>Select a file in File Explorer or on the desktop and tap a key twice. The wheel opens right beside it, ready for the&nbsp;keyboard.</p></li>
-						<li><span class="key">Pin</span><h3>Your own wheels</h3><p>Pin the slices you use, hide the rest, and keep a tool's settings as a choice on its ring, like a video compressed for&nbsp;chats.</p></li>
-						<li><span class="key">GPU</span><h3>Fast on your graphics&nbsp;card</h3><p>Compress on Balanced uses your graphics card's video encoder when your PC has one, and the card says which. Heavy jobs wait while Battery saver is&nbsp;on.</p></li>
+						<li><span class="card-ic" data-icon="keyboard"></span><h3>No drag needed</h3><p>Select a file in File Explorer or on the desktop and tap a key twice. The wheel opens right beside&nbsp;it.</p></li>
+						<li><span class="card-ic" data-icon="pin"></span><h3>Your own wheels</h3><p>Pin the slices you use, hide the rest, and keep a tool's settings as a choice on its&nbsp;ring.</p></li>
+						<li><span class="card-ic" data-icon="top_speed"></span><h3>Fast on your graphics&nbsp;card</h3><p>Compress on Balanced uses your graphics card's video encoder when your PC has&nbsp;one.</p></li>
 					</ul>
 				</div>
 			</section>
 
-			<section id="safe">
+			<section id="safe" class="band">
 				<div class="wrap">
-					<div class="split">
-						<div class="section-head">
-							<h2>Nothing leaves your&nbsp;PC</h2>
-							<p>TapWheel doesn't connect to anything, and it takes care with the files already on your&nbsp;disk.</p>
-							<div class="versus">
-								<div><h3>An online converter</h3><p>Your file goes to someone else's server, waits its turn, and comes back as a&nbsp;download.</p></div>
-								<div class="ours"><h3>TapWheel</h3><p>Your file stays in its folder. The result appears next to it, made on your&nbsp;PC.</p></div>
-							</div>
-						</div>
-						<ul class="checks">
-							<li><h3>No uploads</h3><p>Everything runs on your PC, even Remove BG, with a model that ships inside the&nbsp;app.</p></li>
-							<li><h3>Originals stay</h3><p>New files land next to the old one and never replace a file that's already&nbsp;there.</p></li>
-							<li><h3>Checked before it starts</h3><p>A job that can't read its file or would fill the disk says so instead of&nbsp;starting.</p></li>
-							<li><h3>Careful Undo</h3><p>Undo sends the new file to the Recycle Bin, and only if you haven't changed it&nbsp;since.</p></li>
-							<li><h3>No account, no tracking</h3><p>There's nothing to sign in to, and the app has no telemetry, analytics or update&nbsp;checks.</p></li>
-							<li><h3>Photo privacy</h3><p>See every hidden detail in a photo and take the location out before you share&nbsp;it.</p></li>
-						</ul>
+					<div class="section-head center">
+						<h2>Nothing leaves your&nbsp;PC</h2>
+						<p>TapWheel doesn't connect to anything, and it takes care with the files already on your&nbsp;disk.</p>
 					</div>
+					<div class="versus">
+						<div><h3>An online converter</h3><p>Your file goes to someone else's server, waits its turn, and comes back as a&nbsp;download.</p></div>
+						<div class="ours"><h3>TapWheel</h3><p>Your file stays in its folder. The result appears next to it, made on your&nbsp;PC.</p></div>
+					</div>
+					<ul class="checks">
+						<li><span class="card-ic" data-icon="shield_checkmark"></span><div><h3>No uploads</h3><p>Everything runs on your PC, even Remove BG, with a model that ships inside the&nbsp;app.</p></div></li>
+						<li><span class="card-ic" data-icon="document_copy"></span><div><h3>Originals stay</h3><p>A new file never replaces one that's already&nbsp;there.</p></div></li>
+						<li><span class="card-ic" data-icon="checkmark_circle"></span><div><h3>Checked before it starts</h3><p>A job that can't read its file or would fill the disk says so instead of&nbsp;starting.</p></div></li>
+						<li><span class="card-ic" data-icon="arrow_undo"></span><div><h3>Careful Undo</h3><p>Undo sends the new file to the Recycle Bin, and only if you haven't changed it&nbsp;since.</p></div></li>
+						<li><span class="card-ic" data-icon="fingerprint"></span><div><h3>No account, no tracking</h3><p>Nothing to sign in to, and no telemetry, analytics or update&nbsp;checks.</p></div></li>
+						<li><span class="card-ic" data-icon="eye_off"></span><div><h3>Photo privacy</h3><p>See every hidden detail in a photo and take the location out before you share&nbsp;it.</p></div></li>
+					</ul>
 				</div>
 			</section>
 
-			<section id="looks" class="band">
+			<section id="looks">
 				<div class="wrap">
-					<div class="section-head wide">
+					<div class="section-head center">
 						<h2>Looks like your&nbsp;Windows</h2>
-						<p>TapWheel follows light and dark, your accent colour and high contrast, and so does its icon. With rounded Windows it has rounded corners and frosted glass behind it; with square Windows it turns flat and square to&nbsp;match.</p>
+						<p>Light or dark, your accent colour, high contrast, rounded or square: TapWheel and its icon follow what your Windows&nbsp;uses.</p>
 						<div class="looks" role="group" aria-label="How it looks">
 							<div class="seg" data-look="win11">
 								<button type="button" data-value="1" aria-pressed="true">Rounded</button>
@@ -182,7 +189,7 @@
 				</div>
 			</section>
 
-			<section id="faq">
+			<section id="faq" class="band">
 				<div class="wrap">
 					<div class="split">
 						<div class="next">

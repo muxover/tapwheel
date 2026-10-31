@@ -110,6 +110,9 @@ pub struct WheelState {
 	pub hover: Hover,
 	hover_since: Instant,
 	more_turned: bool,
+	/// A key has been used on a keyboard-opened wheel: only then do the slice numbers and the
+	/// focus outline show, so a wheel opened and used with the mouse stays clean.
+	keys_used: bool,
 	pub again: bool,
 	pub scale: f32,
 	pub x: i32,
@@ -151,6 +154,7 @@ impl WheelState {
 			hover: Hover::None,
 			hover_since: now,
 			more_turned: false,
+			keys_used: false,
 			again: false,
 			scale: 1.0,
 			x: 0,
@@ -455,7 +459,7 @@ impl App {
 			slices,
 			page: w.page,
 			hover: w.hover,
-			keyboard: w.mode == Mode::Pick,
+			keyboard: w.mode == Mode::Pick && w.keys_used,
 			title: if w.again {
 				"Again".into()
 			} else {
@@ -589,6 +593,7 @@ impl App {
 			let (w, h) = wheel::size(self.wheel.scale);
 			self.wheel.backdrop = capture_backdrop(self.wheel.x, self.wheel.y, w, h, self.theme.dark);
 		}
+		self.wheel.keys_used = false;
 		if mode == Mode::Pick && !self.wheel.ops.is_empty() {
 			self.wheel.hover = Hover::Slice(0);
 		}
@@ -1628,6 +1633,10 @@ unsafe extern "system" fn wheel_proc(hwnd: HWND, msg: u32, w: WPARAM, l: LPARAM)
 				_ => 0,
 			};
 			let vk = w as u16;
+			if !a.wheel.keys_used && !matches!(vk, VK_ESCAPE | VK_SHIFT | VK_CONTROL | VK_MENU) {
+				a.wheel.keys_used = true;
+				a.draw_wheel();
+			}
 			match vk {
 				VK_ESCAPE => a.close(None),
 				VK_NEXT if more => a.turn_page(1),
