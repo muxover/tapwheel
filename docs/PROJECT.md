@@ -186,7 +186,7 @@ Every tool has a test with real files in CI, on Linux and Windows. Each fix in a
 | --- | --- | --- |
 | [v0.1.0](https://github.com/muxover/tapwheel/releases/tag/v0.1.0) | 2026-10-18 | The first release: three wheels and seven kinds of files |
 | [v0.1.1](https://github.com/muxover/tapwheel/releases/tag/v0.1.1) | 2026-10-23 | Bug fixes: steadier on big files, no crashes on broken inputs, right output everywhere, memory given back when idle |
-| [v0.2.0](https://github.com/muxover/tapwheel/releases/tag/v0.2.0) | RELEASE-DATE | Reach and control: the wheel without dragging, your own wheels, graphics card video, screen readers and a native Arm build |
+| [v0.2.0](https://github.com/muxover/tapwheel/releases/tag/v0.2.0) | 2026-10-31 | Reach and control: the wheel without dragging, your own wheels, graphics card video, screen readers and a native Arm build |
 
 The full list is in the [CHANGELOG](../CHANGELOG.md). Patch releases (v0.x.1 and up) only fix bugs; new features come in the next minor version.
 
