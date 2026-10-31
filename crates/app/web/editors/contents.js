@@ -22,7 +22,7 @@ export default async function contents(init) {
 	const filesOnly = items.filter((i) => !i.dir);
 	summary.textContent = `${filesOnly.length} files, ${formatSize(filesOnly.reduce((a, i) => a + i.size, 0))} unpacked`;
 	const body = h("tbody");
-	const table = h("table", { style: { width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" } },
+	const table = h("table", { class: "contents-table", style: { width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" } },
 		h("thead", {}, h("tr", { style: { textAlign: "left", color: "var(--text-2)" } }, h("th", { style: { padding: "8px" } }, "Name"), h("th", { style: { padding: "8px", width: "110px" } }, "Size"), h("th", { style: { padding: "8px", width: "170px" } }, "Modified"))),
 		body,
 	);

@@ -46,17 +46,17 @@ export default function settings(init) {
 		about: { label: "About", icon: "info", build: about },
 	};
 	const content = h("div", { class: "settings", style: { overflowY: "auto", padding: "8px 40px 48px", minHeight: "0" } });
-	const nav = h("nav", { style: { display: "grid", alignContent: "start", gap: "4px", padding: "20px 12px" } });
+	const nav = h("nav", { class: "set-nav" });
 	const navButtons = Object.entries(pages).map(([id, p]) => {
-		const b = h("button", { class: "btn subtle", type: "button", style: { justifyContent: "flex-start", gap: "12px", padding: "8px 12px", position: "relative" } }, iconEl(p.icon), p.label);
+		const b = h("button", { class: "btn subtle", type: "button", title: p.label, "aria-label": p.label }, iconEl(p.icon), h("span", { class: "nav-label" }, p.label));
 		b.addEventListener("click", () => show(id));
 		b.dataset.id = id;
 		return b;
 	});
-	nav.append(h("div", { style: { display: "flex", alignItems: "center", gap: "10px", padding: "4px 12px 16px", font: "600 15px var(--font-display)" } }, logo(28), "TapWheel"), ...navButtons);
+	nav.append(h("div", { class: "set-brand" }, logo(28), h("span", { class: "nav-label" }, "TapWheel")), ...navButtons);
 	const app = document.getElementById("app");
 	app.className = "";
-	app.replaceChildren(h("div", { style: { display: "grid", gridTemplateColumns: "220px 1fr", height: "100%" } }, nav, content));
+	app.replaceChildren(h("div", { class: "set-shell" }, nav, content));
 
 	let shown = "home";
 	// a tool window kept a ring choice while this window was open
@@ -73,7 +73,7 @@ export default function settings(init) {
 			b.style.fontWeight = on ? "600" : "";
 			b.style.boxShadow = on ? "inset 3px 0 0 var(--accent)" : "";
 		}
-		content.replaceChildren(h("div", { class: "rise", style: { maxWidth: "760px" } }, pages[id].build()));
+		content.replaceChildren(h("div", { class: "rise", style: { maxWidth: "880px" } }, pages[id].build()));
 		content.scrollTop = 0;
 	}
 
@@ -301,9 +301,9 @@ function quality(crf) {
 	return crf <= 18 ? "Very high" : crf <= 22 ? "High" : crf <= 26 ? "Balanced" : crf <= 30 ? "Small" : "Smallest";
 }
 
-/** The TapWheel mark, the same drawing as the app icon (crates/ui/src/icon.rs). */
+/** The TapWheel mark, the same drawing as the app icon (crates/ui/src/icon.rs), lit in the wheel colour. */
 function logo(size) {
 	const el = h("span", { style: { display: "inline-flex" } });
-	el.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#15171b"/><path d="M33.54 6.45A25.6 25.6 0 0 1 53.36 17.89L43.75 24.24A14.08 14.08 0 0 0 32.84 17.95Z" fill="#60cdff"/><path d="M54.90 20.55A25.6 25.6 0 0 1 54.90 43.45L44.59 38.30A14.08 14.08 0 0 0 44.59 25.70Z" fill="#3d424b"/><path d="M53.36 46.11A25.6 25.6 0 0 1 33.54 57.55L32.84 46.05A14.08 14.08 0 0 0 43.75 39.76Z" fill="#3d424b"/><path d="M30.46 57.55A25.6 25.6 0 0 1 10.64 46.11L20.25 39.76A14.08 14.08 0 0 0 31.16 46.05Z" fill="#3d424b"/><path d="M9.10 43.45A25.6 25.6 0 0 1 9.10 20.55L19.41 25.70A14.08 14.08 0 0 0 19.41 38.30Z" fill="#3d424b"/><path d="M10.64 17.89A25.6 25.6 0 0 1 30.46 6.45L31.16 17.95A14.08 14.08 0 0 0 20.25 24.24Z" fill="#3d424b"/><circle cx="32" cy="32" r="6.4" fill="#f4f3ef"/></svg>`;
+	el.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#15171b"/><path d="M33.54 6.45A25.6 25.6 0 0 1 53.36 17.89L43.75 24.24A14.08 14.08 0 0 0 32.84 17.95Z" style="fill:var(--accent)"/><path d="M54.90 20.55A25.6 25.6 0 0 1 54.90 43.45L44.59 38.30A14.08 14.08 0 0 0 44.59 25.70Z" fill="#3d424b"/><path d="M53.36 46.11A25.6 25.6 0 0 1 33.54 57.55L32.84 46.05A14.08 14.08 0 0 0 43.75 39.76Z" fill="#3d424b"/><path d="M30.46 57.55A25.6 25.6 0 0 1 10.64 46.11L20.25 39.76A14.08 14.08 0 0 0 31.16 46.05Z" fill="#3d424b"/><path d="M9.10 43.45A25.6 25.6 0 0 1 9.10 20.55L19.41 25.70A14.08 14.08 0 0 0 19.41 38.30Z" fill="#3d424b"/><path d="M10.64 17.89A25.6 25.6 0 0 1 30.46 6.45L31.16 17.95A14.08 14.08 0 0 0 20.25 24.24Z" fill="#3d424b"/><circle cx="32" cy="32" r="6.4" fill="#f4f3ef"/></svg>`;
 	return el;
 }

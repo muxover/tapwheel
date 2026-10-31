@@ -128,29 +128,39 @@ function setupNav() {
 	for (const x of sections) io.observe(x);
 }
 
-const TRY = [
-	["crop", "Crop", "crop", "photo.jpg"],
-	["add_background", "Add background", "image_add", "plant.png"],
-	["adjust", "Adjust", "options", "photo.jpg"],
-	["annotate", "Annotate", "pen", "photo.jpg"],
-	["redact", "Redact", "eye_off", "photo.jpg"],
-	["resize", "Resize", "resize", "photo.jpg"],
-	["compress", "Compress", "arrow_minimize", "photo.jpg"],
-	["metadata", "Photo details", "info", "photo.jpg"],
-	["combine", "Combine", "grid", "2 files"],
-	["trim", "Trim video", "cut", "clip.mp4"],
-	["make_gif", "Make GIF", "gif", "clip.mp4"],
-	["crop-video", "Crop video", "crop", "clip.mp4"],
-	["trim-audio", "Trim sound", "music_note_2", "song.m4a"],
-	["tags", "Song tags", "tag", "song.m4a"],
-	["code_image", "Code shot", "code_block", "app.ts"],
-	["protect", "Password", "lock_closed", "album"],
-	["contents", "Archive contents", "archive", "album.zip"],
-	["touchup", "Touch up", "image_sparkle", "plant.jpg"],
-	["snapshot", "Snapshot", "camera", "clip.mp4"],
-	["rename", "Rename", "rename", "2 files"],
-	["info", "File info", "document_search", "photo.jpg"],
+// the windows to try, grouped the way the wheel groups them: [id, label, icon, sample]
+const TRY_GROUPS = [
+	["Pictures", [
+		["crop", "Crop", "crop", "photo.jpg"],
+		["touchup", "Remove BG", "image_sparkle", "plant.jpg"],
+		["add_background", "Add background", "image_add", "plant.png"],
+		["adjust", "Adjust", "options", "photo.jpg"],
+		["annotate", "Annotate", "pen", "photo.jpg"],
+		["redact", "Redact", "eye_off", "photo.jpg"],
+		["resize", "Resize", "resize", "photo.jpg"],
+		["compress", "Compress", "arrow_minimize", "photo.jpg"],
+		["metadata", "Photo details", "info", "photo.jpg"],
+		["combine", "Combine", "grid", "2 files"],
+	]],
+	["Video", [
+		["trim", "Trim", "cut", "clip.mp4"],
+		["make_gif", "Make GIF", "gif", "clip.mp4"],
+		["crop-video", "Crop", "crop", "clip.mp4"],
+		["snapshot", "Snapshot", "camera", "clip.mp4"],
+	]],
+	["Sound", [
+		["trim-audio", "Trim", "music_note_2", "song.m4a"],
+		["tags", "Song tags", "tag", "song.m4a"],
+	]],
+	["Any file", [
+		["code_image", "Code shot", "code_block", "app.ts"],
+		["rename", "Rename", "rename", "2 files"],
+		["protect", "Password", "lock_closed", "album"],
+		["contents", "Archive contents", "archive", "album.zip"],
+		["info", "File info", "document_search", "photo.jpg"],
+	]],
 ];
+const TRY = TRY_GROUPS.flatMap(([, list]) => list);
 
 let current = null;
 let lastUrl = null;
@@ -160,9 +170,9 @@ function openTool(id, focus = false) {
 	current = t[0];
 	for (const b of document.querySelectorAll("#try-tools button")) {
 		const on = b.dataset.tool === current;
-		b.setAttribute("aria-selected", String(on));
-		b.tabIndex = on ? 0 : -1;
+		b.setAttribute("aria-pressed", String(on));
 		if (on && focus) b.focus();
+		if (on) b.scrollIntoView({ block: "nearest", inline: "nearest" });
 	}
 	$("#try-title").textContent = `${t[1]} · ${t[3]}`;
 	hideCard();
@@ -203,8 +213,16 @@ addEventListener("message", (e) => {
 function setupTry() {
 	const list = $("#try-tools");
 	if (!list) return;
-	for (const [id, label, ic] of TRY) {
-		list.append(h("button", { type: "button", role: "tab", "data-tool": id, "aria-selected": "false", "aria-controls": "try-body", onclick: () => openTool(id) }, icon(ic, 18), label));
+	for (const [group, tools] of TRY_GROUPS) {
+		const name = `try-group-${group.toLowerCase().replace(/ /g, "-")}`;
+		list.append(
+			h(
+				"div",
+				{ class: "rail-group", role: "group", "aria-labelledby": name },
+				h("span", { class: "rail-head", id: name }, group),
+				tools.map(([id, label, ic]) => h("button", { type: "button", "data-tool": id, "aria-pressed": "false", "aria-controls": "try-body", onclick: () => openTool(id) }, icon(ic, 18), label)),
+			),
+		);
 	}
 	list.addEventListener("keydown", (e) => {
 		const i = TRY.findIndex((x) => x[0] === current);
@@ -213,13 +231,17 @@ function setupTry() {
 		e.preventDefault();
 		openTool(TRY[(i + step + TRY.length) % TRY.length][0], true);
 	});
-	// the windows are drawn for a computer screen; smaller screens see them scaled down
 	const body = $("#try-body");
 	const frame = $("#try-window");
 	const fitFrame = () => {
-		const k = Math.min(1, body.clientWidth / 1140);
-		frame.style.transform = `scale(${k})`;
-		body.style.height = `${740 * k}px`;
+		// the window lays itself out at the width it gets, as the app's own window does when
+		// resized: side by side when there's room, stacked on a phone
+		const w = body.clientWidth;
+		const tall = w < 640 ? 720 : 640;
+		frame.style.width = `${w}px`;
+		frame.style.height = `${tall}px`;
+		body.style.height = `${tall}px`;
+		list.style.height = innerWidth > 900 ? `${tall}px` : "";
 	};
 	new ResizeObserver(fitFrame).observe(body);
 	// load the first window when it comes near, so the page opens fast
@@ -272,21 +294,30 @@ function sceneFor(k) {
 	};
 }
 
-function chips(list, cls = "chip") {
-	return h("div", { class: "chips" }, list.map((x) => h("span", { class: cls }, x)));
+/** A tool on the kind's wheel: its icon and name, a link to its window when it has one here. */
+function toolItem(t, kind) {
+	const id = tryFor(kind, t.id);
+	const inner = [icon(t.icon || "document", 18), h("span", {}, t.label)];
+	if (!id) return h("li", { title: t.desc }, h("span", { class: "tool-item" }, inner));
+	return h("li", {}, h("a", { class: "tool-item live", href: `#try-${id}`, onclick: (e) => tryTool(e, id), title: `Open the ${t.label} window here` }, inner, h("span", { class: "go", "aria-hidden": "true" }, "Try")));
 }
 
-function toolRow(t, kind) {
-	// any tool with a window here to try, including ones whose window opens from a ring choice
-	const id = tryFor(kind, t.id);
-	const open = id ? h("a", { class: "try-link", href: "#try", onclick: (e) => tryTool(e, id), "aria-label": `Try it: the ${t.label} window` }, "Try it") : null;
-	return h(
-		"div",
-		{ class: "tool", role: "listitem" },
-		h("span", { class: "tool-ic" }, icon(t.icon || "document", 20)),
-		h("div", { class: "tool-body" }, h("strong", {}, t.label), h("span", { class: "tool-desc" }, tie(t.desc)), t.ring.length ? chips(t.ring.filter((r) => r !== "Custom"), "ring") : null),
-		open,
-	);
+/** Names in a line, wrapping between names and never inside one. */
+function inlineList(names, cls = "") {
+	return h("ul", { class: `inline-list ${cls}`.trim() }, names.map((n) => h("li", {}, n)));
+}
+
+/** "Opens 48 formats", with the full list a click away. */
+function formats(reads) {
+	const all = inlineList(reads, "mono");
+	all.hidden = true;
+	const more = h("button", { type: "button", class: "text-button", "aria-expanded": "false" }, `Opens ${reads.length} formats`);
+	more.addEventListener("click", () => {
+		const open = all.hidden;
+		all.hidden = !open;
+		more.setAttribute("aria-expanded", String(open));
+	});
+	return h("div", { class: "kind-block formats" }, more, all);
 }
 
 // the window to open for a tool, by kind of file where the same tool has its own window
@@ -298,26 +329,6 @@ function tryTool(e, id) {
 	e.preventDefault();
 	$("#try").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 	openTool(id);
-}
-
-// a long list shows its first few, with one button for the rest
-function clip(list, n, noun) {
-	const kids = [...list.children];
-	if (kids.length <= n + 2) return list;
-	for (const k of kids.slice(n)) k.hidden = true;
-	const b = h("button", { type: "button", class: "button small more" }, `Show all ${kids.length} ${noun}`);
-	b.addEventListener("click", () => {
-		for (const k of kids) k.hidden = false;
-		const next = kids[n];
-		const target = next.matches("a, button") ? next : next.querySelector("a, button");
-		b.remove();
-		if (target) target.focus();
-		else {
-			list.tabIndex = -1;
-			list.focus();
-		}
-	});
-	return h("div", { class: "clip" }, list, b);
 }
 
 async function setupKinds(data) {
@@ -333,18 +344,21 @@ async function setupKinds(data) {
 			if (on && focus) b.focus();
 		}
 		panel.setAttribute("aria-labelledby", `kind-${id}`);
-		const scope = h("div", { class: "tw-scope", "data-tw-scope": true, "data-follow": true }, demo({ scenes: [sceneFor(k)], labels: false }));
+		const d = demo({ scenes: [sceneFor(k)], labels: false });
+		// a phone shows the wheel itself, big enough to read
+		if (matchMedia("(max-width: 700px)").matches) d.querySelector("svg").setAttribute("viewBox", "400 0 620 580");
+		const scope = h("div", { class: "tw-scope", "data-tw-scope": true, "data-follow": true }, d);
 		const reads = k.reads.map((x) => x.toUpperCase());
+		const tools = [...k.tools, ...k.many];
 		panel.replaceChildren(
 			h("div", { class: "kind-wheel" }, scope),
 			h(
 				"div",
 				{ class: "kind-lists" },
-				h("div", { class: "kind-block" }, h("h3", {}, `Opens ${reads.length} formats`), clip(chips(reads, "chip ext"), 18, "formats")),
-				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Shift"), "Convert to"), chips(k.convert.map((c) => c.label))),
-				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Ctrl"), "Tools"), clip(h("div", { class: "tools", role: "list" }, k.tools.map((t) => toolRow(t, k.id))), 6, "tools")),
-				k.many.length ? h("div", { class: "kind-block" }, h("h3", {}, "With several files"), h("div", { class: "tools", role: "list" }, k.many.map((t) => toolRow(t, k.id)))) : null,
-				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Alt"), "Actions"), chips(k.actions.map((a) => a.label))),
+				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Ctrl"), "Tools"), h("ul", { class: "toolgrid" }, tools.map((t) => toolItem(t, k.id)))),
+				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Shift"), "Converts to"), inlineList(k.convert.map((c) => c.label))),
+				h("div", { class: "kind-block" }, h("h3", {}, h("span", { class: "key" }, "Alt"), "Actions"), inlineList(k.actions.map((a) => a.label))),
+				formats(reads),
 			),
 		);
 		applyLook();
@@ -396,6 +410,19 @@ function setupReveal() {
 	}
 }
 
+/** The three wheels, each cropped to the wheel itself at the moment before the drop. */
+function setupTrio() {
+	for (const pic of document.querySelectorAll(".trio-pic")) {
+		const d = demo({ scene: Number(pic.dataset.scene), at: Number(pic.dataset.at), labels: false });
+		d.querySelector("svg").setAttribute("viewBox", "400 0 620 580");
+		pic.append(h("div", { class: "tw-scope", "data-tw-scope": true, "data-follow": true }, d));
+	}
+}
+
+function setupIcons() {
+	for (const el of document.querySelectorAll("[data-icon]")) el.replaceChildren(icon(el.dataset.icon, 22));
+}
+
 function setupLooks() {
 	const grid = $("#looks-grid");
 	if (!grid) return;
@@ -413,6 +440,8 @@ function setupLooks() {
 }
 
 setupTry();
+setupTrio();
+setupIcons();
 setupLooks();
 setupReveal();
 setupNav();
