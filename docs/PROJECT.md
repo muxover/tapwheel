@@ -96,7 +96,7 @@ Every tool works offline with what ships inside TapWheel: FFmpeg, TapWheel's own
 ### Videos
 
 - Reads MP4, M4V, MOV, MKV, WebM, AVI, WMV, ASF, MPG, MPEG, TS, MTS, M2TS, 3GP, FLV, F4V, OGV, VOB, MXF, DV, RM and DivX.
-- Converts to MP4, MOV, MKV, WebM, GIF, MP3, AVI, WMV, M4A and WAV. When only the container changes, the streams are copied in seconds with no quality loss.
+- Converts to MP4, MOV, MKV, WebM, GIF, MP3, AVI, WMV, M4A and WAV. When only the container changes, the streams are copied in seconds with no quality loss. On Windows on Arm, WebM is made with AV1 instead of VP9, and AVIF pictures with the rav1e encoder.
 
 | Tool | Ring choices | Window |
 | --- | --- | --- |
