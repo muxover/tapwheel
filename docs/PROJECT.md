@@ -1,6 +1,6 @@
 # TapWheel project
 
-TapWheel is a free, open-source Windows app that converts, edits and acts on files without opening an app. Start dragging a file, tap Shift, Ctrl or Alt, and a wheel opens under the pointer. Drop the file on a slice and it's converted, edited in a small window, or acted on, and the result lands next to the original. Everything runs on your PC. It's inspired by Tangerine for Mac and built natively for Windows, and it stays free.
+TapWheel is a free, open-source Windows app that converts, edits and acts on files without opening an app. Start dragging a file, tap Shift, Ctrl or Alt, and a wheel opens under the pointer. Drop the file on a slice and it's converted, edited in a small window, or acted on, and the result lands next to the original or in the folder you choose. Everything runs on your PC. It's inspired by Tangerine for Mac and built natively for Windows, and it stays free.
 
 This page is for anyone who wants to understand how TapWheel works, what it does today, where it's going, or how to help. To use it, see the [README](../README.md) or [tapwheel.app](https://tapwheel.app).
 
@@ -11,7 +11,7 @@ The fastest way to do one thing to a file on Windows: drag, tap, drop, done, off
 Every feature has to pass five rules, so the wheel stays quick to read:
 
 1. It starts from a file you're dragging or have selected.
-2. It ends as a file next to the original, or on the clipboard.
+2. It ends as a file next to the original or in the folder you choose, or on the clipboard.
 3. It takes one drop or one small window.
 4. It works offline. The only exception is a one-click download from an official source.
 5. It fits on the wheel: at most eight slices on a kind of file's first page. A new tool goes on a ring, under More, or replaces a weaker one.
@@ -170,7 +170,7 @@ The app makes no network connections: no account, no telemetry, no crash reports
 - `crates/core`: formats, tools, output naming and the engines (the FFmpeg runner, pictures, metadata, icons, text, code, archives, background removal). Plain Rust, tested on Linux and Windows.
 - `crates/ui`: draws the wheel, cards and app icon with tiny-skia, so every surface renders to PNG in tests.
 - `crates/app`: the Windows app: keyboard and mouse hooks on their own thread, the wheel as a layered drop-target window, the tray, cards, and WebView2 windows for the editors and settings.
-- `crates/app/web`: the editor and settings pages, also used by the website's live demo.
+- `crates/app/web`: the editor and settings pages. The website uses its wheel demo, and `site/public/try/` runs the editors with sample files to make the screens the website shows.
 - `crates/shellext`: a small DLL that puts TapWheel in Explorer's right-click menu for the Store version, since a packaged app can't write the classic menu keys. It hands the selected files to the running app.
 - `engines/`: the pinned FFmpeg build and background-removal model (version, URL and SHA-256), fetched by `fetch.ps1` and never committed.
 - `packaging/`: builds the portable zip and the Microsoft Store package.

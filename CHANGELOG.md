@@ -27,7 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 
 - Settings has more room, and its choices take only the space they need.
-- A new website, with the wheel to play with on the first screen.
+- A new website and look: light first with a dark version, the wheel to play with on the first screen, and the tool windows shown as screens from the app.
 - A wheel opened without a drag shows its slice numbers and focus outline once a key is used.
 - Tool windows lay themselves out for narrow windows, and a narrow Settings window shows its pages as icons.
 

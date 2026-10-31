@@ -8,9 +8,12 @@
 		<link rel="canonical" href="https://tapwheel.app/" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href="/fonts/BricolageGrotesque-Variable.woff2" as="font" type="font/woff2" crossorigin />
 		<link rel="stylesheet" href="/style.css" />
 		<link rel="stylesheet" href="/app/demo.css" />
-		<meta name="theme-color" content="#1c1c1c" />
+		<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#0b0d11" media="(prefers-color-scheme: dark)" />
+		<meta name="color-scheme" content="light dark" />
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="TapWheel" />
 		<meta property="og:title" content="TapWheel: done before you let go" />
@@ -38,225 +41,198 @@
 	<body>
 		<a class="skip" href="#main">Skip to content</a>
 		<header class="header">
-			<div class="wrap">
-				<a class="brand" href="/" aria-label="TapWheel home"><img src="/favicon.svg" alt="" width="28" height="28" />TapWheel</a>
+			<div class="header-in">
+				<a class="brand" href="/" aria-label="TapWheel home"><img src="/favicon.svg" alt="" width="30" height="30" />TapWheel</a>
 				<nav class="nav" aria-label="Sections" data-order="page">
-					<a href="#wheels">Wheels</a>
-					<a href="#kinds">Files</a>
-					<a href="#try">Try it</a>
-					<a href="#safe">Safety</a>
-					<a href="#faq">FAQ</a>
+					<a href="/#wheels">How it works</a>
+					<a href="/#kinds">Files</a>
+					<a href="/#windows">Tools</a>
+					<a href="/#safe">Privacy</a>
+					<a href="/#faq">FAQ</a>
 				</nav>
-				<a class="button primary" href="#download">Get TapWheel</a>
+				<a class="button ink" href="/#download">Get it free</a>
 			</div>
 		</header>
 
 		<main id="main">
-			<div class="hero">
-				<div class="wrap hero-copy">
-					<p class="eyebrow">The file wheel for Windows <span aria-hidden="true">·</span> Free <span aria-hidden="true">·</span> Works&nbsp;offline</p>
-					<h1>Done before you let&nbsp;go.</h1>
-					<p class="lead">Drag any file, tap Shift, Ctrl or Alt, and drop it on the wheel. Converted, trimmed or compressed, right next to the&nbsp;original.</p>
-					<div class="actions">
-						<a class="button primary" href="https://apps.microsoft.com/detail/9MW1GB4106VS" data-store>Get it from Microsoft Store <span class="arrow" aria-hidden="true">&rarr;</span></a>
-						<a class="button" href="#wheels">See how it&nbsp;works</a>
+			<section class="hero">
+				<div class="wrap hero-grid">
+					<div class="hero-copy">
+						<p class="chip"><span class="dot" aria-hidden="true"></span>The file wheel for Windows</p>
+						<h1>Done before you let&nbsp;<em>go.</em></h1>
+						<p class="lead">Drag any file, tap Shift, Ctrl or Alt, and drop it on the wheel. Converted, trimmed or compressed, and saved next to the original or in a folder you&nbsp;pick.</p>
+						<div class="actions">
+							<a class="button ink" href="https://apps.microsoft.com/detail/9MW1GB4106VS" data-store>Get it from Microsoft Store <span class="arrow" aria-hidden="true">&rarr;</span></a>
+							<a class="button soft" href="#wheels">See how it works</a>
+						</div>
+						<dl class="facts">
+							<div><dt data-stat="reads">259</dt><dd>formats it&nbsp;opens</dd></div>
+							<div><dt data-stat="tools">62</dt><dd>tools on three&nbsp;wheels</dd></div>
+							<div><dt>0</dt><dd>uploads</dd></div>
+						</dl>
 					</div>
-				</div>
-				<div class="wrap hero-stage">
-					<div class="tw-scope" data-tw-scope data-dark data-win11 id="hero-scope">
+					<div class="stage tw-scope" data-tw-scope data-win11 id="hero-scope">
 						<div id="hero-demo"></div>
 					</div>
 				</div>
-				<div class="wrap">
-					<dl class="facts">
-						<div><dt data-stat="reads">200+</dt><dd>formats it&nbsp;opens</dd></div>
-						<div><dt data-stat="tools">70+</dt><dd>tools on three&nbsp;wheels</dd></div>
-						<div><dt>0</dt><dd>uploads or&nbsp;accounts</dd></div>
-					</dl>
-				</div>
-			</div>
+			</section>
 
-			<section id="wheels" class="band">
+			<section id="wheels">
 				<div class="wrap">
-					<div class="section-head center">
-						<h2>Three keys, three&nbsp;wheels</h2>
-						<p>Start dragging any file, tap a key, and a wheel opens under your pointer with only what fits that&nbsp;file.</p>
+					<div class="head center">
+						<h2>Three keys. Every&nbsp;tool.</h2>
+						<p>Start dragging, tap a key, and a wheel opens under your pointer with only what fits that&nbsp;file.</p>
 					</div>
-					<ol class="trio" id="trio">
-						<li>
-							<div class="trio-pic" data-scene="0" data-at="2900"></div>
-							<div class="trio-text"><span class="key">Shift</span><h3>Convert</h3><p>Pick a format. The new file lands next to the old&nbsp;one.</p></div>
-						</li>
-						<li>
-							<div class="trio-pic" data-scene="1" data-at="3600"></div>
-							<div class="trio-text"><span class="key">Ctrl</span><h3>Tools</h3><p>Crop, trim, compress, remove backgrounds and more, for that kind of&nbsp;file.</p></div>
-						</li>
-						<li>
-							<div class="trio-pic" data-scene="2" data-at="3600"></div>
-							<div class="trio-text"><span class="key">Alt</span><h3>Actions</h3><p>Copy a path, rename, move, share, or see what a file really&nbsp;is.</p></div>
-						</li>
-					</ol>
+					<div class="keys-grid">
+						<div class="keylist" role="group" aria-label="The three wheels">
+							<button type="button" data-scene="0" data-at="2900" aria-pressed="false"><span class="key">Shift</span><span class="key-name">Convert</span><span class="key-say">Pick a format. The original stays as it&nbsp;was.</span></button>
+							<button type="button" data-scene="1" data-at="3600" aria-pressed="false"><span class="key">Ctrl</span><span class="key-name">Tools</span><span class="key-say">Crop, trim, compress and remove backgrounds, for that kind of&nbsp;file.</span></button>
+							<button type="button" data-scene="2" data-at="3600" aria-pressed="false"><span class="key">Alt</span><span class="key-name">Actions</span><span class="key-say">Copy a path, rename, move, share, or see what a file really&nbsp;is.</span></button>
+						</div>
+						<div class="wheel-card tw-scope" data-tw-scope data-win11 id="keys-stage"></div>
+					</div>
 				</div>
 			</section>
 
 			<section id="kinds">
 				<div class="wrap">
-					<div class="section-head center">
-						<h2>Seven kinds of file, one&nbsp;wheel</h2>
-						<p>Pick a kind to see its wheel and everything on&nbsp;it.</p>
+					<div class="head center">
+						<h2>One wheel for every&nbsp;file</h2>
+						<p>The wheel changes with what you're holding, so you only ever see what&nbsp;fits.</p>
 					</div>
-					<div class="kinds">
-						<div class="kind-tabs" role="tablist" aria-label="Kinds of file" id="kind-tabs"></div>
-						<div class="kind-panel" id="kind-panel" role="tabpanel"></div>
+					<div class="tabs" id="kind-tabs" role="tablist" aria-label="Kinds of file"></div>
+					<div class="kind-grid" id="kind-panel" role="tabpanel">
+						<div class="wheel-card tw-scope" data-tw-scope data-win11 id="kind-wheel"></div>
+						<div class="kind-info">
+							<h3 class="label"><span class="key">Ctrl</span>Tools</h3>
+							<ul class="toolchips" id="kind-tools"></ul>
+							<h3 class="label"><span class="key">Shift</span>Converts to</h3>
+							<ul class="formats" id="kind-convert"></ul>
+							<div class="reads" id="kind-reads"></div>
+						</div>
 					</div>
 				</div>
 			</section>
 
-			<section id="try" class="band">
+			<section id="windows">
 				<div class="wrap">
-					<div class="section-head center">
-						<h2>Every tool has its own&nbsp;window</h2>
-						<p>The real windows from the app, running here with sample files. Pictures you make here are yours to&nbsp;keep.</p>
+					<div class="head center">
+						<h2>Some tools open a&nbsp;window</h2>
+						<p>A live preview, the settings beside it, and&nbsp;Save.</p>
 					</div>
-					<div class="try">
-						<div class="try-frame">
-							<div class="frame-bar" aria-hidden="true"><span class="frame-title" id="try-title">Crop · photo.jpg</span><span class="frame-buttons"><i></i><i></i><i></i></span></div>
-							<div class="try-inner">
-								<div class="try-rail" id="try-tools" aria-label="Tool windows"></div>
-								<div class="frame-body" id="try-body">
-									<iframe id="try-window" title="TapWheel tool window" loading="lazy"></iframe>
-								</div>
-							</div>
-							<div class="try-card" id="try-card" role="status" aria-live="polite" hidden></div>
+					<div class="win-grid">
+						<div class="win-side">
+							<div class="win-list" id="win-list" role="group" aria-label="Tool windows"></div>
+							<p class="win-say" id="win-say" aria-live="polite"></p>
 						</div>
-						<p class="try-note" id="try-note">For video, sound and archives, the window says what the app would save. Every window works with the keyboard&nbsp;too.</p>
+						<figure class="window">
+							<div class="window-bar" aria-hidden="true"><span id="win-title">Remove BG · plant.jpg</span><span class="win-dots"><i></i><i></i><i></i></span></div>
+							<div class="window-shot">
+								<img class="shot-light" id="shot-light" src="/img/windows/touchup-light.webp" alt="The Remove BG window" width="1650" height="1050" />
+								<img class="shot-dark" id="shot-dark" src="/img/windows/touchup-dark.webp" alt="The Remove BG window" width="1650" height="1050" />
+							</div>
+						</figure>
 					</div>
+					<p class="note">Screens from the app. Every window works with the keyboard&nbsp;too.</p>
 				</div>
 			</section>
 
 			<section id="yours">
 				<div class="wrap">
-					<div class="section-head center">
-						<h2>Made to fit how you&nbsp;work</h2>
-						<p>The wheel comes to the file, wherever you are in&nbsp;Windows.</p>
+					<div class="head center">
+						<h2>It fits the way you&nbsp;work</h2>
+						<p>New in 0.2: the wheel comes to the file, and it keeps what you&nbsp;like.</p>
 					</div>
-					<ul class="cards">
-						<li><span class="card-ic" data-icon="keyboard"></span><h3>No drag needed</h3><p>Select a file in File Explorer or on the desktop and tap a key twice. The wheel opens right beside&nbsp;it.</p></li>
-						<li><span class="card-ic" data-icon="pin"></span><h3>Your own wheels</h3><p>Pin the slices you use, hide the rest, and keep a tool's settings as a choice on its&nbsp;ring.</p></li>
-						<li><span class="card-ic" data-icon="top_speed"></span><h3>Fast on your graphics&nbsp;card</h3><p>Compress on Balanced uses your graphics card's video encoder when your PC has&nbsp;one.</p></li>
+					<ul class="tiles">
+						<li>
+							<div class="vis" aria-hidden="true"><span class="key">Shift</span><span class="key">Shift</span></div>
+							<h3>No drag needed</h3>
+							<p>Select a file in File Explorer or on the desktop and tap a key twice. The wheel opens right beside&nbsp;it.</p>
+						</li>
+						<li>
+							<div class="vis" aria-hidden="true"><span class="pin on">Compress</span><span class="pin">Crop</span><span class="pin">Resize</span></div>
+							<h3>Your own wheels</h3>
+							<p>Pin what you use, hide the rest, and keep your favourite settings as a choice on the&nbsp;ring.</p>
+						</li>
+						<li>
+							<div class="vis" aria-hidden="true"><svg class="gauge" viewBox="0 0 150 82"><path class="gauge-track" d="M10 76a65 65 0 0 1 130 0"/><path class="gauge-fill" d="M10 76a65 65 0 0 1 112-45"/><path class="gauge-needle" d="M75 76 116 40"/><circle class="gauge-hub" cx="75" cy="76" r="6"/></svg></div>
+							<h3>Fast on your graphics&nbsp;card</h3>
+							<p>Compress on Balanced uses your graphics card's video encoder when your PC has&nbsp;one.</p>
+						</li>
 					</ul>
 				</div>
 			</section>
 
-			<section id="safe" class="band">
-				<div class="wrap">
-					<div class="section-head center">
-						<h2>Nothing leaves your&nbsp;PC</h2>
-						<p>TapWheel doesn't connect to anything, and it takes care with the files already on your&nbsp;disk.</p>
+			<section id="safe">
+				<div class="wrap priv">
+					<div class="head">
+						<h2>Your files never leave your&nbsp;PC</h2>
+						<p>TapWheel doesn't connect to anything. No account, no uploads, no telemetry, and it takes care with the files already on your&nbsp;disk.</p>
+						<ul class="checks">
+							<li><span class="ic" data-icon="checkmark_circle"></span><p><b>Originals stay.</b> A new file never replaces one that's already&nbsp;there.</p></li>
+							<li><span class="ic" data-icon="checkmark_circle"></span><p><b>Careful Undo.</b> It only removes a file TapWheel made, if it's&nbsp;unchanged.</p></li>
+							<li><span class="ic" data-icon="checkmark_circle"></span><p><b>Checked first.</b> A job that can't finish says so before it&nbsp;starts.</p></li>
+							<li><span class="ic" data-icon="checkmark_circle"></span><p><b>Photo privacy.</b> Take the location out before you&nbsp;share.</p></li>
+						</ul>
 					</div>
 					<div class="versus">
-						<div><h3>An online converter</h3><p>Your file goes to someone else's server, waits its turn, and comes back as a&nbsp;download.</p></div>
-						<div class="ours"><h3>TapWheel</h3><p>Your file stays in its folder. The result appears next to it, made on your&nbsp;PC.</p></div>
+						<div class="vs"><span class="vs-ic" data-icon="globe"></span><h3>An online converter</h3><p>Your file goes to someone else's server, waits its turn and comes back as a&nbsp;download.</p></div>
+						<div class="vs ours"><span class="vs-ic" data-icon="laptop"></span><h3>TapWheel</h3><p>Your file stays on your PC. The result is made there too, with no upload and no&nbsp;queue.</p></div>
 					</div>
-					<ul class="checks">
-						<li><span class="card-ic" data-icon="shield_checkmark"></span><div><h3>No uploads</h3><p>Everything runs on your PC, even Remove BG, with a model that ships inside the&nbsp;app.</p></div></li>
-						<li><span class="card-ic" data-icon="document_copy"></span><div><h3>Originals stay</h3><p>A new file never replaces one that's already&nbsp;there.</p></div></li>
-						<li><span class="card-ic" data-icon="checkmark_circle"></span><div><h3>Checked before it starts</h3><p>A job that can't read its file or would fill the disk says so instead of&nbsp;starting.</p></div></li>
-						<li><span class="card-ic" data-icon="arrow_undo"></span><div><h3>Careful Undo</h3><p>Undo sends the new file to the Recycle Bin, and only if you haven't changed it&nbsp;since.</p></div></li>
-						<li><span class="card-ic" data-icon="fingerprint"></span><div><h3>No account, no tracking</h3><p>Nothing to sign in to, and no telemetry, analytics or update&nbsp;checks.</p></div></li>
-						<li><span class="card-ic" data-icon="eye_off"></span><div><h3>Photo privacy</h3><p>See every hidden detail in a photo and take the location out before you share&nbsp;it.</p></div></li>
-					</ul>
 				</div>
 			</section>
 
-			<section id="looks">
+			<section id="faq">
+				<div class="wrap qa">
+					<div>
+						<div class="head"><h2>Questions</h2><p>And what's coming next, one version at a&nbsp;time.</p></div>
+						<ol class="next">
+							<li><span class="ver">0.3</span><b>Languages</b><p>Every word from translation files, Arabic first and right to&nbsp;left.</p></li>
+							<li><span class="ver">0.4</span><b>Documents</b><p>PDF as an eighth kind of file, and Office to&nbsp;PDF.</p></li>
+							<li><span class="ver">0.5</span><b>Smart and offline</b><p>Subtitles and sharper pictures, made on your&nbsp;PC.</p></li>
+						</ol>
+					</div>
+					<div class="faq">
+						<details><summary>Is it&nbsp;free?</summary><p>Yes. TapWheel is free and open source under the GPL-3.0 licence, with no ads and no&nbsp;account.</p></details>
+						<details><summary>Why does it watch my&nbsp;keyboard?</summary><p>To notice a tap of Shift, Ctrl or Alt while you drag a file, or two quick taps on selected files. It only reacts to those keys, Tab and Esc, never records what you type, and every other key and click goes on&nbsp;unchanged.</p></details>
+						<details><summary>Can I open the wheel without&nbsp;dragging?</summary><p>Yes. Select files in File Explorer or on the desktop and tap a wheel's key twice, or right-click and choose TapWheel. Settings can switch the double tap to Ctrl+Shift+Space or turn it&nbsp;off.</p></details>
+						<details><summary>Where do the new files&nbsp;go?</summary><p>Next to the original by default, named so nothing gets replaced. Settings can put them in a subfolder or in one folder you&nbsp;pick.</p></details>
+						<details><summary>Does it need anything else&nbsp;installed?</summary><p>No. FFmpeg, the background removal model and everything else ship inside the app. The tool windows use WebView2, which comes with&nbsp;Windows.</p></details>
+						<details><summary>Which PCs does it run&nbsp;on?</summary><p>PCs with a current Windows, on Intel, AMD or Arm. The Microsoft Store page says whether yours&nbsp;fits.</p></details>
+						<details><summary>What if I'm not dragging a&nbsp;file?</summary><p>Then nothing happens. The wheel only opens when what you're dragging is a file or folder, so tapping Shift while you select text is just&nbsp;Shift.</p></details>
+						<details><summary>Won't Shift turn my drag into a&nbsp;move?</summary><p>Not when you drop on the wheel. TapWheel always works on a copy, so the original stays where it was. Dropping anywhere else works the way Windows always&nbsp;does.</p></details>
+						<details><summary>Why doesn't the wheel open in some&nbsp;windows?</summary><p>Windows doesn't let normal apps see drags that start in an app running as administrator. Drags from File Explorer and the desktop always&nbsp;work.</p></details>
+						<details><summary>Is this Tangerine for&nbsp;Windows?</summary><p>TapWheel was inspired by Tangerine for Mac and built from scratch for Windows. It isn't affiliated with&nbsp;it.</p></details>
+					</div>
+				</div>
+			</section>
+
+			<section id="download" class="end">
 				<div class="wrap">
-					<div class="section-head center">
-						<h2>Looks like your&nbsp;Windows</h2>
-						<p>Light or dark, your accent colour, high contrast, rounded or square: TapWheel and its icon follow what your Windows&nbsp;uses.</p>
-						<div class="looks" role="group" aria-label="How it looks">
-							<div class="seg" data-look="win11">
-								<button type="button" data-value="1" aria-pressed="true">Rounded</button>
-								<button type="button" data-value="0" aria-pressed="false">Square</button>
+					<div class="end-card">
+						<div class="end-copy">
+							<h2>Get&nbsp;TapWheel</h2>
+							<p>Free on the Microsoft Store, signed by Microsoft and kept up to date, on Intel, AMD and Arm PCs. Developers can also take the portable zip from&nbsp;GitHub.</p>
+							<div class="actions">
+								<a class="button light" href="https://apps.microsoft.com/detail/9MW1GB4106VS" data-store>Get it from Microsoft Store <span class="arrow" aria-hidden="true">&rarr;</span></a>
+								<a class="button ghost" href="https://github.com/muxover/tapwheel/releases/latest">Zip for developers</a>
 							</div>
-							<div class="seg" data-look="dark">
-								<button type="button" data-value="1" aria-pressed="true">Dark</button>
-								<button type="button" data-value="0" aria-pressed="false">Light</button>
+							<div class="cmd">
+								<p class="cmd-label">Or in a terminal</p>
+								<div class="cmd-box"><code id="cmd-text" tabindex="0">winget install 9MW1GB4106VS</code><button type="button" id="cmd-copy" class="cmd-copy">Copy</button></div>
 							</div>
 						</div>
-					</div>
-					<div class="looks-grid" id="looks-grid"></div>
-				</div>
-			</section>
-
-			<section id="faq" class="band">
-				<div class="wrap">
-					<div class="split">
-						<div class="next">
-							<h2>Coming&nbsp;next</h2>
-							<p class="sub">The plan is public in the repo, one version at a&nbsp;time.</p>
-							<ol class="roadmap">
-								<li><span class="ver">0.3</span><div><h3>Languages</h3><p>Every word in the app from translation files, Arabic first and right to left all the&nbsp;way.</p></div></li>
-								<li><span class="ver">0.4</span><div><h3>Documents</h3><p>PDF as an eighth kind of file, and Office, OpenDocument and EPUB to&nbsp;PDF.</p></div></li>
-								<li><span class="ver">0.5</span><div><h3>Smart and offline</h3><p>Transcripts and subtitles, sharper pictures and text out of a picture, run on your PC and only where your PC handles them&nbsp;well.</p></div></li>
-							</ol>
-						</div>
-						<div class="faq">
-							<h2>Questions</h2>
-							<details>
-								<summary>Is it free?</summary>
-								<p>Yes. TapWheel is free and open source under the GPL-3.0 license. There's no paid version, trial or&nbsp;account.</p>
-							</details>
-							<details>
-								<summary>Why does it watch my&nbsp;keyboard?</summary>
-								<p>To notice a tap of Shift, Ctrl or Alt while you're dragging a file, or two quick taps on files selected in File Explorer. TapWheel only reacts to those keys, Tab and Esc, never records what you type, and passes every click and every other key on&nbsp;untouched.</p>
-							</details>
-							<details>
-								<summary>What if I'm not dragging a&nbsp;file?</summary>
-								<p>Then nothing happens. The wheel only opens when what you're dragging is a file or folder, so tapping Shift while you select text is just&nbsp;Shift.</p>
-							</details>
-							<details>
-								<summary>Won't Shift turn my drag into a&nbsp;move?</summary>
-								<p>Not when you drop on the wheel. TapWheel always works on a copy, so the original stays where it was. Dropping anywhere else works the way Windows always&nbsp;does.</p>
-							</details>
-							<details>
-								<summary>Does it need anything else&nbsp;installed?</summary>
-								<p>No. FFmpeg, the Remove BG model and everything else it needs ship inside the app. The tool windows use WebView2, which comes with&nbsp;Windows.</p>
-							</details>
-							<details>
-								<summary>Which PCs does it run&nbsp;on?</summary>
-								<p>PCs with a current Windows, on Intel, AMD or Arm. The Microsoft Store page says whether yours&nbsp;fits.</p>
-							</details>
-							<details>
-								<summary>Can I open the wheel without&nbsp;dragging?</summary>
-								<p>Yes. Select files in File Explorer or on the desktop and tap a wheel's key twice, or right-click and choose TapWheel. Settings can switch the double tap to Ctrl+Shift+Space or turn it&nbsp;off.</p>
-							</details>
-							<details>
-								<summary>Why doesn't the wheel open in some&nbsp;windows?</summary>
-								<p>Windows doesn't let normal apps see drags that start in an app running as administrator. Drags from File Explorer and the desktop always&nbsp;work.</p>
-							</details>
-							<details>
-								<summary>Is this Tangerine for&nbsp;Windows?</summary>
-								<p>No. Tangerine is a separate Mac app by another developer. TapWheel borrows the idea of working from a drag and is built from scratch for&nbsp;Windows.</p>
-							</details>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<section id="download" class="download">
-				<div class="wrap">
-					<div class="get">
-						<img src="/favicon.svg" alt="" width="64" height="64" />
-						<div>
-							<h2>Get TapWheel</h2>
-							<p>The Microsoft Store version is signed by Microsoft and updates itself, on Intel, AMD and Arm PCs. Developers and testers can also take an unsigned portable zip from&nbsp;GitHub.</p>
-							<p class="winget">From a terminal: <code>winget install&nbsp;9MW1GB4106VS</code></p>
-						</div>
-						<div class="actions">
-							<a class="button primary" href="https://apps.microsoft.com/detail/9MW1GB4106VS" data-store>Get it from Microsoft Store <span class="arrow" aria-hidden="true">&rarr;</span></a>
-							<a class="button" href="https://github.com/muxover/tapwheel/releases/latest">Zip for developers</a>
-						</div>
+						<svg class="end-mark" viewBox="0 0 64 64" aria-hidden="true">
+							<circle cx="32" cy="32" r="32" class="m-disc"/>
+							<path class="m-slice" d="M54.90 20.55A25.6 25.6 0 0 1 54.90 43.45L44.59 38.30A14.08 14.08 0 0 0 44.59 25.70Z"/>
+							<path class="m-slice" d="M53.36 46.11A25.6 25.6 0 0 1 33.54 57.55L32.84 46.05A14.08 14.08 0 0 0 43.75 39.76Z"/>
+							<path class="m-slice" d="M30.46 57.55A25.6 25.6 0 0 1 10.64 46.11L20.25 39.76A14.08 14.08 0 0 0 31.16 46.05Z"/>
+							<path class="m-slice" d="M9.10 43.45A25.6 25.6 0 0 1 9.10 20.55L19.41 25.70A14.08 14.08 0 0 0 19.41 38.30Z"/>
+							<path class="m-slice" d="M10.64 17.89A25.6 25.6 0 0 1 30.46 6.45L31.16 17.95A14.08 14.08 0 0 0 20.25 24.24Z"/>
+							<path class="m-slice" d="M33.54 6.45A25.6 25.6 0 0 1 53.36 17.89L43.75 24.24A14.08 14.08 0 0 0 32.84 17.95Z"/>
+							<path class="m-lit" d="M33.54 6.45A25.6 25.6 0 0 1 53.36 17.89L43.75 24.24A14.08 14.08 0 0 0 32.84 17.95Z"/>
+							<circle cx="32" cy="32" r="6.4" class="m-hub"/>
+						</svg>
 					</div>
 				</div>
 			</section>
@@ -264,32 +240,30 @@
 
 		<footer class="footer">
 			<div class="wrap">
-				<div class="foot-top">
-					<div class="foot-brand">
-						<a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28" />TapWheel</a>
-						<p>Done before you let&nbsp;go.</p>
+				<div class="foot">
+					<div>
+						<a class="brand" href="/"><img src="/favicon.svg" alt="" width="26" height="26" />TapWheel</a>
+						<p>The file wheel for Windows. Done before you let&nbsp;go.</p>
 					</div>
-					<div class="cols">
-						<div>
-							<h2>TapWheel</h2>
-							<ul>
-								<li><a href="/privacy">Privacy</a></li>
-								<li><a href="/support">Support</a></li>
-								<li><a href="https://apps.microsoft.com/detail/9MW1GB4106VS">Microsoft Store</a></li>
-							</ul>
-						</div>
-						<div>
-							<h2>Project</h2>
-							<ul>
-								<li><a href="https://github.com/muxover/tapwheel">GitHub</a></li>
-								<li><a href="https://github.com/muxover/tapwheel/releases">Releases</a></li>
-								<li><a href="https://github.com/muxover/tapwheel/blob/main/LICENSE">GPL-3.0 license</a></li>
-							</ul>
-						</div>
-					</div>
+					<nav aria-label="TapWheel">
+						<h2>TapWheel</h2>
+						<ul>
+							<li><a href="/privacy">Privacy</a></li>
+							<li><a href="/support">Support</a></li>
+							<li><a href="https://apps.microsoft.com/detail/9MW1GB4106VS">Microsoft Store</a></li>
+						</ul>
+					</nav>
+					<nav aria-label="Project">
+						<h2>Project</h2>
+						<ul>
+							<li><a href="https://github.com/muxover/tapwheel">GitHub</a></li>
+							<li><a href="https://github.com/muxover/tapwheel/releases">Releases</a></li>
+							<li><a href="https://github.com/muxover/tapwheel/blob/main/LICENSE">GPL-3.0 licence</a></li>
+						</ul>
+					</nav>
 				</div>
 				<div class="base">
-					<p>TapWheel by <a href="https://muxover.com">Jax (muxover)</a></p>
+					<p>Made by <a href="https://muxover.com">Jax (muxover)</a></p>
 					<p>Inspired by Tangerine for Mac, not affiliated with&nbsp;it.</p>
 				</div>
 			</div>
