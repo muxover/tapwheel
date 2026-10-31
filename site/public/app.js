@@ -148,7 +148,7 @@ const TRY_GROUPS = [
 		["crop-video", "Crop", "crop", "clip.mp4"],
 		["snapshot", "Snapshot", "camera", "clip.mp4"],
 	]],
-	["Sound", [
+	["Audio", [
 		["trim-audio", "Trim", "music_note_2", "song.m4a"],
 		["tags", "Song tags", "tag", "song.m4a"],
 	]],

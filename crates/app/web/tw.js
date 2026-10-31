@@ -204,6 +204,12 @@ export function numberInput(value, { min = 0, max = 100000, step = 1, onchange, 
 	return input;
 }
 
+/** An error from the app starts lowercase so it can follow a file name; on its own it starts with a capital. */
+export function sentence(s) {
+	const t = String(s);
+	return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 export function stem(name) {
 	const lower = name.toLowerCase();
 	for (const d of [".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst"]) if (lower.endsWith(d)) return name.slice(0, -d.length);
@@ -547,12 +553,12 @@ async function start(init) {
 		} catch (e) {
 			// the frame is up: say what went wrong inside it and keep Cancel working
 			if (!current) throw e;
-			current.stage.replaceChildren(h("div", { class: "hint", style: { padding: "24px", textAlign: "center" } }, e.message || String(e)));
+			current.stage.replaceChildren(h("div", { class: "hint", style: { padding: "24px", textAlign: "center" } }, sentence(e.message || e)));
 		}
 	} catch (e) {
 		const app = document.getElementById("app");
 		app.className = "loading";
-		app.replaceChildren(h("div", {}, e.message || String(e)));
+		app.replaceChildren(h("div", {}, sentence(e.message || e)));
 	}
 }
 

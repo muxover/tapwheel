@@ -873,7 +873,7 @@ export function demo({ scenes = SCENES, labels = true, scene = 0, at = null, pla
 		hint.className = "hint";
 		hint.setAttribute("aria-live", "polite");
 		hint.textContent = play.hint || "Hold the photo and tap Shift, Ctrl or Alt, or use the keys below.";
-		game = player(root, svg, layer, scenes, { ...play, onStart: () => root.setAttribute("aria-label", "TapWheel, playable") }, () => win11(), (t) => (hint.textContent = t));
+		game = player(root, svg, layer, scenes, { ...play, onStart: () => root.setAttribute("aria-label", "Playable TapWheel demo") }, () => win11(), (t) => (hint.textContent = t));
 		for (const ev of ["pointerdown", "pointermove", "pointerup"]) svg.addEventListener(ev, () => wake());
 		addEventListener("keydown", () => wake());
 	}

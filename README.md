@@ -39,7 +39,7 @@ TapWheel puts file tools on a wheel in Windows. Start dragging a file in File Ex
 |------|-------|------------|-------|
 | Pictures | 48 formats, including HEIC, JPEG XL, PSD and camera RAW | PNG, JPG, WebP, AVIF, GIF, TIFF, BMP, ICO, TGA, QOI | Crop, Add BG, Remove BG, Compress, Resize, Adjust, Annotate, Redact, Rotate, Metadata, Make icon, To SVG, Combine |
 | Video | 24 formats | MP4, MOV, MKV, WebM, GIF, MP3, AVI, WMV, M4A, WAV | Trim, Compress, Make GIF, Resize, Crop, Speed, Snapshot, Mute, Get audio, Rotate, Reverse, Join |
-| Audio | 31 formats | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, M4R | Trim, Fade, Normalize, Compress, Volume, Speed, Metadata, Ringtone, Mono, No silence, Reverse, Join |
+| Audio | 31 formats | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA, M4R | Trim, Fade, Normalise, Compress, Volume, Speed, Metadata, Ringtone, Mono, No silence, Reverse, Join |
 | Icons | ICO, ICNS, CUR, SVG | PNG, ICO, ICNS, WebP, JPG | Windows icon, Favicon, PNG set, macOS icon, Minify |
 | Text | 42 formats, including CSV, JSON, YAML, subtitles and RTF | Markdown, HTML and data formats | Read aloud, UTF-8, Clean up, Sort, Dedupe, Case, Line ends, Split, Count, Merge, Format, Minify |
 | Code | 90 formats | PNG, HTML, Markdown, TXT | Code shot, Copy as MD, Format, Minify, Indent, Line ends, Clean up, UTF-8, Merge |
@@ -84,7 +84,7 @@ Settings live in the app's window and are saved to `%APPDATA%\TapWheel\settings.
 | Wheel colour | Windows accent | Follows the Windows accent, or a colour you pick |
 | Without dragging | Double tap | Opens a wheel on the files selected in File Explorer or on the desktop: tap its key twice, press Ctrl+Shift+Space, or Off |
 | Start with Windows | On | Starts TapWheel in the tray when you sign in |
-| Favorites first | On | Moves the slices you pick most to the top |
+| Favourites first | On | Moves the slices you pick most to the top |
 | Pause TapWheel | Off | Ignores key taps until turned off again or TapWheel restarts |
 
 ---

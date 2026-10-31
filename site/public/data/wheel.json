@@ -3,7 +3,7 @@
   "kinds": [
     {
       "id": "images",
-      "name": "Images",
+      "name": "Pictures",
       "sample": "photo.heic",
       "reads": [
         "jpg",
@@ -212,7 +212,7 @@
           "id": "redact",
           "label": "Redact",
           "icon": "eye_off",
-          "desc": "Hide private parts",
+          "desc": "Hide private details",
           "ring": [],
           "window": true
         },
@@ -854,7 +854,7 @@
         },
         {
           "id": "normalize",
-          "label": "Normalize",
+          "label": "Normalise",
           "icon": "data_bar_vertical",
           "desc": "Even out the loudness",
           "ring": [],

@@ -1,6 +1,6 @@
 // What a file really is: its size, dates, what's inside, and whether its name tells the truth.
 
-import { formatSize, formatTime, group, h, iconEl, prepared, send, shell, stageLoading } from "../tw.js";
+import { formatSize, formatTime, group, h, iconEl, prepared, send, sentence, shell, stageLoading } from "../tw.js";
 
 export default async function info(init) {
 	let text = "";
@@ -30,7 +30,7 @@ export default async function info(init) {
 			body.append(h("tr", { class: "section" }, h("th", { colspan: 2 }, init.files[f.index].name)));
 		}
 		if (f.error || !i) {
-			row("Problem", f.error || "Couldn't read it");
+			row("Problem", f.error ? sentence(f.error) : "Couldn't read it");
 			continue;
 		}
 		row("Name", i.name);

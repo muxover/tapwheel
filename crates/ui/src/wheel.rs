@@ -674,7 +674,7 @@ pub fn render(v: &WheelView, theme: &Theme, fonts: &Fonts, scale: f32, backdrop:
 			Some("More".into()),
 			format!("Page {} of {}", v.page + 1, pages(v.slices.len())),
 		),
-		Hover::Center => (Some("Cancel".into()), "Drop here to leave it".into()),
+		Hover::Center => (Some("Cancel".into()), "Drop here to do nothing".into()),
 		Hover::None => match &v.message {
 			Some(msg) => (None, msg.clone()),
 			None => (Some(v.title.clone()), v.subtitle.clone()),

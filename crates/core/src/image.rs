@@ -60,12 +60,12 @@ pub fn check_pixels(w: u32, h: u32) -> Result<(), Error> {
 	let pixels = w as u64 * h as u64;
 	if pixels > MAX_PIXELS {
 		return Err(Error::Engine(format!(
-			"This picture is too large ({w} × {h}); up to {} megapixels works",
+			"this picture is too large ({w} × {h}); it works up to {} megapixels",
 			MAX_PIXELS / 1_000_000
 		)));
 	}
 	crate::budget::fits_now(pixels * PIXEL_COST)
-		.map_err(|e| Error::Engine(format!("This picture is too large to open right now ({w} × {h}): {e}")))
+		.map_err(|e| Error::Engine(format!("this picture is too large to open right now ({w} × {h}): {e}")))
 }
 
 pub fn read_png(path: &Path) -> Result<(u32, u32, Vec<u8>), Error> {
@@ -81,7 +81,7 @@ pub fn decode_png(r: impl std::io::BufRead + std::io::Seek) -> Result<(u32, u32,
 	let mut buf = vec![
 		0;
 		r.output_buffer_size()
-			.ok_or_else(|| Error::Engine("picture too large".into()))?
+			.ok_or_else(|| Error::Engine("the picture is too large".into()))?
 	];
 	let info = r.next_frame(&mut buf).map_err(|e| Error::Engine(e.to_string()))?;
 	let (w, h) = (info.width, info.height);
@@ -170,9 +170,9 @@ fn decode_special(e: &Engines, input: &Path, ext: &str) -> Result<Option<PathBuf
 		return Ok(None);
 	}
 	let what = match ext {
-		"psd" => "This PSD can't be read".to_string(),
-		e if is_raw(e) => "This camera file can't be read".to_string(),
-		other => format!("This .{other} file can't be read"),
+		"psd" => "this PSD can't be read".to_string(),
+		e if is_raw(e) => "this camera file can't be read".to_string(),
+		other => format!("this .{other} file can't be read"),
 	};
 	let (w, h, rgba) = crate::caught(&what, || decode_rgba_special(input, ext))?;
 	let tmp = temp_png(e, "src")?;
@@ -885,7 +885,7 @@ mod tests {
 		fs::write(&path, &psd).unwrap();
 		let e = Engines::in_dir(&dir, dir.join("scratch"));
 		let err = decode_special(&e, &path, "psd").unwrap_err();
-		assert_eq!(err.to_string(), "This PSD can't be read");
+		assert_eq!(err.to_string(), "this PSD can't be read");
 		let _ = fs::remove_dir_all(dir);
 	}
 

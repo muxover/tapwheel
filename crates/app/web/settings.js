@@ -238,7 +238,7 @@ export default function settings(init) {
 		return h("div", {},
 			title("General", "How TapWheel starts, what it remembers and what it knows about this PC."),
 			group(null,
-				toggle("Start with Windows", s.start_with_windows, (v) => { s.start_with_windows = v; save(); }, "TapWheel waits quietly in the tray."),
+				toggle("Start with Windows", s.start_with_windows, (v) => { s.start_with_windows = v; save(); }, "TapWheel waits in the tray."),
 				toggle("Favourites first", s.learn_order, (v) => { s.learn_order = v; save(); }, "Slices you use most move to the top of each wheel."),
 				toggle("Pause TapWheel", init.paused, (v) => send("pause", { on: v }), "Ignores key taps until you turn this off or restart."),
 			),

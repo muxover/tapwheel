@@ -65,13 +65,13 @@ fn check_len(len: u64, limit: Limit, free: Option<u64>) -> Result<(), Error> {
 			}
 		};
 		return Err(Error::Engine(format!(
-			"This file is too big for this tool ({}; it works up to {})",
+			"this file is too big for this tool ({}; it works up to {})",
 			size(len),
 			size(limit)
 		)));
 	}
 	crate::budget::fits(len.saturating_mul(limit.copies), free)
-		.map_err(|e| Error::Engine(format!("This file is too big for this tool right now: {e}")))
+		.map_err(|e| Error::Engine(format!("this file is too big for this tool right now: {e}")))
 }
 
 /// Reads a text file in whatever encoding it uses.
@@ -197,7 +197,7 @@ fn engine(e: impl std::fmt::Display) -> Error {
 pub const MAX_DEPTH: usize = 512;
 
 pub fn too_deep() -> Error {
-	Error::Engine("This file is nested too deeply to work on".into())
+	Error::Engine("this file is nested too deeply to work on".into())
 }
 
 /// The deepest `[`, `{` or `(` nesting in the text. Brackets inside strings count too, which
@@ -1228,13 +1228,13 @@ pub fn merge(inputs: &[PathBuf]) -> Result<String, Error> {
 	if total > limit.ceiling {
 		let limit = limit.ceiling;
 		return Err(Error::Engine(format!(
-			"These files are too big to merge together ({} MB; it works up to {} MB)",
+			"these files are too big to merge ({} MB; it works up to {} MB)",
 			total.div_ceil(MB),
 			limit / MB
 		)));
 	}
 	crate::budget::fits_now(total.saturating_mul(limit.copies))
-		.map_err(|e| Error::Engine(format!("These files are too big to merge right now: {e}")))?;
+		.map_err(|e| Error::Engine(format!("these files are too big to merge right now: {e}")))?;
 	if matches!(ext.as_str(), "json") {
 		let mut all = Vec::new();
 		for i in inputs {
@@ -1381,14 +1381,14 @@ mod tests {
 		let err = tool(&log, &Recipe::SortLines { by: SortBy::Az })
 			.unwrap_err()
 			.to_string();
-		assert!(err.starts_with("This file is too big for this tool"), "{err}");
+		assert!(err.starts_with("this file is too big for this tool"), "{err}");
 		let json = dir.join("big.json");
 		fs::File::create(&json)
 			.unwrap()
 			.set_len(DATA_LIMIT.ceiling + 1)
 			.unwrap();
 		let err = convert(&json, Format::Yaml).unwrap_err().to_string();
-		assert!(err.starts_with("This file is too big"), "{err}");
+		assert!(err.starts_with("this file is too big"), "{err}");
 		let _ = fs::remove_dir_all(dir);
 	}
 
@@ -1398,7 +1398,7 @@ mod tests {
 		assert!(check_len(100 * MB, LINE_LIMIT, Some(4096 * MB)).is_ok());
 		let err = check_len(100 * MB, LINE_LIMIT, Some(600 * MB)).unwrap_err().to_string();
 		assert!(
-			err.starts_with("This file is too big for this tool right now: this needs about 400 MB of memory"),
+			err.starts_with("this file is too big for this tool right now: this needs about 400 MB of memory"),
 			"{err}"
 		);
 		assert!(check_len(500 * MB, LINE_LIMIT, Some(64 * 1024 * MB)).is_err());
